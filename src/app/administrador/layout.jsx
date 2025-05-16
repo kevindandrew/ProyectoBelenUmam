@@ -8,7 +8,7 @@ export default function AdministradorLayout({ children }) {
   return (
     <div className="flex h-screen">
       {/* Sidebar */}
-      <aside className="w-64 bg-slate-800 flex flex-col justify-between">
+      <aside className="w-50 bg-slate-800 flex flex-col justify-between">
         <div className="text-white">
           <div className="p-4 text-xl font-bold border-b border-slate-700">
             UMAM
@@ -18,24 +18,23 @@ export default function AdministradorLayout({ children }) {
               "Usuarios",
               "Sucursales",
               "Cursos",
-              "Estudiantes",
               "Horarios",
+              "Estudiantes",
+              "Listas",
               "Reportes",
               "Certificados",
             ].map((item) => (
               <a
                 key={item}
                 href="#"
-                className={`block px-6 py-2 hover:bg-slate-700 `}
+                className={`block px-6 py-2 hover:bg-teal-400 `}
               >
                 {item}
               </a>
             ))}
           </nav>
         </div>
-        <footer className="p-4 text-sm border-t border-slate-700 text-right">
-          <p className="text-slate-400">Belen Segales</p>
-        </footer>
+
       </aside>
 
       {/* Main content */}
@@ -51,7 +50,7 @@ export default function AdministradorLayout({ children }) {
 
         {/* Footer */}
         <footer className="h-10 bg-slate-800 text-white text-sm flex items-center justify-center">
-          © 2025 Belu - All rights reserved.
+          Copyright © 2025 BMSR - DASI All rights reserved. DASI - UINA
         </footer>
       </div>
     </div>
