@@ -78,7 +78,7 @@ export default function InscripcionesPage() {
 
     return (
         <div className="p-6 ">
-            <h1 className="text-2xl text-black text-bold font-bold mb-6">Listas de Cursos</h1>
+            <h1 className="text-3xl font-bold text-[#13678A] border-b pb-2">LISTAS</h1>
 
             {/* Filtros */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">

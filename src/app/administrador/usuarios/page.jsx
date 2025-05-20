@@ -16,14 +16,12 @@ export default function UsuariosPage() {
           {
             id: 1,
             nombre: "Juan Perez",
-            correo: "juan@example.com",
             rol: "Estudiante",
             estado: "Activo",
           },
           {
             id: 2,
             nombre: "Maria Gomez",
-            correo: "maria@example.com",
             rol: "Curso",
             estado: "Inactivo",
           },
@@ -38,7 +36,7 @@ export default function UsuariosPage() {
 
   return (
     <div className="text-gray-900">
-      <h1 className="text-2xl font-bold mb-6 text-gray-900">USUARIOS</h1>
+      <h1 className="text-3xl font-bold text-[#13678A] border-b pb-2">USUARIOS</h1>
 
       {/* Controles superiores */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-4">
@@ -81,7 +79,6 @@ export default function UsuariosPage() {
             <tr>
               <th className="px-4 py-2 border-b">ID</th>
               <th className="px-4 py-2 border-b">NOMBRE</th>
-              <th className="px-4 py-2 border-b">CORREO</th>
               <th className="px-4 py-2 border-b">ROL</th>
               <th className="px-4 py-2 border-b">ESTADO</th>
               <th className="px-4 py-2 border-b">ACCIÓN</th>
@@ -105,7 +102,6 @@ export default function UsuariosPage() {
                 <tr key={usuario.id}>
                   <td className="px-4 py-2 border-b">{usuario.id}</td>
                   <td className="px-4 py-2 border-b">{usuario.nombre}</td>
-                  <td className="px-4 py-2 border-b">{usuario.correo}</td>
                   <td className="px-4 py-2 border-b">{usuario.rol}</td>
                   <td className="px-4 py-2 border-b">{usuario.estado}</td>
                   <td className="px-4 py-2 border-b">

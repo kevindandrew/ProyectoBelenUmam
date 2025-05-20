@@ -64,7 +64,7 @@ export default function SucursalesPage() {
 
   return (
     <div className="text-gray-900">
-      <h1 className="text-2xl font-bold mb-6 text-gray-900">SUCURSALES</h1>
+      <h1 className="text-3xl font-bold text-[#13678A] border-b pb-2">SUCURSALES</h1>
 
       {/* Controles superiores */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-4">

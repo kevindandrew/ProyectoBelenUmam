@@ -167,7 +167,7 @@ export default function HorariosPage() {
         <div className="p-6">
             {/* Encabezado */}
             <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold mb-6 text-gray-900">HORARIOS</h2>
+                <h2 className="text-3xl font-bold text-[#13678A] border-b pb-2">HORARIOS</h2>
             </div>
 
             <button
