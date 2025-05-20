@@ -1,4 +1,5 @@
-// app/administrador/layout.js
+import Link from "next/link";
+
 export const metadata = {
   title: "Administrador | UMAM",
   description: "Panel del administrador",
@@ -14,27 +15,56 @@ export default function AdministradorLayout({ children }) {
             UMAM
           </div>
           <nav className="mt-4 space-y-1">
-            {[
-              "Usuarios",
-              "Sucursales",
-              "Cursos",
-              "Horarios",
-              "Estudiantes",
-              "Listas",
-              "Reportes",
-              "Certificados",
-            ].map((item) => (
-              <a
-                key={item}
-                href="#"
-                className={`block px-6 py-2 hover:bg-teal-400 `}
-              >
-                {item}
-              </a>
-            ))}
+            <Link
+              href="/administrador/usuarios"
+              className="block px-6 py-2 hover:bg-teal-400"
+            >
+              Usuarios
+            </Link>
+            <Link
+              href="/administrador/sucursales"
+              className="block px-6 py-2 hover:bg-teal-400"
+            >
+              Sucursales
+            </Link>
+            <Link
+              href="/administrador/cursos"
+              className="block px-6 py-2 hover:bg-teal-400"
+            >
+              Cursos
+            </Link>
+            <Link
+              href="/administrador/horarios"
+              className="block px-6 py-2 hover:bg-teal-400"
+            >
+              Horarios
+            </Link>
+            <Link
+              href="/administrador/estudiantes"
+              className="block px-6 py-2 hover:bg-teal-400"
+            >
+              Estudiantes
+            </Link>
+            <Link
+              href="/administrador/listas"
+              className="block px-6 py-2 hover:bg-teal-400"
+            >
+              Listas
+            </Link>
+            <Link
+              href="/administrador/reportes"
+              className="block px-6 py-2 hover:bg-teal-400"
+            >
+              Reportes
+            </Link>
+            <Link
+              href="/administrador/certificados"
+              className="block px-6 py-2 hover:bg-teal-400"
+            >
+              Certificados
+            </Link>
           </nav>
         </div>
-
       </aside>
 
       {/* Main content */}
