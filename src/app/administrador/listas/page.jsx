@@ -77,7 +77,7 @@ export default function InscripcionesPage() {
     }
 
     return (
-        <div className="p-6 ">
+        <div className=" ">
             <h1 className="text-3xl font-bold text-[#13678A] border-b pb-2">LISTAS</h1>
 
             {/* Filtros */}

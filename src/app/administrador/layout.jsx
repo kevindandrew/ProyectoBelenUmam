@@ -11,10 +11,10 @@ export default function AdministradorLayout({ children }) {
       {/* Sidebar */}
       <aside className="w-50 bg-slate-800 flex flex-col justify-between">
         <div className="text-white">
-          <div className="p-4 text-xl font-bold border-b border-slate-700">
+          <div className="p-4 text-2xl font-bold text-center border-b border-slate-700">
             UMAM
           </div>
-          <nav className="mt-4 space-y-1">
+          <nav className="mt-4 space-y-2 font-sans">
             <Link
               href="/administrador/usuarios"
               className="block px-6 py-2 hover:bg-teal-400"

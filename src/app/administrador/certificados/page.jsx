@@ -314,9 +314,9 @@ export default function GeneradorCertificados() {
   };
 
   return (
-    <div className="container mx-auto p-6 max-w-6xl">
+    <div className="container mx-auto max-w-6xl">
       <h1 className="text-3xl font-bold text-[#13678A] mb-6">
-        Generador de Certificados UMAM
+        CERTIFICADOS
       </h1>
 
       <div className="bg-white p-6 rounded-lg shadow-lg border border-gray-200">
