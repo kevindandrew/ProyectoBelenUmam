@@ -1,7 +1,66 @@
 // src/LoginForm.jsx
-import React from "react";
+"use client";
+import React, { useState, use } from "react";
+import Cookies from "js-cookie";
+import { useRouter } from "next/navigation";
 
 const LoginForm = () => {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const router = useRouter();
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    try {
+      const response = await fetch(
+        "https://api-umam-1.onrender.com/auth/login",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ username, password }),
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        alert(`Error: ${error.detail || "Login fallido"}`);
+        return;
+      }
+
+      const data = await response.json();
+      const { access_token, refresh_token } = data.tokens;
+      const rolId = data.user.rol.rol_id;
+      // Guardar el token en una cookie
+      Cookies.set("access_token", access_token, {
+        expires: 1, // 1 día
+        secure: true,
+        sameSite: "strict",
+      });
+
+      Cookies.set("refresh_token", refresh_token, {
+        expires: 7, // 7 días
+        secure: true,
+        sameSite: "strict",
+      });
+      // Redirigir según el rol
+      if (rolId === 1) {
+        router.push("/administrador");
+      } else if (rolId === 2) {
+        router.push("/encargado");
+      } else if (rolId === 3) {
+        router.push("/facilitador");
+      }
+
+      alert("Inicio de sesión exitoso");
+      // Redireccionar a dashboard o guardar el user si quieres
+    } catch (error) {
+      console.error("Error al iniciar sesión:", error);
+      alert("Error de conexión");
+    }
+  };
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-200 p-4">
       <div className="bg-white rounded-lg shadow-xl flex max-w-4xl w-full overflow-hidden">
@@ -12,7 +71,7 @@ const LoginForm = () => {
             </h2>
           </div>
 
-          <form>
+          <form onSubmit={handleSubmit}>
             <div className="mb-6">
               <label
                 htmlFor="username"
@@ -23,6 +82,8 @@ const LoginForm = () => {
               <input
                 type="text"
                 id="username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Ingresa tu nombre de usuario"
               />
@@ -38,6 +99,8 @@ const LoginForm = () => {
               <input
                 type="password"
                 id="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Ingresa tu contraseña"
               />

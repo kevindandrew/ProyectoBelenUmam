@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Cookies from "js-cookie";
 
 export default function SucursalesPage() {
   const [modalOpen, setModalOpen] = useState(false);
@@ -22,7 +23,8 @@ export default function SucursalesPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [registrosPorPagina, setRegistrosPorPagina] = useState(10);
   const [loadingAulas, setLoadingAulas] = useState(true);
-
+  const [aulasSeleccionadas, setAulasSeleccionadas] = useState([]);
+  const [sucursalSeleccionada, setSucursalSeleccionada] = useState(null);
   useEffect(() => {
     const fetchSucursales = async () => {
       try {
@@ -33,8 +35,7 @@ export default function SucursalesPage() {
             method: "GET",
             headers: {
               Accept: "application/json",
-              Authorization:
-                "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJiZWx1Y2l0YSIsInR5cGUiOiJhY2Nlc3MiLCJleHAiOjE3NDg0NTcyNTV9.Hk-lPdpiSDW063RA4S54ST6JhNS-PXgvnNLp-LJLlHc",
+              Authorization: `bearer ${Cookies.get("access_token")}`,
             },
           }
         );
@@ -55,32 +56,28 @@ export default function SucursalesPage() {
     fetchSucursales();
   }, []);
 
-  useEffect(() => {
-    const fetchAulas = async () => {
-      try {
-        setLoadingAulas(true);
-        const response = await fetch("https://api-umam-1.onrender.com/aulas/", {
+  const fetchAulasBySucursal = async (sucursalId) => {
+    try {
+      setLoadingAulas(true);
+      const response = await fetch(
+        `https://api-umam-1.onrender.com/sucursales/${sucursalId}/aulas`,
+        {
           method: "GET",
           headers: {
             Accept: "application/json",
-            Authorization:
-              "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJiZWx1Y2l0YSIsInR5cGUiOiJhY2Nlc3MiLCJleHAiOjE3NDg0NTg5NTF9.RkMF9iUseQSd3ju3vyzytGQLdGouSZ-1uSUybLThjjA",
+            Authorization: `bearer ${Cookies.get("access_token")}`,
           },
-        });
-        if (!response.ok) {
-          throw new Error("Error al cargar las aulas");
         }
-        const data = await response.json();
-        setAulas(data);
-      } catch (error) {
-        console.error(error);
-      } finally {
-        setLoadingAulas(false);
-      }
-    };
-
-    fetchAulas();
-  }, []);
+      );
+      if (!response.ok) throw new Error("Error al cargar las aulas");
+      return await response.json();
+    } catch (error) {
+      console.error(error);
+      throw error;
+    } finally {
+      setLoadingAulas(false);
+    }
+  };
 
   const sucursalesFiltradas = sucursales.filter((sucursal) =>
     sucursal.nombre.toLowerCase().includes(searchTerm.toLowerCase())
@@ -237,7 +234,9 @@ export default function SucursalesPage() {
       {modalAulaOpen && (
         <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/25">
           <div className="bg-white rounded-lg shadow-lg w-full max-w-3xl p-6">
-            <h2 className="text-xl font-semibold mb-4">AGREGAR AULAS</h2>
+            <h2 className="text-xl font-semibold mb-4">
+              AULAS DE {sucursalSeleccionada?.nombre?.toUpperCase()}
+            </h2>
 
             {/* FORM PARA NOMBRE Y CAPACIDAD */}
             <div className="grid grid-cols-2 gap-4 mb-4">
@@ -271,17 +270,36 @@ export default function SucursalesPage() {
             <div className="flex justify-between items-center mb-2">
               <h4 className="text-md font-semibold">AULAS DISPONIBLES</h4>
               <button
-                onClick={() => {
+                onClick={async () => {
                   if (nombreAula.trim() && capacidadAula.trim()) {
-                    setAulas([
-                      ...aulas,
-                      {
-                        nombre: nombreAula,
-                        capacidad: parseInt(capacidadAula),
-                      },
-                    ]);
-                    setNombreAula("");
-                    setCapacidadAula("");
+                    try {
+                      const response = await fetch(
+                        `https://api-umam-1.onrender.com/sucursales/${sucursalSeleccionada.sucursal_id}/aulas`,
+                        {
+                          method: "POST",
+                          headers: {
+                            "Content-Type": "application/json",
+                            Authorization: `bearer ${Cookies.get(
+                              "access_token"
+                            )}`,
+                          },
+                          body: JSON.stringify({
+                            nombre: nombreAula,
+                            capacidad: parseInt(capacidadAula),
+                          }),
+                        }
+                      );
+
+                      if (!response.ok) throw new Error("Error al crear aula");
+
+                      const nuevaAula = await response.json();
+                      setAulasSeleccionadas([...aulasSeleccionadas, nuevaAula]);
+                      setNombreAula("");
+                      setCapacidadAula("");
+                    } catch (error) {
+                      console.error(error);
+                      // Mostrar error al usuario
+                    }
                   }
                 }}
                 className="bg-teal-600 text-white text-sm px-3 py-1 rounded hover:bg-teal-700"
@@ -301,45 +319,79 @@ export default function SucursalesPage() {
                 </tr>
               </thead>
               <tbody>
-                {aulas.map((aula, idx) => (
-                  <tr key={idx}>
-                    <td className="border px-2 py-1 text-center">{idx + 1}</td>
-                    <td className="border px-2 py-1">{aula.nombre}</td>
-                    <td className="border px-2 py-1 text-center">
-                      {aula.capacidad}
-                    </td>
-                    <td className="border px-2 py-1 text-center">
-                      <button
-                        onClick={() => {
-                          const nuevasAulas = aulas.filter((_, i) => i !== idx);
-                          setAulas(nuevasAulas);
-                        }}
-                        className="text-red-500 hover:underline"
-                      >
-                        Eliminar
-                      </button>
+                {loadingAulas ? (
+                  <tr>
+                    <td colSpan="4" className="text-center py-4">
+                      Cargando aulas...
                     </td>
                   </tr>
-                ))}
+                ) : aulasSeleccionadas.length === 0 ? (
+                  <tr>
+                    <td colSpan="4" className="text-center py-4">
+                      No hay aulas registradas
+                    </td>
+                  </tr>
+                ) : (
+                  aulasSeleccionadas.map((aula, idx) => (
+                    <tr key={aula.aula_id || idx}>
+                      <td className="border px-2 py-1 text-center">
+                        {idx + 1}
+                      </td>
+                      <td className="border px-2 py-1">{aula.nombre_aula}</td>
+                      <td className="border px-2 py-1 text-center">
+                        {aula.capacidad}
+                      </td>
+                      <td className="border px-2 py-1 text-center">
+                        <button
+                          onClick={async () => {
+                            try {
+                              const response = await fetch(
+                                `https://api-umam-1.onrender.com/sucursales/${sucursalSeleccionada.sucursal_id}/aulas/${aula.aula_id}`,
+                                {
+                                  method: "DELETE",
+                                  headers: {
+                                    Authorization: `bearer ${Cookies.get(
+                                      "access_token"
+                                    )}`,
+                                  },
+                                }
+                              );
+
+                              if (!response.ok)
+                                throw new Error("Error al eliminar");
+
+                              setAulasSeleccionadas(
+                                aulasSeleccionadas.filter(
+                                  (a) => a.aula_id !== aula.aula_id
+                                )
+                              );
+                            } catch (error) {
+                              console.error(error);
+                              // Mostrar error al usuario
+                            }
+                          }}
+                          className="text-red-500 hover:underline"
+                        >
+                          Eliminar
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
 
             {/* BOTONES GUARDAR Y CANCELAR */}
             <div className="flex justify-end space-x-2">
               <button
-                onClick={() => setModalAulaOpen(false)}
-                className="bg-gray-300 text-gray-800 px-4 py-2 rounded hover:bg-gray-700"
-              >
-                Cancelar
-              </button>
-              <button
                 onClick={() => {
-                  // Aquí podrías pasar `aulas` al formulario principal
                   setModalAulaOpen(false);
+                  setAulasSeleccionadas([]);
+                  setSucursalSeleccionada(null);
                 }}
-                className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+                className="bg-gray-300 text-gray-800 px-4 py-2 rounded hover:bg-gray-400"
               >
-                Guardar
+                Cerrar
               </button>
             </div>
           </div>
@@ -470,11 +522,13 @@ export default function SucursalesPage() {
                   <td className="px-4 py-2 border-b">{sucursal.direccion}</td>
                   <td className="px-4 py-2 border-b">
                     <button
-                      type="button"
-                      onClick={() => {
+                      onClick={async () => {
+                        setSucursalSeleccionada(sucursal);
+                        const aulasData = await fetchAulasBySucursal(
+                          sucursal.sucursal_id
+                        );
+                        setAulasSeleccionadas(aulasData);
                         setModalAulaOpen(true);
-                        // Aquí podrías pasar las aulas para mostrarlas
-                        setAulasSeleccionadas(sucursal.aulas);
                       }}
                       className="bg-teal-600 text-white px-3 py-1 rounded text-sm hover:bg-teal-700"
                     >

@@ -6,6 +6,10 @@ export const metadata = {
 };
 
 export default function AdministradorLayout({ children }) {
+  //aqui jalas la logica para traer los datos del usuario logueado
+  // y pasas el nombre de usuario al header
+  // const userName = "Nombre Usuario"; // Reemplaza esto con la lógica real
+  const userName = "Administrador"; // Simulación de nombre de usuario
   return (
     <div className="flex h-screen">
       {/* Sidebar */}
