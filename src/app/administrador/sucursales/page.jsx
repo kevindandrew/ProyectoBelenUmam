@@ -16,7 +16,6 @@ export default function SucursalesPage() {
   const [formData, setFormData] = useState({
     nombre: "",
     direccion: "",
-    celular: "",
   });
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [sucursalToDelete, setSucursalToDelete] = useState(null);
@@ -25,6 +24,7 @@ export default function SucursalesPage() {
   const [loadingAulas, setLoadingAulas] = useState(true);
   const [aulasSeleccionadas, setAulasSeleccionadas] = useState([]);
   const [sucursalSeleccionada, setSucursalSeleccionada] = useState(null);
+  const [editingAula, setEditingAula] = useState(null);
   useEffect(() => {
     const fetchSucursales = async () => {
       try {
@@ -56,6 +56,71 @@ export default function SucursalesPage() {
     fetchSucursales();
   }, []);
 
+  // Funciones para manejar sucursales
+  const createSucursal = async (sucursalData) => {
+    try {
+      const response = await fetch(
+        "https://api-umam-1.onrender.com/sucursales/",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `bearer ${Cookies.get("access_token")}`,
+          },
+          body: JSON.stringify(sucursalData),
+        }
+      );
+
+      if (!response.ok) throw new Error("Error al crear sucursal");
+      return await response.json();
+    } catch (error) {
+      console.error("Error:", error);
+      throw error;
+    }
+  };
+
+  const updateSucursal = async (sucursalId, sucursalData) => {
+    try {
+      const response = await fetch(
+        `https://api-umam-1.onrender.com/sucursales/${sucursalId}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `bearer ${Cookies.get("access_token")}`,
+          },
+          body: JSON.stringify(sucursalData),
+        }
+      );
+
+      if (!response.ok) throw new Error("Error al actualizar sucursal");
+      return await response.json();
+    } catch (error) {
+      console.error("Error:", error);
+      throw error;
+    }
+  };
+
+  const deleteSucursal = async (sucursalId) => {
+    try {
+      const response = await fetch(
+        `https://api-umam-1.onrender.com/sucursales/${sucursalId}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `bearer ${Cookies.get("access_token")}`,
+          },
+        }
+      );
+
+      if (!response.ok) throw new Error("Error al eliminar sucursal");
+      return true;
+    } catch (error) {
+      console.error("Error:", error);
+      throw error;
+    }
+  };
+
   const fetchAulasBySucursal = async (sucursalId) => {
     try {
       setLoadingAulas(true);
@@ -79,9 +144,74 @@ export default function SucursalesPage() {
     }
   };
 
-  const sucursalesFiltradas = sucursales.filter((sucursal) =>
-    sucursal.nombre.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const updateAula = async (aulaId, aulaData) => {
+    try {
+      const response = await fetch(
+        `https://api-umam-1.onrender.com/sucursales/aulas/${aulaId}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `bearer ${Cookies.get("access_token")}`,
+          },
+          body: JSON.stringify(aulaData),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          `Error al actualizar aula: ${errorData.message || "Sin detalles"}`
+        );
+      }
+
+      const updatedAula = await response.json();
+      setAulasSeleccionadas((prev) =>
+        prev.map((a) =>
+          a.aula_id === aulaId
+            ? { ...updatedAula, nombre_aula: updatedAula.nombre }
+            : a
+        )
+      );
+      setEditingAula(null);
+    } catch (error) {
+      console.error("Error al actualizar aula:", error);
+      alert(`Error al actualizar aula: ${error.message}`);
+    }
+  };
+
+  const deleteAula = async (aulaId) => {
+    try {
+      const response = await fetch(
+        `https://api-umam-1.onrender.com/sucursales/aulas/${aulaId}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `bearer ${Cookies.get("access_token")}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          `Error al eliminar aula: ${errorData.message || "Sin detalles"}`
+        );
+      }
+
+      setAulasSeleccionadas((prev) => prev.filter((a) => a.aula_id !== aulaId));
+    } catch (error) {
+      console.error("Error al eliminar aula:", error);
+      alert(`Error al eliminar aula: ${error.message}`);
+    }
+  };
+
+  // Modifica el filtrado para incluir ordenamiento
+  const sucursalesFiltradas = sucursales
+    .filter((sucursal) =>
+      sucursal.nombre.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    .sort((a, b) => a.sucursal_id - b.sucursal_id); // Orden ascendente por ID
 
   // Abrir modal para nueva sucursal o para editar existente
   const openModal = (sucursal = null) => {
@@ -105,24 +235,80 @@ export default function SucursalesPage() {
   };
 
   // Guardar sucursal (nuevo o editado)
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (editingSucursal) {
-      // Editar sucursal existente
-      setSucursales((prev) =>
-        prev.map((s) =>
-          s.id === editingSucursal.id ? { ...s, ...formData } : s
-        )
-      );
-    } else {
-      // Agregar nueva sucursal con id incremental
-      const newId =
-        sucursales.length > 0
-          ? Math.max(...sucursales.map((s) => s.id)) + 1
-          : 1;
-      setSucursales((prev) => [...prev, { id: newId, ...formData }]);
+    try {
+      if (editingSucursal) {
+        // Actualizar sucursal existente
+        const updatedSucursal = await updateSucursal(
+          editingSucursal.sucursal_id,
+          formData
+        );
+        setSucursales((prev) =>
+          prev.map((s) =>
+            s.sucursal_id === editingSucursal.sucursal_id ? updatedSucursal : s
+          )
+        );
+      } else {
+        // Crear nueva sucursal
+        const newSucursal = await createSucursal(formData);
+        setSucursales((prev) => [...prev, newSucursal]);
+      }
+      setModalOpen(false);
+    } catch (error) {
+      // Mostrar error al usuario
+      alert("Ocurrió un error al guardar la sucursal");
     }
-    setModalOpen(false);
+  };
+
+  const createAula = async (sucursalId, aulaData) => {
+    try {
+      const response = await fetch(
+        `https://api-umam-1.onrender.com/sucursales/${sucursalId}/aulas`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `bearer ${Cookies.get("access_token")}`,
+          },
+          body: JSON.stringify(aulaData),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          `Error al crear aula: ${errorData.message || "Sin detalles"}`
+        );
+      }
+
+      const nuevaAula = await response.json();
+      setAulasSeleccionadas((prev) => [...prev, nuevaAula]);
+      setNombreAula("");
+      setCapacidadAula("");
+    } catch (error) {
+      console.error("Error al crear aula:", error);
+      alert(`Error al crear aula: ${error.message}`);
+    }
+  };
+
+  const handleCreateAula = async () => {
+    if (!nombreAula.trim() || !capacidadAula.trim()) {
+      alert("Por favor, complete todos los campos.");
+      return;
+    }
+
+    try {
+      const aulaData = {
+        nombre: nombreAula,
+        capacidad: parseInt(capacidadAula),
+      };
+
+      await createAula(sucursalSeleccionada.sucursal_id, aulaData);
+    } catch (error) {
+      console.error("Error al crear aula:", error);
+      alert(`Error al crear aula: ${error.message}`);
+    }
   };
 
   // Abrir modal de confirmación para eliminar sucursal
@@ -132,14 +318,20 @@ export default function SucursalesPage() {
   };
 
   // Confirmar eliminación de sucursal
-  const confirmDelete = () => {
-    if (sucursalToDelete) {
-      setSucursales((prev) => prev.filter((s) => s.id !== sucursalToDelete.id));
+  const confirmDelete = async () => {
+    try {
+      if (sucursalToDelete) {
+        await deleteSucursal(sucursalToDelete.sucursal_id);
+        setSucursales((prev) =>
+          prev.filter((s) => s.sucursal_id !== sucursalToDelete.sucursal_id)
+        );
+      }
+      setDeleteModalOpen(false);
+      setSucursalToDelete(null);
+    } catch (error) {
+      alert("Ocurrió un error al eliminar la sucursal");
     }
-    setDeleteModalOpen(false);
-    setSucursalToDelete(null);
   };
-
   // Cancelar eliminación
   const cancelDelete = () => {
     setDeleteModalOpen(false);
@@ -337,37 +529,30 @@ export default function SucursalesPage() {
                       <td className="border px-2 py-1 text-center">
                         {idx + 1}
                       </td>
-                      <td className="border px-2 py-1">{aula.nombre_aula}</td>
+                      <td className="border px-2 py-1">
+                        {aula.nombre || aula.nombre_aula || "Sin nombre"}
+                      </td>
                       <td className="border px-2 py-1 text-center">
                         {aula.capacidad}
                       </td>
-                      <td className="border px-2 py-1 text-center">
+                      <td className="border px-2 py-1 text-center flex justify-center gap-2">
+                        <button
+                          onClick={() => setEditingAula(aula)}
+                          className="text-blue-500 hover:underline"
+                        >
+                          Editar
+                        </button>
                         <button
                           onClick={async () => {
                             try {
-                              const response = await fetch(
-                                `https://api-umam-1.onrender.com/sucursales/${sucursalSeleccionada.sucursal_id}/aulas/${aula.aula_id}`,
-                                {
-                                  method: "DELETE",
-                                  headers: {
-                                    Authorization: `bearer ${Cookies.get(
-                                      "access_token"
-                                    )}`,
-                                  },
-                                }
-                              );
-
-                              if (!response.ok)
-                                throw new Error("Error al eliminar");
-
+                              await deleteAula(aula.aula_id);
                               setAulasSeleccionadas(
                                 aulasSeleccionadas.filter(
                                   (a) => a.aula_id !== aula.aula_id
                                 )
                               );
                             } catch (error) {
-                              console.error(error);
-                              // Mostrar error al usuario
+                              alert("Ocurrió un error al eliminar el aula");
                             }
                           }}
                           className="text-red-500 hover:underline"
@@ -489,6 +674,79 @@ export default function SucursalesPage() {
         </div>
       )}
 
+      {/* Modal para editar aula */}
+      {editingAula && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/25">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-6">
+            <h2 className="text-xl font-semibold mb-4">EDITAR AULA</h2>
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="text-sm text-gray-700">Nombre del Aula</label>
+                <input
+                  value={editingAula.nombre || editingAula.nombre_aula || ""}
+                  onChange={(e) =>
+                    setEditingAula({
+                      ...editingAula,
+                      nombre: e.target.value,
+                      nombre_aula: e.target.value, // Mantén ambos por compatibilidad
+                    })
+                  }
+                  type="text"
+                  className="w-full border border-gray-300 px-3 py-2 rounded text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-sm text-gray-700">Capacidad</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={editingAula.capacidad}
+                  onChange={(e) => {
+                    const value = parseInt(e.target.value);
+                    if (value >= 1 || e.target.value === "") {
+                      setEditingAula({
+                        ...editingAula,
+                        capacidad: e.target.value,
+                      });
+                    }
+                  }}
+                  className="w-full border border-gray-300 px-3 py-2 rounded text-sm"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setEditingAula(null)}
+                className="bg-gray-300 text-gray-800 px-4 py-2 rounded hover:bg-gray-400"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    const updatedAula = await updateAula(editingAula.aula_id, {
+                      nombre: editingAula.nombre_aula,
+                      capacidad: parseInt(editingAula.capacidad),
+                    });
+                    setAulasSeleccionadas((prev) =>
+                      prev.map((a) =>
+                        a.aula_id === editingAula.aula_id ? updatedAula : a
+                      )
+                    );
+                    setEditingAula(null);
+                  } catch (error) {
+                    alert("Ocurrió un error al actualizar el aula");
+                  }
+                }}
+                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+              >
+                Guardar Cambios
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Tabla de sucursales */}
       <div className="overflow-auto">
         <table className="w-full border text-sm bg-white">
@@ -543,7 +801,7 @@ export default function SucursalesPage() {
                       title="Editar"
                       type="button"
                     >
-                      {/* SVG editar */}
+                      <EditIcon />
                     </button>
                     <button
                       onClick={() => openDeleteModal(sucursal)}
@@ -552,7 +810,7 @@ export default function SucursalesPage() {
                       title="Eliminar"
                       type="button"
                     >
-                      {/* SVG eliminar */}
+                      <DeleteIcon />
                     </button>
                   </td>
                 </tr>
