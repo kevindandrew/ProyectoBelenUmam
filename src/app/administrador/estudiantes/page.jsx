@@ -1,6 +1,9 @@
 "use client";
-
 import { useEffect, useState } from "react";
+import Cookies from "js-cookie";
+import { generarFichaEstudiante } from "@/app/administrador/estudiantes/pdf";
+import HistorialAcademicoModal from "@/app/administrador/estudiantes/historial";
+import ModalInscripcionAlumno from "@/app/administrador/estudiantes/inscripcion";
 
 export default function EstudiantesPage() {
   const [estudiantes, setEstudiantes] = useState([]);
@@ -8,6 +11,17 @@ export default function EstudiantesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editingEstudiante, setEditingEstudiante] = useState(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [estudianteToDelete, setEstudianteToDelete] = useState(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [estudianteSeleccionado, setEstudianteSeleccionado] = useState(null);
+  const [modalInscripcionOpen, setModalInscripcionOpen] = useState(false);
+
+  const openInscripcionModal = (estudiante) => {
+    setEstudianteSeleccionado(estudiante);
+    setModalInscripcionOpen(true);
+  };
+
   const [newEstudiante, setNewEstudiante] = useState({
     medio_informacion: "TELEVISION",
     ap_paterno: "",
@@ -22,26 +36,22 @@ export default function EstudiantesPage() {
     direccion: "",
     macro: "",
     nro_whatsapp: "",
-    // Referencia familiar
     rfap_paterno: "",
     rfap_materno: "",
     rfnombres: "",
     rf_pfamilia: "",
     rfnro_celular: "",
     rfdireccion: "",
-    // Datos académicos
     grado_instruccion: "PRIMARIA",
     anios_servicio: "",
     ultimo_cargo: "",
     otras_habilidades: "",
-    // Datos médicos
     sistema_salud: "PUBLICO",
     frecuencia_medico: "1 VEZ AL MES",
     tuvo_covid: "NO",
     fiumam_enfermedad_cod: "",
     fiumam_alergia_cod: "",
     tratamiento_especifico: "",
-    // Situación familiar
     conquien_vive: "SOLO",
     sf_pfamilia: "",
     relacion: "BUENA",
@@ -49,54 +59,32 @@ export default function EstudiantesPage() {
     sfap_materno: "",
     sfnombres: "",
   });
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [estudianteToDelete, setEstudianteToDelete] = useState(null);
-  const [showViewModal, setShowViewModal] = useState(false);
-  const [selectedEstudiante, setSelectedEstudiante] = useState(null);
 
   useEffect(() => {
     const fetchEstudiantes = async () => {
       setLoading(true);
-      setTimeout(() => {
-        const data = [
+      try {
+        const response = await fetch(
+          "https://api-umam-1.onrender.com/estudiantes/",
           {
-            id: 1,
-            ap_paterno: "Perez",
-            ap_materno: "Lopez",
-            nombres: "Juan Carlos",
-            fecha_nacimiento: "1950-05-15",
-            ci: "12345678",
-            edad: 73,
-            genero: "MASCULINO",
-            lugar_nacimiento: "LA PAZ",
-            estado_civil: "CASADO/A",
-            direccion: "Av. Siempre Viva 123",
-            macro: "DISTRITO 1",
-            nro_whatsapp: "123456789",
-            grado_instruccion: "SECUNDARIA",
-            sistema_salud: "PUBLICO",
-          },
-          {
-            id: 2,
-            ap_paterno: "Gomez",
-            ap_materno: "Martinez",
-            nombres: "Maria",
-            fecha_nacimiento: "1945-08-20",
-            ci: "87654321",
-            edad: 78,
-            genero: "FEMENINO",
-            lugar_nacimiento: "EL ALTO",
-            estado_civil: "VIUDO/A",
-            direccion: "Calle Falsa 123",
-            macro: "DISTRITO 2",
-            nro_whatsapp: "987654321",
-            grado_instruccion: "PRIMARIA",
-            sistema_salud: "PRIVADO",
-          },
-        ];
-        setEstudiantes(data);
+            headers: {
+              Authorization: `bearer ${Cookies.get("access_token")}`,
+            },
+          }
+        );
+        const data = await response.json();
+        if (Array.isArray(data)) {
+          setEstudiantes(data);
+        } else {
+          console.error("Expected an array but received:", data);
+          setEstudiantes([]);
+        }
+      } catch (error) {
+        console.error("Error fetching estudiantes:", error);
+        setEstudiantes([]);
+      } finally {
         setLoading(false);
-      }, 1000);
+      }
     };
 
     fetchEstudiantes();
@@ -106,20 +94,9 @@ export default function EstudiantesPage() {
     setSearchTerm(e.target.value);
   };
 
-  const calculateAge = (birthDate) => {
-    const today = new Date();
-    const birthDateObj = new Date(birthDate);
-    let age = today.getFullYear() - birthDateObj.getFullYear();
-    const monthDiff = today.getMonth() - birthDateObj.getMonth();
-
-    if (
-      monthDiff < 0 ||
-      (monthDiff === 0 && today.getDate() < birthDateObj.getDate())
-    ) {
-      age--;
-    }
-
-    return age;
+  const openAcademicHistoryModal = (estudiante) => {
+    setEstudianteSeleccionado(estudiante);
+    setModalOpen(true);
   };
 
   const resetForm = () => {
@@ -173,6 +150,21 @@ export default function EstudiantesPage() {
     setShowForm(true);
   };
 
+  const calculateAge = (birthDate) => {
+    const today = new Date();
+    const birthDateObj = new Date(birthDate);
+    let age = today.getFullYear() - birthDateObj.getFullYear();
+    const monthDiff = today.getMonth() - birthDateObj.getMonth();
+
+    if (
+      monthDiff < 0 ||
+      (monthDiff === 0 && today.getDate() < birthDateObj.getDate())
+    ) {
+      age--;
+    }
+
+    return age;
+  };
   const handleInputChange = (e) => {
     const { name, value } = e.target;
 
@@ -223,11 +215,6 @@ export default function EstudiantesPage() {
     setEstudianteToDelete(null);
   };
 
-  const openViewModal = (estudiante) => {
-    setSelectedEstudiante(estudiante);
-    setShowViewModal(true);
-  };
-
   const filteredEstudiantes = estudiantes.filter((estudiante) =>
     `${estudiante.ap_paterno} ${estudiante.ap_materno} ${estudiante.nombres} ${estudiante.ci}`
       .toLowerCase()
@@ -259,6 +246,7 @@ export default function EstudiantesPage() {
           <label htmlFor="buscar" className="text-sm">
             Buscar:
           </label>
+
           <input
             id="buscar"
             type="text"
@@ -288,43 +276,87 @@ export default function EstudiantesPage() {
               <th className="px-4 py-2 border-b">APELLIDOS</th>
               <th className="px-4 py-2 border-b">NOMBRES</th>
               <th className="px-4 py-2 border-b">CI</th>
-              <th className="px-4 py-2 border-b">EDAD</th>
-              <th className="px-4 py-2 border-b">GÉNERO</th>
-              <th className="px-4 py-2 border-b">DIRECCIÓN</th>
+              <th className="px-4 py-2 border-b">INSCRIPCION</th>
+              <th className="px-4 py-2 border-b">HISTORIAL ACADÉMICO</th>
               <th className="px-4 py-2 border-b">ACCIÓN</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan="8" className="text-center py-4 text-gray-500">
+                <td colSpan="7" className="text-center py-4 text-gray-500">
                   Cargando estudiantes...
                 </td>
               </tr>
-            ) : filteredEstudiantes.length === 0 ? (
+            ) : estudiantes.length === 0 ? (
               <tr>
-                <td colSpan="8" className="text-center py-4 text-gray-500">
+                <td colSpan="7" className="text-center py-4 text-gray-500">
                   No hay estudiantes registrados
                 </td>
               </tr>
             ) : (
-              filteredEstudiantes.map((estudiante) => (
-                <tr key={estudiante.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-2 border-b">{estudiante.id}</td>
+              estudiantes.map((estudiante) => (
+                <tr key={estudiante.estudiante_id} className="hover:bg-gray-50">
+                  <td className="px-4 py-2 border-b">
+                    {estudiante.estudiante_id}
+                  </td>
                   <td className="px-4 py-2 border-b">
                     {estudiante.ap_paterno} {estudiante.ap_materno}
                   </td>
                   <td className="px-4 py-2 border-b">{estudiante.nombres}</td>
                   <td className="px-4 py-2 border-b">{estudiante.ci}</td>
-                  <td className="px-4 py-2 border-b">{estudiante.edad}</td>
-                  <td className="px-4 py-2 border-b">{estudiante.genero}</td>
-                  <td className="px-4 py-2 border-b">{estudiante.direccion}</td>
-                  <td className="px-4 py-2 border-b flex gap-3 items-center">
+                  <td className="px-4 py-2 border-b">
                     <button
-                      onClick={() => openViewModal(estudiante)}
-                      title="Ver"
+                      onClick={() => openInscripcionModal(estudiante)}
+                      title="Inscribir estudiante"
+                      className="text-indigo-600 hover:text-indigo-800"
+                      aria-label={`Inscribir a ${estudiante.nombres} ${estudiante.ap_paterno}`}
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={2}
+                        stroke="currentColor"
+                        className="w-5 h-5"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M12 4.5v15m7.5-7.5h-15"
+                        />
+                      </svg>
+                    </button>
+                  </td>
+                  <td className="px-4 py-2 border-b items-center">
+                    <button
+                      onClick={() => openAcademicHistoryModal(estudiante)}
+                      title="Ver Historial Académico"
+                      className="text-green-600 hover:text-green-800"
+                      aria-label={`Ver historial académico ${estudiante.nombres} ${estudiante.ap_paterno}`}
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={2}
+                        stroke="currentColor"
+                        className="w-5 h-5"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
+                        />
+                      </svg>
+                    </button>
+                  </td>
+                  <td className="px-4 py-2 border-b gap-3 items-center">
+                    <button
+                      onClick={() => generarFichaEstudiante(estudiante)}
+                      title="Ver ficha PDF"
                       className="text-blue-600 hover:text-blue-800"
-                      aria-label={`Ver estudiante ${estudiante.nombres} ${estudiante.ap_paterno}`}
+                      aria-label={`Ver ficha de ${estudiante.nombres} ${estudiante.ap_paterno}`}
                     >
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
@@ -396,6 +428,19 @@ export default function EstudiantesPage() {
             )}
           </tbody>
         </table>
+        <HistorialAcademicoModal
+          estudiante={estudianteSeleccionado}
+          isOpen={modalOpen}
+          onClose={() => setModalOpen(false)}
+        />
+
+        {modalInscripcionOpen && (
+          <ModalInscripcionAlumno
+            estudiante={estudianteSeleccionado}
+            isOpen={modalInscripcionOpen}
+            onClose={() => setModalInscripcionOpen(false)}
+          />
+        )}
       </div>
       <div className="flex justify-end items-center gap-4 mt-4">
         <button className="text-sm text-gray-500 hover:text-black">
@@ -1070,7 +1115,6 @@ export default function EstudiantesPage() {
           </form>
         </>
       )}
-
       {showDeleteModal && (
         <>
           <div className="fixed inset-0 bg-black bg-black/25 flex items-center justify-center z-50"></div>
@@ -1097,76 +1141,6 @@ export default function EstudiantesPage() {
                 >
                   Eliminar
                 </button>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
-
-      {showViewModal && selectedEstudiante && (
-        <>
-          <div
-            className="fixed inset-0 bg-black bg-opacity-50 z-40"
-            onClick={() => setShowViewModal(false)}
-          ></div>
-          <div className="fixed inset-0 flex justify-center items-center z-50 p-4">
-            <div
-              className="bg-white rounded-lg shadow-lg p-6 max-w-2xl w-full relative"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button
-                type="button"
-                className="absolute top-2 right-2 text-gray-600 hover:text-gray-900"
-                onClick={() => setShowViewModal(false)}
-                aria-label="Cerrar modal"
-              >
-                &#10005;
-              </button>
-
-              <h2 className="text-xl font-bold mb-4 text-gray-800">
-                Detalles de Estudiante
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm text-gray-700">
-                <p>
-                  <strong>ID:</strong> {selectedEstudiante.id}
-                </p>
-                <p>
-                  <strong>Apellido Paterno:</strong>{" "}
-                  {selectedEstudiante.ap_paterno}
-                </p>
-                <p>
-                  <strong>Apellido Materno:</strong>{" "}
-                  {selectedEstudiante.ap_materno}
-                </p>
-                <p>
-                  <strong>Nombres:</strong> {selectedEstudiante.nombres}
-                </p>
-                <p>
-                  <strong>CI:</strong> {selectedEstudiante.ci}
-                </p>
-                <p>
-                  <strong>Edad:</strong> {selectedEstudiante.edad}
-                </p>
-                <p>
-                  <strong>Género:</strong> {selectedEstudiante.genero}
-                </p>
-                <p>
-                  <strong>Dirección:</strong> {selectedEstudiante.direccion}
-                </p>
-                <p>
-                  <strong>Macrodistrito:</strong> {selectedEstudiante.macro}
-                </p>
-                <p>
-                  <strong>Teléfono:</strong> {selectedEstudiante.nro_whatsapp}
-                </p>
-                <p>
-                  <strong>Grado de Instrucción:</strong>{" "}
-                  {selectedEstudiante.grado_instruccion}
-                </p>
-                <p>
-                  <strong>Sistema de Salud:</strong>{" "}
-                  {selectedEstudiante.sistema_salud}
-                </p>
               </div>
             </div>
           </div>

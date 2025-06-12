@@ -50,6 +50,8 @@ export default function CursosPage() {
   const [modalAbierto, setModalAbierto] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [editingCurso, setEditingCurso] = useState(null);
+  const [registrosPorPagina, setRegistrosPorPagina] = useState(10);
+  const [paginaActual, setPaginaActual] = useState(1);
 
   const [formData, setFormData] = useState({
     nombre: "",
@@ -165,10 +167,16 @@ export default function CursosPage() {
       gestoria: false,
     });
   };
-
   // Filtrar cursos por término de búsqueda
   const cursosFiltrados = cursos.filter((curso) =>
     curso.nombre.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const totalPaginas = Math.ceil(cursosFiltrados.length / registrosPorPagina);
+  const inicio = (paginaActual - 1) * registrosPorPagina;
+  const cursosPaginados = cursosFiltrados.slice(
+    inicio,
+    inicio + registrosPorPagina
   );
 
   return (
@@ -186,11 +194,17 @@ export default function CursosPage() {
           <select
             id="registros"
             className="border border-gray-300 rounded px-2 py-1 text-sm"
+            value={registrosPorPagina}
+            onChange={(e) => {
+              setRegistrosPorPagina(parseInt(e.target.value));
+              setPaginaActual(1); // Reiniciar a la primera página
+            }}
           >
-            <option>10</option>
-            <option>25</option>
-            <option>50</option>
+            <option value={10}>10</option>
+            <option value={25}>25</option>
+            <option value={50}>50</option>
           </select>
+
           <span className="text-sm">registros</span>
         </div>
 
@@ -247,9 +261,9 @@ export default function CursosPage() {
                 </td>
               </tr>
             ) : (
-              cursosFiltrados.map((curso, index) => (
+              cursosPaginados.map((curso, index) => (
                 <tr key={curso.curso_id}>
-                  <td className="px-4 py-2 border-b">{index + 1}</td>
+                  <td className="px-4 py-2 border-b">{inicio + index + 1}</td>
                   <td className="px-4 py-2 border-b">{curso.nombre}</td>
                   <td className="px-4 py-2 border-b">
                     {curso.gestoria ? "Gestoría" : "Taller"}
@@ -275,12 +289,43 @@ export default function CursosPage() {
             )}
           </tbody>
         </table>
+        <div className="mt-4 flex justify-between items-center text-sm">
+          <div>
+            Página {paginaActual} de {totalPaginas}
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setPaginaActual((prev) => Math.max(prev - 1, 1))}
+              disabled={paginaActual === 1}
+              className={`px-3 py-1 rounded border ${
+                paginaActual === 1
+                  ? "text-gray-400 border-gray-300"
+                  : "text-blue-600 border-blue-600 hover:bg-blue-50"
+              }`}
+            >
+              Anterior
+            </button>
+            <button
+              onClick={() =>
+                setPaginaActual((prev) => Math.min(prev + 1, totalPaginas))
+              }
+              disabled={paginaActual === totalPaginas}
+              className={`px-3 py-1 rounded border ${
+                paginaActual === totalPaginas
+                  ? "text-gray-400 border-gray-300"
+                  : "text-blue-600 border-blue-600 hover:bg-blue-50"
+              }`}
+            >
+              Siguiente
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Modal para crear/editar curso */}
       {modalAbierto && (
         <div className="fixed inset-0 bg-black/25 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded shadow-lg w-full max-w-md">
+          <div className="bg-white p-6 rounded shadow-lg w-full max-w-md mx-4 sm:mx-0">
             <h2 className="text-xl font-bold mb-4">
               {editingCurso ? "EDITAR CURSO" : "NUEVO CURSO"}
             </h2>
