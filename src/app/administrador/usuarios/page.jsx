@@ -80,7 +80,7 @@ export default function UsuariosPage() {
           sucursal_id: usuario.sucursal_id,
           sucursal: usuario.sucursal?.nombre || "",
           username: usuario.username,
-          password: "******",
+          password: usuario.password,
         }));
 
         setUsuarios(usuariosMapeados);
@@ -108,7 +108,6 @@ export default function UsuariosPage() {
 
       const usuario = await response.json();
 
-      // Mapear el usuario individual
       return {
         id: usuario.usuario_id,
         usuario_id: usuario.usuario_id,
@@ -122,7 +121,7 @@ export default function UsuariosPage() {
         sucursal: usuario.sucursal?.nombre || "",
         sucursalCompleta: usuario.sucursal,
         username: usuario.username,
-        password: usuario.password || "****",
+        password: usuario.ci || "****",
       };
     } catch (err) {
       console.error("Error al obtener usuario por ID:", err);
@@ -262,7 +261,6 @@ export default function UsuariosPage() {
       }
 
       const result = await response.json();
-      // ... (resto de tu lógica exitosa)
     } catch (err) {
       console.error("Error completo:", err);
 
@@ -389,7 +387,7 @@ export default function UsuariosPage() {
               <th className="px-4 py-2 border-b">CI</th>
               <th className="px-4 py-2 border-b">CELULAR</th>
               <th className="px-4 py-2 border-b">ROL</th>
-              <th className="px-4 py-2 border-b">USUARIO</th>
+
               <th className="px-4 py-2 border-b">ACCIÓN</th>
             </tr>
           </thead>
@@ -422,7 +420,7 @@ export default function UsuariosPage() {
                   <td className="px-4 py-2 border-b">{usuario.ci}</td>
                   <td className="px-4 py-2 border-b">{usuario.celular}</td>
                   <td className="px-4 py-2 border-b">{usuario.rol}</td>
-                  <td className="px-4 py-2 border-b">{usuario.username}</td>
+
                   <td className="px-4 py-2 border-b flex gap-3 items-center">
                     <button
                       onClick={() => openViewModal(usuario)}
@@ -582,7 +580,6 @@ export default function UsuariosPage() {
                 />
               </div>
 
-              {/* Cambiar de apellidoMaterno a ap_materno */}
               <div>
                 <label
                   className="block text-sm font-semibold mb-1 text-gray-700"
@@ -785,7 +782,6 @@ export default function UsuariosPage() {
         </>
       )}
 
-      {/* Modal de visualización - mantener el mismo código */}
       {showViewModal && selectedUser && (
         <>
           <div
