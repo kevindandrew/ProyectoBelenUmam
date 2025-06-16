@@ -34,7 +34,6 @@ export default function EstudiantesPage() {
     lugar_nacimiento: "LA PAZ",
     estado_civil: "SOLTERO/A",
     direccion: "",
-    macro: "",
     nro_whatsapp: "",
     rfap_paterno: "",
     rfap_materno: "",
@@ -59,29 +58,58 @@ export default function EstudiantesPage() {
     sfap_materno: "",
     sfnombres: "",
   });
+  const API_URL = "https://api-umam-1.onrender.com";
 
   useEffect(() => {
     const fetchEstudiantes = async () => {
       setLoading(true);
+      setError(null);
       try {
-        const response = await fetch(
-          "https://api-umam-1.onrender.com/estudiantes/",
-          {
-            headers: {
-              Authorization: `bearer ${Cookies.get("access_token")}`,
-            },
-          }
-        );
-        const data = await response.json();
-        if (Array.isArray(data)) {
-          setEstudiantes(data);
-        } else {
-          console.error("Expected an array but received:", data);
-          setEstudiantes([]);
+        const response = await fetch(`${API_URL}/estudiantes/`, {
+          headers: {
+            Authorization: `bearer ${Cookies.get("access_token")}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`Error: ${response.status}`);
         }
+
+        const data = await response.json();
+
+        const estudiantesMapeados = data.map((estudiante) => ({
+          ...estudiante,
+          medio_informacion: estudiante.como_se_entero,
+          ...(estudiante.datos_familiares?.length > 0 && {
+            sfap_paterno: estudiante.datos_familiares[0].ap_paterno,
+            sfap_materno: estudiante.datos_familiares[0].ap_materno,
+            sfnombres: estudiante.datos_familiares[0].nombres,
+            sf_pfamilia: estudiante.datos_familiares[0].parentesco,
+            relacion: estudiante.datos_familiares[0].relacion,
+            rfnro_celular: estudiante.datos_familiares[0].telefono,
+            rfdireccion: estudiante.datos_familiares[0].direccion,
+          }),
+          ...(estudiante.datos_academicos?.length > 0 && {
+            grado_instruccion: estudiante.datos_academicos[0].grado_institucion,
+            anios_servicio: estudiante.datos_academicos[0].anios_servicio,
+            ultimo_cargo: estudiante.datos_academicos[0].ultimo_cargo,
+            otras_habilidades: estudiante.datos_academicos[0].otras_habilidades,
+          }),
+          ...(estudiante.datos_medicos?.length > 0 && {
+            sistema_salud: estudiante.datos_medicos[0].sistema_salud,
+            frecuencia_medico: estudiante.datos_medicos[0].frecuencia_medico,
+            fiumam_enfermedad_cod: estudiante.datos_medicos[0].enfermedad_base,
+            fiumam_alergia_cod: estudiante.datos_medicos[0].alergias,
+            tratamiento_especifico:
+              estudiante.datos_medicos[0].tratamiento_especifico,
+            tuvo_covid: estudiante.datos_medicos[0].tuvo_covid ? "SI" : "NO",
+          }),
+        }));
+
+        setEstudiantes(estudiantesMapeados);
       } catch (error) {
         console.error("Error fetching estudiantes:", error);
-        setEstudiantes([]);
+        setError(error.message);
       } finally {
         setLoading(false);
       }
@@ -143,9 +171,29 @@ export default function EstudiantesPage() {
   const openEditForm = (estudiante) => {
     setEditingEstudiante(estudiante);
     setNewEstudiante({
-      ...estudiante,
-      fecha_nacimiento: estudiante.fecha_nacimiento || "",
       edad: estudiante.edad || calculateAge(estudiante.fecha_nacimiento),
+
+      nombres: estudiante.nombres || "",
+      ap_paterno: estudiante.ap_paterno || "",
+      ap_materno: estudiante.ap_materno || "",
+      ci: estudiante.ci || "",
+      nro_whatsapp: estudiante.telefono || "",
+      fecha_nacimiento: estudiante.fecha_nacimiento || "",
+      genero: estudiante.genero || "",
+      lugar_nacimiento: estudiante.lugar_nacimiento || "",
+      estado_civil: estudiante.estado_civil || "",
+      direccion: estudiante.direccion || "",
+      medio_informacion: estudiante.medio_informacion || "",
+
+      genero: estudiante.genero || "MASCULINO",
+      lugar_nacimiento: estudiante.lugar_nacimiento || "LA PAZ",
+      estado_civil: estudiante.estado_civil || "SOLTERO/A",
+      grado_instruccion: estudiante.grado_instruccion || "PRIMARIA",
+      sistema_salud: estudiante.sistema_salud || "PUBLICO",
+      frecuencia_medico: estudiante.frecuencia_medico || "1 VEZ AL MES",
+      tuvo_covid: estudiante.tuvo_covid || "NO",
+      conquien_vive: estudiante.conquien_vive || "SOLO",
+      relacion: estudiante.relacion || "BUENA",
     });
     setShowForm(true);
   };
@@ -180,28 +228,103 @@ export default function EstudiantesPage() {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (editingEstudiante) {
-      const updatedEstudiantes = estudiantes.map((e) =>
-        e.id === editingEstudiante.id ? { ...e, ...newEstudiante } : e
-      );
-      setEstudiantes(updatedEstudiantes);
-    } else {
-      const newId =
-        estudiantes.length > 0
-          ? Math.max(...estudiantes.map((e) => e.id)) + 1
-          : 1;
-      const newEstudianteObj = {
-        id: newId,
-        ...newEstudiante,
+    try {
+      const estudianteData = {
+        nombres: newEstudiante.nombres,
+        ap_paterno: newEstudiante.ap_paterno,
+        ap_materno: newEstudiante.ap_materno,
+        ci: newEstudiante.ci,
+        telefono: newEstudiante.telefono,
+        fecha_nacimiento: newEstudiante.fecha_nacimiento,
+        genero: newEstudiante.genero,
+        lugar_nacimiento: newEstudiante.lugar_nacimiento,
+        estado_civil: newEstudiante.estado_civil,
+        direccion: newEstudiante.direccion,
+        como_se_entero: newEstudiante.medio_informacion,
+        datos_familiares: [
+          {
+            tipo: "convive",
+            ap_paterno: newEstudiante.sfap_paterno,
+            ap_materno: newEstudiante.sfap_materno,
+            nombres: newEstudiante.sfnombres,
+            parentesco: newEstudiante.sf_pfamilia,
+            relacion: newEstudiante.relacion,
+            telefono: newEstudiante.rfnro_celular,
+            direccion: newEstudiante.rfdireccion,
+          },
+        ],
+        datos_academicos: [
+          {
+            grado_institucion: newEstudiante.grado_instruccion,
+            anios_servicio: newEstudiante.anios_servicio,
+            ultimo_cargo: newEstudiante.ultimo_cargo,
+            otras_habilidades: newEstudiante.otras_habilidades,
+          },
+        ],
+        datos_medicos: [
+          {
+            sistema_salud: newEstudiante.sistema_salud,
+            frecuencia_medico: newEstudiante.frecuencia_medico,
+            enfermedad_base: newEstudiante.fiumam_enfermedad_cod,
+            alergias: newEstudiante.fiumam_alergia_cod,
+            tratamiento_especifico: newEstudiante.tratamiento_especifico,
+            tuvo_covid: newEstudiante.tuvo_covid === "SI",
+          },
+        ],
       };
-      setEstudiantes([...estudiantes, newEstudianteObj]);
-    }
 
-    setShowForm(false);
-    resetForm();
+      let response;
+      const url = `${API_URL}/estudiantes/${
+        editingEstudiante ? editingEstudiante.estudiante_id : ""
+      }`;
+
+      if (editingEstudiante) {
+        response = await fetch(url, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `bearer ${Cookies.get("access_token")}`,
+          },
+          body: JSON.stringify(estudianteData),
+        });
+      } else {
+        response = await fetch(`${API_URL}/estudiantes/`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `bearer ${Cookies.get("access_token")}`,
+          },
+          body: JSON.stringify(estudianteData),
+        });
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Error al guardar estudiante");
+      }
+
+      const result = await response.json();
+
+      // Actualizar el estado local
+      if (editingEstudiante) {
+        setEstudiantes(
+          estudiantes.map((e) =>
+            e.estudiante_id === editingEstudiante.estudiante_id ? result : e
+          )
+        );
+      } else {
+        setEstudiantes([...estudiantes, result]);
+      }
+
+      setShowForm(false);
+      resetForm();
+    } catch (error) {
+      console.error("Error al guardar estudiante:", error);
+      setError(error.message);
+    }
   };
 
   const openDeleteModal = (estudiante) => {
@@ -209,10 +332,33 @@ export default function EstudiantesPage() {
     setShowDeleteModal(true);
   };
 
-  const confirmDelete = () => {
-    setEstudiantes(estudiantes.filter((e) => e.id !== estudianteToDelete.id));
-    setShowDeleteModal(false);
-    setEstudianteToDelete(null);
+  const confirmDelete = async () => {
+    try {
+      const response = await fetch(
+        `${API_URL}/estudiantes/${estudianteToDelete.estudiante_id}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `bearer ${Cookies.get("access_token")}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Error al eliminar estudiante");
+      }
+
+      setEstudiantes(
+        estudiantes.filter(
+          (e) => e.estudiante_id !== estudianteToDelete.estudiante_id
+        )
+      );
+      setShowDeleteModal(false);
+      setEstudianteToDelete(null);
+    } catch (error) {
+      console.error("Error al eliminar estudiante:", error);
+      setError(error.message);
+    }
   };
 
   const filteredEstudiantes = estudiantes.filter((estudiante) =>
@@ -273,8 +419,9 @@ export default function EstudiantesPage() {
           <thead className="bg-gray-100 text-left">
             <tr>
               <th className="px-4 py-2 border-b">ID</th>
-              <th className="px-4 py-2 border-b">APELLIDOS</th>
               <th className="px-4 py-2 border-b">NOMBRES</th>
+              <th className="px-4 py-2 border-b">APELLIDO PATERNO</th>
+              <th className="px-4 py-2 border-b">APELLIDO MATERNO</th>
               <th className="px-4 py-2 border-b">CI</th>
               <th className="px-4 py-2 border-b">INSCRIPCION</th>
               <th className="px-4 py-2 border-b">HISTORIAL ACADÉMICO</th>
@@ -300,10 +447,13 @@ export default function EstudiantesPage() {
                   <td className="px-4 py-2 border-b">
                     {estudiante.estudiante_id}
                   </td>
-                  <td className="px-4 py-2 border-b">
-                    {estudiante.ap_paterno} {estudiante.ap_materno}
-                  </td>
                   <td className="px-4 py-2 border-b">{estudiante.nombres}</td>
+                  <td className="px-4 py-2 border-b">
+                    {estudiante.ap_paterno}
+                  </td>
+                  <td className="px-4 py-2 border-b">
+                    {estudiante.ap_materno}
+                  </td>
                   <td className="px-4 py-2 border-b">{estudiante.ci}</td>
                   <td className="px-4 py-2 border-b">
                     <button
@@ -504,15 +654,14 @@ export default function EstudiantesPage() {
             </div>
 
             <div className="card mb-4">
-              <div className="card-header text-center bg-primary text-white py-2">
+              <div className="card-header text-center bg-teal-500 text-white py-2">
                 <strong>
                   FICHA DE INCRIPCIÓN (UNIVERSIDAD MUNICIPAL DEL ADULTO MAYOR)
                 </strong>
               </div>
               <div className="card-body">
-                {/* Sección: DATOS DE REGISTRO */}
                 <div className="mb-6">
-                  <h5 className="text-lg font-semibold mb-3 text-gray-700 border-b pb-1">
+                  <h5 className="text-lg font-semibold bg-teal-500/20 text-center  mb-3 text-gray-700 border-b pb-1">
                     DATOS DE REGISTRO
                   </h5>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -539,9 +688,8 @@ export default function EstudiantesPage() {
 
                 <hr className="bg-primary border-2 border-top border-primary my-4" />
 
-                {/* Sección: DATOS PERSONALES */}
                 <div className="mb-6">
-                  <h5 className="text-lg font-semibold mb-3 text-gray-700 border-b pb-1">
+                  <h5 className="text-lg font-semibold text-center bg-teal-500/20 mb-3 text-gray-700 border-b pb-1">
                     DATOS PERSONALES
                   </h5>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
@@ -695,24 +843,6 @@ export default function EstudiantesPage() {
                     </div>
                     <div>
                       <label className="block text-sm font-semibold mb-1 text-gray-700">
-                        Macrodistrito:
-                      </label>
-                      <select
-                        name="macro"
-                        value={newEstudiante.macro}
-                        onChange={handleInputChange}
-                        className="w-full border border-gray-300 rounded px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
-                      >
-                        <option value="">Seleccione</option>
-                        <option value="DISTRITO 1">DISTRITO 1</option>
-                        <option value="DISTRITO 2">DISTRITO 2</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-sm font-semibold mb-1 text-gray-700">
                         No. P/Grupo Whatsapp:
                       </label>
                       <input
@@ -728,11 +858,60 @@ export default function EstudiantesPage() {
 
                 <hr className="bg-primary border-2 border-top border-primary my-4" />
 
-                {/* Sección: REFERENCIA FAMILIAR */}
                 <div className="mb-6">
-                  <h5 className="text-lg font-semibold mb-3 text-gray-700 border-b pb-1">
+                  <h5 className="text-lg font-semibold text-center bg-teal-500/20 mb-3 text-gray-700 border-b pb-1">
                     REFERENCIA FAMILIAR
                   </h5>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div>
+                      <label className="block text-sm font-semibold mb-1 text-gray-700">
+                        Con quien vive?:
+                      </label>
+                      <select
+                        name="conquien_vive"
+                        value={newEstudiante.conquien_vive}
+                        onChange={handleInputChange}
+                        className="w-full border border-gray-300 rounded px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="SOLO">SOLO</option>
+                        <option value="CONYUGE/PAREJA">CONYUGE/PAREJA</option>
+                        <option value="FAMILIARES">FAMILIARES</option>
+                        <option value="OTROS">OTROS</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold mb-1 text-gray-700">
+                        Parentesco:
+                      </label>
+                      <select
+                        name="sf_pfamilia"
+                        value={newEstudiante.sf_pfamilia}
+                        onChange={handleInputChange}
+                        className="w-full border border-gray-300 rounded px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="">Seleccione</option>
+                        <option value="PADRE">PADRE</option>
+                        <option value="MADRE">MADRE</option>
+                        <option value="HIJO/A">HIJO/A</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold mb-1 text-gray-700">
+                        Relacion:
+                      </label>
+                      <select
+                        name="relacion"
+                        value={newEstudiante.relacion}
+                        onChange={handleInputChange}
+                        className="w-full border border-gray-300 rounded px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="BUENA">BUENA</option>
+                        <option value="MALA">MALA</option>
+                        <option value="REGULAR">REGULAR</option>
+                      </select>
+                    </div>
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                     <div>
                       <label className="block text-sm font-semibold mb-1 text-gray-700">
@@ -775,20 +954,15 @@ export default function EstudiantesPage() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-sm font-semibold mb-1 text-gray-700">
-                        Parentesco:
+                        Dirección:
                       </label>
-                      <select
-                        name="rf_pfamilia"
-                        value={newEstudiante.rf_pfamilia}
+                      <input
+                        type="text"
+                        name="rfdireccion"
+                        value={newEstudiante.rfdireccion}
                         onChange={handleInputChange}
                         className="w-full border border-gray-300 rounded px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
-                      >
-                        <option value="">Seleccione</option>
-                        <option value="PADRE">PADRE</option>
-                        <option value="MADRE">MADRE</option>
-                        <option value="HIJO/A">HIJO/A</option>
-                        <option value="HERMANO/A">HERMANO/A</option>
-                      </select>
+                      />
                     </div>
                     <div>
                       <label className="block text-sm font-semibold mb-1 text-gray-700">
@@ -802,26 +976,13 @@ export default function EstudiantesPage() {
                         className="w-full border border-gray-300 rounded px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
                       />
                     </div>
-                    <div>
-                      <label className="block text-sm font-semibold mb-1 text-gray-700">
-                        Dirección:
-                      </label>
-                      <input
-                        type="text"
-                        name="rfdireccion"
-                        value={newEstudiante.rfdireccion}
-                        onChange={handleInputChange}
-                        className="w-full border border-gray-300 rounded px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
-                      />
-                    </div>
                   </div>
                 </div>
 
-                <hr className="bg-primary border-2 border-top border-primary my-4" />
+                <hr className="bg-primary border-2 border-top bg-teal-500/20 border-primary my-4" />
 
-                {/* Sección: DATOS ACADEMICOS */}
                 <div className="mb-6">
-                  <h5 className="text-lg font-semibold mb-3 text-gray-700 border-b pb-1">
+                  <h5 className="text-lg font-semibold text-center bg-teal-500/20 mb-3 text-gray-700 border-b pb-1">
                     DATOS ACADEMICOS
                   </h5>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
@@ -886,9 +1047,8 @@ export default function EstudiantesPage() {
 
                 <hr className="bg-primary border-2 border-top border-primary my-4" />
 
-                {/* Sección: DATOS MEDICOS */}
                 <div className="mb-6">
-                  <h5 className="text-lg font-semibold mb-3 text-gray-700 border-b pb-1">
+                  <h5 className="text-lg font-semibold mb-3 bg-teal-500/20 text-center text-gray-700 border-b pb-1">
                     DATOS MEDICOS
                   </h5>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
@@ -988,103 +1148,6 @@ export default function EstudiantesPage() {
                         type="text"
                         name="tratamiento_especifico"
                         value={newEstudiante.tratamiento_especifico}
-                        onChange={handleInputChange}
-                        className="w-full border border-gray-300 rounded px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <hr className="bg-primary border-2 border-top border-primary my-4" />
-
-                {/* Sección: SITUACION FAMILIAR */}
-                <div className="mb-6">
-                  <h5 className="text-lg font-semibold mb-3 text-gray-700 border-b pb-1">
-                    SITUACION FAMILIAR
-                  </h5>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                    <div>
-                      <label className="block text-sm font-semibold mb-1 text-gray-700">
-                        Con quien vive?:
-                      </label>
-                      <select
-                        name="conquien_vive"
-                        value={newEstudiante.conquien_vive}
-                        onChange={handleInputChange}
-                        className="w-full border border-gray-300 rounded px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
-                      >
-                        <option value="SOLO">SOLO</option>
-                        <option value="CONYUGE/PAREJA">CONYUGE/PAREJA</option>
-                        <option value="FAMILIARES">FAMILIARES</option>
-                        <option value="OTROS">OTROS</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold mb-1 text-gray-700">
-                        Parentesco:
-                      </label>
-                      <select
-                        name="sf_pfamilia"
-                        value={newEstudiante.sf_pfamilia}
-                        onChange={handleInputChange}
-                        className="w-full border border-gray-300 rounded px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
-                      >
-                        <option value="">Seleccione</option>
-                        <option value="PADRE">PADRE</option>
-                        <option value="MADRE">MADRE</option>
-                        <option value="HIJO/A">HIJO/A</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold mb-1 text-gray-700">
-                        Relacion:
-                      </label>
-                      <select
-                        name="relacion"
-                        value={newEstudiante.relacion}
-                        onChange={handleInputChange}
-                        className="w-full border border-gray-300 rounded px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
-                      >
-                        <option value="BUENA">BUENA</option>
-                        <option value="MALA">MALA</option>
-                        <option value="REGULAR">REGULAR</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-sm font-semibold mb-1 text-gray-700">
-                        Apellido paterno:
-                      </label>
-                      <input
-                        type="text"
-                        name="sfap_paterno"
-                        value={newEstudiante.sfap_paterno}
-                        onChange={handleInputChange}
-                        className="w-full border border-gray-300 rounded px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold mb-1 text-gray-700">
-                        Apellido materno:
-                      </label>
-                      <input
-                        type="text"
-                        name="sfap_materno"
-                        value={newEstudiante.sfap_materno}
-                        onChange={handleInputChange}
-                        className="w-full border border-gray-300 rounded px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold mb-1 text-gray-700">
-                        Nombres:
-                      </label>
-                      <input
-                        type="text"
-                        name="sfnombres"
-                        value={newEstudiante.sfnombres}
                         onChange={handleInputChange}
                         className="w-full border border-gray-300 rounded px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
                       />

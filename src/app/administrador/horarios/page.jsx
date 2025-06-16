@@ -1,1018 +1,783 @@
 "use client";
+
 import { useState, useEffect } from "react";
-import Cookies from "js-cookie";
 
-// Componentes de íconos
-const EditIcon = () => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    fill="none"
-    viewBox="0 0 24 24"
-    strokeWidth={2}
-    stroke="currentColor"
-    className="w-5 h-5"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      d="M16.862 4.487a2.062 2.062 0 112.91 2.91l-9.193 9.193a2.062 2.062 0 01-1.035.556l-3.47.694a.516.516 0 01-.605-.605l.694-3.47a2.062 2.062 0 01.556-1.035l9.193-9.193z"
-    />
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      d="M19.5 7.5l-1.25 1.25"
-    />
-  </svg>
-);
+const sucursales = ["BASERI", "KOLLASUYO"];
+const cursos = ["Dioses", "C", "Matemáticas", "Inglés"];
+const facilitadores = ["Juan Pérez", "Ana Gómez", "Luis Martínez"];
+const aulasConNombres = [
+  "A1 - BIBLIOTECA",
+  "A2 - COCINA",
+  "B2 - GYM",
+  "D3 - COMPUTACIÓN",
+];
 
-const DeleteIcon = () => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    fill="none"
-    viewBox="0 0 24 24"
-    strokeWidth={2}
-    stroke="currentColor"
-    className="w-5 h-5"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      d="M6 18L18 6M6 6l12 12"
-    />
-  </svg>
-);
+const diasAbrev = ["L", "M", "X", "J", "V"];
+const diasTodos = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"];
 
-const PlusIcon = () => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    fill="none"
-    viewBox="0 0 24 24"
-    strokeWidth={2}
-    stroke="currentColor"
-    className="w-5 h-5"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      d="M12 4.5v15m7.5-7.5h-15"
-    />
-  </svg>
-);
+function obtenerColorCurso(curso) {
+  const coloresCurso = [
+    "#FFCDD2",
+    "#F8BBD0",
+    "#E1BEE7",
+    "#D1C4E9",
+    "#C5CAE9",
+    "#BBDEFB",
+    "#B3E5FC",
+    "#B2EBF2",
+    "#B2DFDB",
+    "#C8E6C9",
+    "#DCEDC8",
+    "#F0F4C3",
+    "#FFF9C4",
+    "#FFECB3",
+    "#FFE0B2",
+  ];
+  let hash = 0;
+  for (let i = 0; i < curso.length; i++) {
+    hash = curso.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % coloresCurso.length;
+  return coloresCurso[index];
+}
+
+function diasAbrevANombres(abrevs) {
+  return abrevs
+    .map((a) => {
+      const i = diasAbrev.indexOf(a);
+      return i >= 0 ? diasTodos[i] : null;
+    })
+    .filter((d) => d !== null);
+}
+
+const SEMESTRES = ["I", "II"];
 
 export default function HorariosPage() {
-  const API_URL = "https://api-umam-1.onrender.com";
-  const [sucursales, setSucursales] = useState([]);
-  const [cursos, setCursos] = useState([]);
-  const [facilitadores, setFacilitadores] = useState([]);
-  const [aulas, setAulas] = useState([]);
-  const [diasSemana, setDiasSemana] = useState([]);
-  const [horas, setHoras] = useState([]);
+  const [tabActivo, setTabActivo] = useState(sucursales[0]);
+  // { año: { semestre: { sucursal: { horarios:[], asignaciones:[] }}}}
+  const [datosSemestre, setDatosSemestre] = useState({});
+
+  const [year, setYear] = useState(new Date().getFullYear());
+  const [semestre, setSemestre] = useState("I");
+
   const [horarios, setHorarios] = useState([]);
-  const [gestiones, setGestiones] = useState([]);
-  const [years, setYears] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [asignaciones, setAsignaciones] = useState([]);
 
-  // Filtros
-  const [sucursalSeleccionada, setSucursalSeleccionada] = useState("");
-  const [gestionSeleccionada, setGestionSeleccionada] = useState("");
-  const [cursoFiltro, setCursoFiltro] = useState("");
-  const [anioSeleccionado, setAnioSeleccionado] = useState("");
-  const [semestreSeleccionado, setSemestreSeleccionado] = useState("I");
-
-  // Modales
-  const [modalHoraOpen, setModalHoraOpen] = useState(false);
+  // Modal control
+  const [modalHorarioOpen, setModalHorarioOpen] = useState(false);
   const [modalAsignacionOpen, setModalAsignacionOpen] = useState(false);
-  const [modalEditarHoraOpen, setModalEditarHoraOpen] = useState(false);
-  const [horaEditando, setHoraEditando] = useState(null);
 
-  // Formularios
-  const [formHora, setFormHora] = useState({
-    hora_inicio: "",
-    hora_fin: "",
+  // Modal Horario states
+  const [horaInicio, setHoraInicio] = useState("");
+  const [horaFin, setHoraFin] = useState("");
+  const [diasSeleccionados, setDiasSeleccionados] = useState([]);
+  const [editIndexHorario, setEditIndexHorario] = useState(null);
+
+  // Modal Asignacion states
+  const [modalData, setModalData] = useState({
+    sucursal: "",
+    dia: "",
+    hora: "",
+    curso: "",
+    facilitador: "",
+    aula: "",
   });
 
-  const [formAsignacion, setFormAsignacion] = useState({
-    horario_id: "",
-    dia_semana_id: "",
-    curso_id: "",
-    profesor_id: "",
-    aula_id: "",
-    gestion_id: "",
-    hora_id: "",
-  });
-
-  // Obtener datos iniciales
+  // Carga datos actuales del semestre y sucursal
   useEffect(() => {
-    const fetchInitialData = async () => {
-      try {
-        setLoading(true);
+    if (
+      datosSemestre[year] &&
+      datosSemestre[year][semestre] &&
+      datosSemestre[year][semestre][tabActivo]
+    ) {
+      const sucursalData = datosSemestre[year][semestre][tabActivo];
+      setHorarios(sucursalData.horarios || []);
+      setAsignaciones(sucursalData.asignaciones || []);
+    } else if (
+      // Si no hay datos, copiar del semestre anterior mismo año para conservar horarios y asignaciones
+      datosSemestre[year] &&
+      datosSemestre[year][semestre === "II" ? "I" : "II"] &&
+      datosSemestre[year][semestre === "II" ? "I" : "II"][tabActivo]
+    ) {
+      const prevSemestre =
+        datosSemestre[year][semestre === "II" ? "I" : "II"][tabActivo];
+      setHorarios(prevSemestre.horarios || []);
+      setAsignaciones(prevSemestre.asignaciones || []);
+    } else {
+      setHorarios([]);
+      setAsignaciones([]);
+    }
+    // Reset modal edits cuando cambian semestre o sucursal
+    setEditIndexHorario(null);
+  }, [year, semestre, tabActivo, datosSemestre]);
 
-        // Obtener años disponibles
-        const yearsRes = await fetch(`${API_URL}/cursos/years`, {
-          headers: { Authorization: `bearer ${Cookies.get("access_token")}` },
-        });
-        if (!yearsRes.ok) throw new Error("Error al cargar años");
-        const yearsData = await yearsRes.json();
-        setYears(yearsData.sort((a, b) => b.year - a.year)); // Ordenar de más reciente a más antiguo
+  // Guardar datos locales (horarios y asignaciones) en datosSemestre
+  const guardarDatosSucursal = (horariosNew, asignacionesNew) => {
+    setDatosSemestre((prev) => {
+      const yearData = { ...(prev[year] || {}) };
+      const semestreData = { ...(yearData[semestre] || {}) };
+      semestreData[tabActivo] = {
+        horarios: horariosNew,
+        asignaciones: asignacionesNew,
+      };
+      yearData[semestre] = semestreData;
+      return { ...prev, [year]: yearData };
+    });
+  };
 
-        // Obtener gestiones
-        const gestionesRes = await fetch(`${API_URL}/cursos/gestiones`, {
-          headers: { Authorization: `bearer ${Cookies.get("access_token")}` },
-        });
-        if (!gestionesRes.ok) throw new Error("Error al cargar gestiones");
-        const gestionesData = await gestionesRes.json();
-        setGestiones(gestionesData);
+  // Toggle Días para modal horario
+  const toggleDia = (abrev) => {
+    setDiasSeleccionados((prev) =>
+      prev.includes(abrev) ? prev.filter((d) => d !== abrev) : [...prev, abrev]
+    );
+  };
 
-        // Obtener sucursales
-        const sucursalesRes = await fetch(`${API_URL}/sucursales/`, {
-          headers: { Authorization: `bearer ${Cookies.get("access_token")}` },
-        });
-        if (!sucursalesRes.ok) throw new Error("Error al cargar sucursales");
-        const sucursalesData = await sucursalesRes.json();
-        setSucursales(sucursalesData);
-
-        // Obtener cursos
-        const cursosRes = await fetch(`${API_URL}/cursos/`, {
-          headers: { Authorization: `bearer ${Cookies.get("access_token")}` },
-        });
-        if (!cursosRes.ok) throw new Error("Error al cargar cursos");
-        const cursosData = await cursosRes.json();
-        setCursos(cursosData);
-
-        // Establecer valores por defecto (año actual)
-        const currentYear = new Date().getFullYear();
-        setAnioSeleccionado(currentYear.toString());
-        setSemestreSeleccionado("I");
-
-        if (sucursalesData.length > 0) {
-          setSucursalSeleccionada(sucursalesData[0].sucursal_id);
-        }
-      } catch (error) {
-        setError(error.message);
-      } finally {
-        setLoading(false);
+  // Validar que horario con mismo tiempo no exista ya (ignorando días)
+  const existeHorarioDuplicado = (
+    hInicio,
+    hFin,
+    diasSel,
+    ignoreIndex = null
+  ) => {
+    return horarios.some((h, i) => {
+      if (ignoreIndex !== null && i === ignoreIndex) return false;
+      // Si las horas coinciden (inicio y fin)
+      if (h.horaInicio === hInicio && h.horaFin === hFin) {
+        // Revisar si alguno de los días se superpone (intersección)
+        const diasNew = diasSel;
+        const diasViejos = h.dias.split(", ").map((d) => d.charAt(0));
+        const interseccion = diasNew.some((d) => diasViejos.includes(d));
+        return interseccion;
       }
+      return false;
+    });
+  };
+
+  const handleAgregarHorario = () => {
+    if (!horaInicio || !horaFin) {
+      alert("Por favor ingresa hora de inicio y hora de fin");
+      return;
+    }
+    if (diasSeleccionados.length === 0) {
+      alert("Debe seleccionar al menos un día");
+      return;
+    }
+    if (horaFin <= horaInicio) {
+      alert("La hora fin debe ser posterior a la hora inicio");
+      return;
+    }
+    if (
+      existeHorarioDuplicado(
+        horaInicio,
+        horaFin,
+        diasSeleccionados,
+        editIndexHorario
+      )
+    ) {
+      alert(
+        "Ya existe un horario que se superpone con días y horas ingresadas"
+      );
+      return;
+    }
+
+    const nuevoHorario = {
+      horaInicio,
+      horaFin,
+      dias: diasSeleccionados.join(", "),
     };
 
-    fetchInitialData();
-  }, []);
+    let horariosNew;
+    if (editIndexHorario !== null) {
+      horariosNew = [...horarios];
+      horariosNew[editIndexHorario] = nuevoHorario;
+      setEditIndexHorario(null);
+    } else {
+      horariosNew = [...horarios, nuevoHorario];
+    }
 
-  // Obtener la gestión correspondiente al año y semestre seleccionados
-  useEffect(() => {
-    if (!anioSeleccionado || !semestreSeleccionado) return;
+    setHorarios(horariosNew);
+    // Limpiar inputs
+    setHoraInicio("");
+    setHoraFin("");
+    setDiasSeleccionados([]);
 
-    const gestion = gestiones.find(
-      (g) =>
-        g.anio === parseInt(anioSeleccionado) &&
-        g.semestre === semestreSeleccionado
+    // Guardar datos actualizado
+    guardarDatosSucursal(horariosNew, asignaciones);
+    setModalHorarioOpen(false);
+  };
+
+  const handleEliminarHorario = (index) => {
+    const nuevosHorarios = horarios.filter((_, i) => i !== index);
+    // Eliminar asignaciones relacionadas a ese rango horario y días
+    const horasEliminada = horarios[index];
+    const diasEliminar = horasEliminada.dias
+      .split(", ")
+      .map((d) => d.charAt(0));
+    const asignacionesFiltradas = asignaciones.filter((a) => {
+      if (a.hora === horasEliminada.horaInicio) {
+        return !diasEliminar.includes(a.dia.charAt(0));
+      }
+      return true;
+    });
+    setHorarios(nuevosHorarios);
+    setAsignaciones(asignacionesFiltradas);
+    guardarDatosSucursal(nuevosHorarios, asignacionesFiltradas);
+  };
+
+  const handleEditarHorario = (index) => {
+    const horario = horarios[index];
+    setHoraInicio(horario.horaInicio);
+    setHoraFin(horario.horaFin);
+    setDiasSeleccionados(horario.dias.split(", ").map((d) => d.charAt(0)));
+    setEditIndexHorario(index);
+    setModalHorarioOpen(true);
+  };
+
+  // Funciones modal asignacion
+  function openModalAsignacion(sucursal, dia, hora, aula) {
+    const asignacionExistente = asignaciones.find(
+      (a) =>
+        a.sucursal === sucursal &&
+        a.dia === dia &&
+        a.hora === hora &&
+        a.aula === aula
     );
 
-    if (gestion) {
-      setGestionSeleccionada(gestion.gestion_id);
+    if (asignacionExistente) {
+      setModalData({ ...asignacionExistente });
     } else {
-      setGestionSeleccionada("");
+      setModalData({ sucursal, dia, hora, curso: "", facilitador: "", aula });
     }
-  }, [anioSeleccionado, semestreSeleccionado, gestiones]);
+    setModalAsignacionOpen(true);
+  }
 
-  // Obtener datos adicionales cuando se seleccionan los filtros
-  useEffect(() => {
-    if (!sucursalSeleccionada || !gestionSeleccionada) return;
+  function handleGuardarAsignacion(e) {
+    e.preventDefault();
+    if (!modalData.curso || !modalData.facilitador) {
+      alert("Por favor, completa curso y facilitador.");
+      return;
+    }
 
-    const fetchAdditionalData = async () => {
-      try {
-        setLoading(true);
-
-        // Obtener aulas, facilitadores, días y horas
-        const [aulasRes, facilitadoresRes, diasRes, horasRes] =
-          await Promise.all([
-            fetch(`${API_URL}/sucursales/${sucursalSeleccionada}/aulas`, {
-              headers: {
-                Authorization: `bearer ${Cookies.get("access_token")}`,
-              },
-            }),
-            fetch(`${API_URL}/usuarios/?rol_id=3`, {
-              headers: {
-                Authorization: `bearer ${Cookies.get("access_token")}`,
-              },
-            }),
-            fetch(`${API_URL}/horarios/dias-semana`, {
-              headers: {
-                Authorization: `bearer ${Cookies.get("access_token")}`,
-              },
-            }),
-            fetch(`${API_URL}/horarios/horas`, {
-              headers: {
-                Authorization: `bearer ${Cookies.get("access_token")}`,
-              },
-            }),
-          ]);
-
-        if (!aulasRes.ok) throw new Error("Error al cargar aulas");
-        if (!facilitadoresRes.ok)
-          throw new Error("Error al cargar facilitadores");
-        if (!diasRes.ok) throw new Error("Error al cargar días de semana");
-        if (!horasRes.ok) throw new Error("Error al cargar horas");
-
-        const [aulasData, facilitadoresData, diasData, horasData] =
-          await Promise.all([
-            aulasRes.json(),
-            facilitadoresRes.json(),
-            diasRes.json(),
-            horasRes.json(),
-          ]);
-
-        setAulas(aulasData);
-        setFacilitadores(facilitadoresData);
-        setDiasSemana(
-          diasData.filter((dia) =>
-            ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"].includes(
-              dia.dia_semana
-            )
-          )
-        );
-        setHoras(
-          horasData.sort((a, b) => a.hora_inicio.localeCompare(b.hora_inicio))
-        );
-
-        // Obtener horarios para la sucursal y gestión seleccionadas
-        const horariosRes = await fetch(
-          `${API_URL}/horarios/?gestion_id=${gestionSeleccionada}&sucursal_id=${sucursalSeleccionada}`,
-          {
-            headers: { Authorization: `bearer ${Cookies.get("access_token")}` },
-          }
-        );
-        if (!horariosRes.ok) throw new Error("Error al cargar horarios");
-        setHorarios(await horariosRes.json());
-      } catch (error) {
-        setError(error.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchAdditionalData();
-  }, [sucursalSeleccionada, gestionSeleccionada]);
-
-  // Filtrar horarios por curso si hay filtro aplicado
-  const horariosFiltrados = cursoFiltro
-    ? horarios.filter((h) => h.curso_id === parseInt(cursoFiltro))
-    : horarios;
-
-  // Crear nueva hora
-  const crearHora = async () => {
-    try {
-      const response = await fetch(`${API_URL}/horarios/horas`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `bearer ${Cookies.get("access_token")}`,
-        },
-        body: JSON.stringify(formHora),
-      });
-
-      if (!response.ok) throw new Error("Error al crear hora");
-
-      const nuevaHora = await response.json();
-      setHoras(
-        [...horas, nuevaHora].sort((a, b) =>
-          a.hora_inicio.localeCompare(b.hora_inicio)
+    const asignacionesNew = asignaciones.filter(
+      (a) =>
+        !(
+          a.sucursal === modalData.sucursal &&
+          a.dia === modalData.dia &&
+          a.hora === modalData.hora &&
+          a.aula === modalData.aula
         )
-      );
-      setModalHoraOpen(false);
-      setFormHora({ hora_inicio: "", hora_fin: "" });
-    } catch (error) {
-      alert(error.message);
-    }
-  };
+    );
+    asignacionesNew.push(modalData);
+    setAsignaciones(asignacionesNew);
+    guardarDatosSucursal(horarios, asignacionesNew);
+    setModalAsignacionOpen(false);
+  }
 
-  // Editar hora existente
-  const editarHora = async () => {
+  // Convertir abreviatura de días a nombre completo
+  const diasHorarios =
+    horarios.length > 0
+      ? horarios[0].dias.split(", ").map((d) => {
+          const idx = diasAbrev.indexOf(d.charAt(0));
+          return diasTodos[idx] || d;
+        })
+      : [];
+
+  // Exportar PDF
+  const exportarPDF = async () => {
     try {
-      const response = await fetch(
-        `${API_URL}/horarios/horas/${horaEditando.hora_id}`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `bearer ${Cookies.get("access_token")}`,
-          },
-          body: JSON.stringify(formHora),
-        }
-      );
-
-      if (!response.ok) throw new Error("Error al actualizar hora");
-
-      const horaActualizada = await response.json();
-      setHoras(
-        horas
-          .map((h) =>
-            h.hora_id === horaActualizada.hora_id ? horaActualizada : h
-          )
-          .sort((a, b) => a.hora_inicio.localeCompare(b.hora_inicio))
-      );
-      setModalEditarHoraOpen(false);
-      setFormHora({ hora_inicio: "", hora_fin: "" });
-      setHoraEditando(null);
-    } catch (error) {
-      alert(error.message);
-    }
-  };
-
-  // Eliminar hora
-  const eliminarHora = async (horaId) => {
-    if (!confirm("¿Eliminar este horario?")) return;
-
-    try {
-      const response = await fetch(`${API_URL}/horarios/horas/${horaId}`, {
-        method: "DELETE",
-        headers: { Authorization: `bearer ${Cookies.get("access_token")}` },
-      });
-
-      if (!response.ok) throw new Error("Error al eliminar hora");
-
-      setHoras(horas.filter((h) => h.hora_id !== horaId));
-    } catch (error) {
-      alert(error.message);
-    }
-  };
-
-  // Asignar curso a horario
-  const asignarCurso = async () => {
-    try {
-      const method = formAsignacion.horario_id ? "PUT" : "POST";
-      const url = formAsignacion.horario_id
-        ? `${API_URL}/horarios/${formAsignacion.horario_id}`
-        : `${API_URL}/horarios/`;
-
-      const response = await fetch(url, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `bearer ${Cookies.get("access_token")}`,
-        },
-        body: JSON.stringify({
-          ...formAsignacion,
-          sucursal_id: sucursalSeleccionada,
-        }),
-      });
-
-      if (!response.ok) throw new Error("Error al asignar curso");
-
-      const nuevoHorario = await response.json();
-
-      if (formAsignacion.horario_id) {
-        setHorarios(
-          horarios.map((h) =>
-            h.horario_id === nuevoHorario.horario_id ? nuevoHorario : h
-          )
-        );
-      } else {
-        setHorarios([...horarios, nuevoHorario]);
+      const html2pdf = await import("html2pdf.js");
+      const elemento = document.getElementById("tabla-horarios-print");
+      if (!elemento) {
+        alert("No se encontró la tabla para exportar.");
+        return;
       }
-
-      setModalAsignacionOpen(false);
-      setFormAsignacion({
-        horario_id: "",
-        dia_semana_id: "",
-        curso_id: "",
-        profesor_id: "",
-        aula_id: "",
-        gestion_id: gestionSeleccionada,
-        hora_id: "",
-      });
+      const opciones = {
+        margin: 0.5,
+        filename: `Horario_${tabActivo}_${year}_Semestre_${semestre}.pdf`,
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: "in", format: "letter", orientation: "landscape" },
+      };
+      html2pdf().set(opciones).from(elemento).save();
     } catch (error) {
-      alert(error.message);
+      console.error("Error al exportar PDF:", error);
+      alert(
+        "Hubo un problema al exportar el PDF. Revisa la consola para más detalles."
+      );
     }
   };
-
-  // Eliminar asignación
-  const eliminarAsignacion = async (horarioId) => {
-    if (!confirm("¿Eliminar esta asignación?")) return;
-
-    try {
-      const response = await fetch(`${API_URL}/horarios/${horarioId}`, {
-        method: "DELETE",
-        headers: { Authorization: `bearer ${Cookies.get("access_token")}` },
-      });
-
-      if (!response.ok) throw new Error("Error al eliminar asignación");
-
-      setHorarios(horarios.filter((h) => h.horario_id !== horarioId));
-    } catch (error) {
-      alert(error.message);
-    }
-  };
-
-  // Formatear hora para mostrar
-  function formatHora(horaString) {
-    if (!horaString) return "";
-    const [hours, minutes] = horaString.split(":");
-    const hour = parseInt(hours);
-    const ampm = hour >= 12 ? "PM" : "AM";
-    const hour12 = hour % 12 || 12;
-    return `${hour12}:${minutes} ${ampm}`;
-  }
-
-  // Obtener nombre del aula
-  const getNombreAula = (aulaId) => {
-    const aula = aulas.find((a) => a.aula_id === aulaId);
-    return aula ? `${aula.nombre} (${aula.tipo})` : "Sin aula";
-  };
-
-  // Obtener nombre del curso
-  function getNombreCurso(cursoId) {
-    const curso = cursos.find((c) => c.curso_id === cursoId);
-    return curso ? curso.nombre : "Sin curso";
-  }
-
-  // Obtener nombre del facilitador
-  function getNombreFacilitador(profesorId) {
-    const facilitador = facilitadores.find((f) => f.usuario_id === profesorId);
-    return facilitador ? facilitador.nombre : "Sin facilitador";
-  }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      {/* Encabezado */}
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">HORARIOS</h1>
-
-        <button
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded flex items-center gap-2"
-          onClick={() => setModalAsignacionOpen(true)}
-        >
-          <PlusIcon />
-          Asignar Horario
-        </button>
-      </div>
-
-      {/* Selector de Año y Semestre */}
-      <div className="bg-blue-50 rounded-lg p-4 mb-6">
-        <div className="flex flex-wrap gap-4 items-center">
-          <div className="flex-1 min-w-[120px]">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Año
-            </label>
-            <select
-              className="w-full border border-gray-300 rounded-md px-3 py-2 bg-white"
-              value={anioSeleccionado}
-              onChange={(e) => setAnioSeleccionado(e.target.value)}
-              disabled={loading}
-            >
-              {years.map((year) => (
-                <option key={year.year_id} value={year.year}>
-                  {year.year}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex-1 min-w-[120px]">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Gestión
-            </label>
-            <select
-              className="w-full border border-gray-300 rounded-md px-3 py-2 bg-white"
-              value={semestreSeleccionado}
-              onChange={(e) => setSemestreSeleccionado(e.target.value)}
-              disabled={loading}
-            >
-              <option value="I">I</option>
-              <option value="II">II</option>
-            </select>
-          </div>
-
-          <div className="text-sm text-gray-600">
-            {gestionSeleccionada ? (
-              <span>
-                Mostrando horarios para {anioSeleccionado} - Gestión{" "}
-                {semestreSeleccionado}
-              </span>
-            ) : (
-              <span className="text-red-500">
-                No existe gestión para {anioSeleccionado} -{" "}
-                {semestreSeleccionado}
-              </span>
-            )}
-          </div>
+    <div className="max-w-7xl mx-auto">
+      {/* Header semestre y año */}
+      <div className="flex flex-wrap justify-between items-center mb-6 gap-4">
+        <h2 className="text-3xl font-bold text-[#13678A] border-b pb-2 flex-1 min-w-[200px]">
+          HORARIOS
+        </h2>
+        <div className="flex items-center space-x-2">
+          <label htmlFor="year" className="font-semibold text-gray-700">
+            Año:
+          </label>
+          <input
+            id="year"
+            type="number"
+            min="2000"
+            max="2100"
+            value={year}
+            onChange={(e) => setYear(Number(e.target.value))}
+            className="border rounded px-2 py-1 w-20 text-center"
+          />
+        </div>
+        <div className="flex items-center space-x-2">
+          <label htmlFor="semestre" className="font-semibold text-gray-700">
+            Semestre:
+          </label>
+          <select
+            id="semestre"
+            value={semestre}
+            onChange={(e) => setSemestre(e.target.value)}
+            className="border rounded px-2 py-1"
+          >
+            {SEMESTRES.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
-      {/* Filtros */}
-      <div className="bg-white rounded-lg shadow mb-6 p-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Filtro de Sucursal */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Sucursal
-            </label>
-            <select
-              className="w-full border border-gray-300 rounded-md px-3 py-2"
-              value={sucursalSeleccionada}
-              onChange={(e) => {
-                setSucursalSeleccionada(e.target.value);
-                setCursoFiltro("");
-              }}
-              disabled={loading || sucursales.length === 0}
-            >
-              {sucursales.map((sucursal) => (
-                <option key={sucursal.sucursal_id} value={sucursal.sucursal_id}>
-                  {sucursal.nombre}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Filtro de Curso */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Curso
-            </label>
-            <select
-              className="w-full border border-gray-300 rounded-md px-3 py-2"
-              value={cursoFiltro}
-              onChange={(e) => setCursoFiltro(e.target.value)}
-              disabled={loading || cursos.length === 0}
-            >
-              <option value="">Todos los cursos</option>
-              {cursos.map((curso) => (
-                <option key={curso.curso_id} value={curso.curso_id}>
-                  {curso.nombre}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Botón para gestionar horas */}
-          <div className="flex items-end">
+      {/* Tabs sucursales */}
+      <ul className="flex border-b mb-8" role="tablist">
+        {sucursales.map((s) => (
+          <li key={s}>
             <button
-              className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded flex items-center gap-1"
-              onClick={() => {
-                setFormHora({ hora_inicio: "", hora_fin: "" });
-                setModalHoraOpen(true);
-              }}
-              disabled={loading}
+              className={`px-4 py-2 border-b-4 font-semibold ${
+                tabActivo === s
+                  ? "border-blue-600 text-blue-600"
+                  : "border-transparent text-gray-600 hover:text-blue-600"
+              }`}
+              onClick={() => setTabActivo(s)}
+              role="tab"
+              aria-selected={tabActivo === s}
             >
-              <PlusIcon /> Gestionar Horas
+              {s}
             </button>
-          </div>
-        </div>
+          </li>
+        ))}
+      </ul>
+
+      {/* Botones acciones */}
+      <div className="mb-6 flex flex-wrap gap-4 items-center">
+        <button
+          className="bg-green-600 text-white px-5 py-2 rounded font-semibold hover:bg-green-700"
+          onClick={() => {
+            setHoraInicio("");
+            setHoraFin("");
+            setDiasSeleccionados([]);
+            setEditIndexHorario(null);
+            setModalHorarioOpen(true);
+          }}
+        >
+          + Agregar Horario
+        </button>
+        {horarios.length > 0 && (
+          <button
+            className="bg-blue-600 text-white px-5 py-2 rounded font-semibold hover:bg-blue-700"
+            onClick={exportarPDF}
+          >
+            Descargar Horario PDF
+          </button>
+        )}
       </div>
 
-      {/* Tabla de horarios */}
-      {loading ? (
-        <div className="text-center py-8">Cargando horarios...</div>
-      ) : error ? (
-        <div className="text-red-500 text-center py-8">{error}</div>
-      ) : !gestionSeleccionada ? (
-        <div className="text-center py-8 text-gray-500">
-          No existe una gestión para el año {anioSeleccionado} y semestre{" "}
-          {semestreSeleccionado} seleccionados.
-        </div>
-      ) : horas.length === 0 ? (
-        <div className="text-gray-500 text-center py-8">
-          No hay horas registradas. Crea primero los periodos horarios.
-        </div>
-      ) : (
-        <div className="overflow-x-auto bg-white rounded-lg shadow">
-          <table className="min-w-full">
-            <thead className="bg-gray-50">
+      {/* Tabla horarios */}
+      {horarios.length > 0 ? (
+        <div className="overflow-x-auto mb-6">
+          <table className="min-w-full border text-center">
+            <thead className="bg-gray-100">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Hora
-                </th>
-                {diasSemana.map((dia) => (
-                  <th
-                    key={dia.dias_semana_id}
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    {dia.dia_semana}
-                  </th>
-                ))}
+                <th className="border px-4 py-2 text-black">Horario</th>
+                <th className="border px-4 py-2 text-black">Días</th>
+                <th className="border px-4 py-2 text-black">Acciones</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {horas.map((hora) => (
-                <tr key={hora.hora_id}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 bg-gray-50">
-                    <div className="flex items-center gap-2">
-                      <span>
-                        {formatHora(hora.hora_inicio)} -{" "}
-                        {formatHora(hora.hora_fin)}
-                      </span>
-                      <button
-                        onClick={() => {
-                          setHoraEditando(hora);
-                          setFormHora({
-                            hora_inicio: hora.hora_inicio,
-                            hora_fin: hora.hora_fin,
-                          });
-                          setModalEditarHoraOpen(true);
-                        }}
-                        className="text-gray-500 hover:text-blue-600"
-                      >
-                        <EditIcon />
-                      </button>
-                      <button
-                        onClick={() => eliminarHora(hora.hora_id)}
-                        className="text-gray-500 hover:text-red-600"
-                      >
-                        <DeleteIcon />
-                      </button>
-                    </div>
+            <tbody>
+              {horarios.map((horario, index) => (
+                <tr key={index}>
+                  <td className="border px-4 py-2 text-black">
+                    {`${horario.horaInicio} - ${horario.horaFin}`}
                   </td>
-                  {diasSemana.map((dia) => {
-                    const horario = horariosFiltrados.find(
-                      (h) =>
-                        h.dia_semana_id === dia.dias_semana_id &&
-                        h.hora_id === hora.hora_id
-                    );
-
-                    return (
-                      <td
-                        key={`${hora.hora_id}-${dia.dias_semana_id}`}
-                        className="px-6 py-4 whitespace-nowrap"
-                      >
-                        {horario ? (
-                          <div className="group relative bg-blue-50 p-3 rounded-lg border border-blue-100">
-                            <div className="font-medium text-blue-800">
-                              {getNombreCurso(horario.curso_id)}
-                            </div>
-                            <div className="text-sm text-blue-600">
-                              {getNombreFacilitador(horario.profesor_id)}
-                            </div>
-                            <div className="text-xs text-blue-500 mt-1">
-                              {getNombreAula(horario.aula_id)}
-                            </div>
-                            <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 flex gap-1">
-                              <button
-                                className="text-blue-500 hover:text-blue-700"
-                                onClick={() => {
-                                  setFormAsignacion({
-                                    horario_id: horario.horario_id,
-                                    dia_semana_id: horario.dia_semana_id,
-                                    curso_id: horario.curso_id,
-                                    profesor_id: horario.profesor_id,
-                                    aula_id: horario.aula_id,
-                                    gestion_id: horario.gestion_id,
-                                    hora_id: horario.hora_id,
-                                  });
-                                  setModalAsignacionOpen(true);
-                                }}
-                              >
-                                <EditIcon />
-                              </button>
-                              <button
-                                className="text-red-500 hover:text-red-700"
-                                onClick={() =>
-                                  eliminarAsignacion(horario.horario_id)
-                                }
-                              >
-                                <DeleteIcon />
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <button
-                            className="w-full h-full p-3 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg border border-dashed border-gray-300 flex items-center justify-center"
-                            onClick={() => {
-                              setFormAsignacion({
-                                horario_id: "",
-                                dia_semana_id: dia.dias_semana_id,
-                                curso_id: "",
-                                profesor_id: "",
-                                aula_id:
-                                  aulas.length > 0 ? aulas[0].aula_id : "",
-                                gestion_id: gestionSeleccionada,
-                                hora_id: hora.hora_id,
-                              });
-                              setModalAsignacionOpen(true);
-                            }}
-                          >
-                            + Asignar curso
-                          </button>
-                        )}
-                      </td>
-                    );
-                  })}
+                  <td className="border px-4 py-2 text-black">
+                    {horario.dias}
+                  </td>
+                  <td className="border px-4 py-2 text-black">
+                    <button
+                      onClick={() => handleEditarHorario(index)}
+                      className="text-blue-600 hover:underline text-sm mr-4"
+                    >
+                      Editar
+                    </button>
+                    <button
+                      onClick={() => handleEliminarHorario(index)}
+                      className="text-red-600 hover:underline text-sm"
+                    >
+                      Eliminar
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-      )}
+      ) : null}
 
-      {/* Modal para asignar/editar horario */}
-      {modalAsignacionOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
-            <div className="p-6">
-              <h2 className="text-xl font-semibold mb-4">
-                {formAsignacion.horario_id
-                  ? "Editar Asignación"
-                  : "Asignar Horario"}
-              </h2>
+      {/* Tabla asignaciones – incluir id para PDF */}
+      {horarios.length > 0 ? (
+        <>
+          <h3 className="text-xl font-semibold mt-8 mb-4">
+            Asignaciones para {tabActivo} - {year} Semestre {semestre}
+          </h3>
+          <div className="overflow-x-auto" id="tabla-horarios-print">
+            <table className="min-w-full border text-center">
+              <thead className="bg-gray-100">
+                <tr>
+                  <th className="border px-4 py-2 text-black">Hora</th>
+                  <th className="border px-4 py-2 text-black">Aula</th>
+                  {diasHorarios.map((dia) => (
+                    <th key={dia} className="border px-4 py-2 text-black">
+                      {dia}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {horarios.map((horario) =>
+                  aulasConNombres.map((aula) => (
+                    <tr key={`${horario.horaInicio}-${aula}`}>
+                      <td className="border px-4 py-2 text-black">{`${horario.horaInicio} - ${horario.horaFin}`}</td>
+                      <td className="border px-4 py-2 text-black">{aula}</td>
+                      {diasHorarios.map((dia) => {
+                        const asignacion = asignaciones.find(
+                          (a) =>
+                            a.sucursal === tabActivo &&
+                            a.dia === dia &&
+                            a.hora === horario.horaInicio &&
+                            a.aula === aula
+                        );
 
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Sucursal
-                  </label>
-                  <select
-                    className="w-full border border-gray-300 rounded-md px-3 py-2"
-                    value={sucursalSeleccionada}
-                    disabled
-                  >
-                    {sucursales.map(
-                      (sucursal) =>
-                        sucursal.sucursal_id === sucursalSeleccionada && (
-                          <option
-                            key={sucursal.sucursal_id}
-                            value={sucursal.sucursal_id}
+                        return (
+                          <td
+                            key={dia}
+                            className="border px-4 py-2 text-black cursor-pointer hover:bg-blue-100"
+                            onClick={() =>
+                              openModalAsignacion(
+                                tabActivo,
+                                dia,
+                                horario.horaInicio,
+                                aula
+                              )
+                            }
+                            title={
+                              asignacion
+                                ? `Curso: ${asignacion.curso}\nFacilitador: ${asignacion.facilitador}`
+                                : "Asignar curso y facilitador"
+                            }
+                            style={{
+                              backgroundColor: asignacion
+                                ? obtenerColorCurso(asignacion.curso)
+                                : "transparent",
+                            }}
                           >
-                            {sucursal.nombre}
-                          </option>
-                        )
-                    )}
-                  </select>
-                </div>
+                            {asignacion ? (
+                              <>
+                                <div className="font-semibold">
+                                  {asignacion.curso}
+                                </div>
+                                <div className="text-sm text-gray-600">
+                                  {asignacion.facilitador}
+                                </div>
+                              </>
+                            ) : (
+                              <span className="text-gray-400">-</span>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </>
+      ) : null}
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Curso
-                  </label>
-                  <select
-                    className="w-full border border-gray-300 rounded-md px-3 py-2"
-                    value={formAsignacion.curso_id}
-                    onChange={(e) =>
-                      setFormAsignacion({
-                        ...formAsignacion,
-                        curso_id: e.target.value,
-                      })
-                    }
-                    required
-                  >
-                    <option value="">Seleccionar curso</option>
-                    {cursos.map((curso) => (
-                      <option key={curso.curso_id} value={curso.curso_id}>
-                        {curso.nombre}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+      {/* Modal agregar/editar horario */}
+      {modalHorarioOpen && (
+        <div
+          className="fixed inset-0 bg-black/25 flex items-center justify-center z-50 p-4"
+          onClick={() => setModalHorarioOpen(false)}
+        >
+          <div
+            className="bg-white rounded-lg shadow-lg max-w-md w-full p-6"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modalHorarioTitle"
+          >
+            <h5
+              id="modalHorarioTitle"
+              className="text-xl font-semibold mb-4 text-black"
+            >
+              {editIndexHorario !== null ? "Editar Horario" : "Agregar Horario"}
+            </h5>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Facilitador
-                  </label>
-                  <select
-                    className="w-full border border-gray-300 rounded-md px-3 py-2"
-                    value={formAsignacion.profesor_id}
-                    onChange={(e) =>
-                      setFormAsignacion({
-                        ...formAsignacion,
-                        profesor_id: e.target.value,
-                      })
-                    }
-                    required
-                  >
-                    <option value="">Seleccionar facilitador</option>
-                    {facilitadores.map((facilitador) => (
-                      <option
-                        key={facilitador.usuario_id}
-                        value={facilitador.usuario_id}
-                      >
-                        {facilitador.nombre}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Aula
-                  </label>
-                  <select
-                    className="w-full border border-gray-300 rounded-md px-3 py-2"
-                    value={formAsignacion.aula_id}
-                    onChange={(e) =>
-                      setFormAsignacion({
-                        ...formAsignacion,
-                        aula_id: e.target.value,
-                      })
-                    }
-                    required
-                  >
-                    <option value="">Seleccionar aula</option>
-                    {aulas.map((aula) => (
-                      <option key={aula.aula_id} value={aula.aula_id}>
-                        {aula.nombre} ({aula.tipo})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Día
-                    </label>
-                    <select
-                      className="w-full border border-gray-300 rounded-md px-3 py-2"
-                      value={formAsignacion.dia_semana_id}
-                      onChange={(e) =>
-                        setFormAsignacion({
-                          ...formAsignacion,
-                          dia_semana_id: e.target.value,
-                        })
-                      }
-                      required
-                      disabled={!!formAsignacion.horario_id}
-                    >
-                      <option value="">Seleccionar día</option>
-                      {diasSemana.map((dia) => (
-                        <option
-                          key={dia.dias_semana_id}
-                          value={dia.dias_semana_id}
-                        >
-                          {dia.dia_semana}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Hora
-                    </label>
-                    <select
-                      className="w-full border border-gray-300 rounded-md px-3 py-2"
-                      value={formAsignacion.hora_id}
-                      onChange={(e) =>
-                        setFormAsignacion({
-                          ...formAsignacion,
-                          hora_id: e.target.value,
-                        })
-                      }
-                      required
-                      disabled={!!formAsignacion.horario_id}
-                    >
-                      <option value="">Seleccionar hora</option>
-                      {horas.map((hora) => (
-                        <option key={hora.hora_id} value={hora.hora_id}>
-                          {formatHora(hora.hora_inicio)} -{" "}
-                          {formatHora(hora.hora_fin)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-3 mt-6">
-                <button
-                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-                  onClick={() => setModalAsignacionOpen(false)}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label
+                  className="block text-sm text-gray-700 mb-1"
+                  htmlFor="horaInicio"
                 >
-                  Cancelar
-                </button>
-                <button
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                  onClick={asignarCurso}
-                >
-                  Guardar
-                </button>
+                  Hora inicio
+                </label>
+                <input
+                  id="horaInicio"
+                  type="time"
+                  value={horaInicio}
+                  onChange={(e) => setHoraInicio(e.target.value)}
+                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+                  required
+                />
               </div>
+              <div>
+                <label
+                  className="block text-sm text-gray-700 mb-1"
+                  htmlFor="horaFin"
+                >
+                  Hora fin
+                </label>
+                <input
+                  id="horaFin"
+                  type="time"
+                  value={horaFin}
+                  onChange={(e) => setHoraFin(e.target.value)}
+                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <label className="block text-sm text-gray-700 mb-1">
+                Días aplicables
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {diasAbrev.map((dia) => {
+                  const seleccionado = diasSeleccionados.includes(dia);
+                  return (
+                    <button
+                      key={dia}
+                      type="button"
+                      onClick={() => toggleDia(dia)}
+                      className={`w-10 h-10 rounded-full border text-sm font-semibold 
+                        ${
+                          seleccionado
+                            ? "bg-blue-600 text-white"
+                            : "bg-gray-200 text-gray-700"
+                        } 
+                        hover:bg-blue-500 hover:text-white transition`}
+                      aria-pressed={seleccionado}
+                      aria-label={`Día ${dia}`}
+                    >
+                      {dia}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {horarios.length === 0 && (
+              <p className="text-gray-600 mt-4">
+                No hay horarios agregados para {tabActivo}.
+              </p>
+            )}
+
+            <div className="mt-6 flex justify-end space-x-3">
+              <button
+                type="button"
+                className="bg-gray-300 text-gray-800 px-4 py-2 rounded hover:bg-gray-400"
+                onClick={() => setModalHorarioOpen(false)}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="bg-green-600 text-white px-5 py-2 rounded hover:bg-green-700"
+                onClick={handleAgregarHorario}
+              >
+                {editIndexHorario !== null
+                  ? "Actualizar Horario"
+                  : "Agregar Horario"}
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Modal para crear nueva hora */}
-      {modalHoraOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
-            <div className="p-6">
-              <h2 className="text-xl font-semibold mb-4">Nueva Hora</h2>
+      {/* Modal asignar curso y facilitador */}
+      {modalAsignacionOpen && (
+        <div
+          className="fixed inset-0 bg-black/25 flex items-center justify-center z-50 p-4"
+          onClick={() => setModalAsignacionOpen(false)}
+        >
+          <div
+            className="bg-white rounded-lg shadow-lg max-w-md w-full p-6"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modalAsignacionTitle"
+          >
+            <div className="flex justify-between items-center mb-4">
+              <h5
+                id="modalAsignacionTitle"
+                className="text-xl font-semibold text-black"
+              >
+                Asignar Curso y Facilitador
+              </h5>
+              <button
+                className="text-gray-600 hover:text-gray-900"
+                onClick={() => setModalAsignacionOpen(false)}
+                aria-label="Cerrar"
+              >
+                X
+              </button>
+            </div>
 
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Hora Inicio
-                  </label>
-                  <input
-                    type="time"
-                    className="w-full border border-gray-300 rounded-md px-3 py-2"
-                    value={formHora.hora_inicio}
-                    onChange={(e) =>
-                      setFormHora({
-                        ...formHora,
-                        hora_inicio: e.target.value,
-                      })
-                    }
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Hora Fin
-                  </label>
-                  <input
-                    type="time"
-                    className="w-full border border-gray-300 rounded-md px-3 py-2"
-                    value={formHora.hora_fin}
-                    onChange={(e) =>
-                      setFormHora({
-                        ...formHora,
-                        hora_fin: e.target.value,
-                      })
-                    }
-                    required
-                  />
-                </div>
+            <form
+              onSubmit={handleGuardarAsignacion}
+              className="space-y-4 text-black"
+            >
+              <div>
+                <label className="block font-semibold mb-1">Sucursal</label>
+                <input
+                  type="text"
+                  value={modalData.sucursal}
+                  readOnly
+                  className="w-full border rounded px-3 py-2 bg-gray-100 cursor-not-allowed"
+                />
               </div>
 
-              <div className="flex justify-end gap-3 mt-6">
-                <button
-                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-                  onClick={() => setModalHoraOpen(false)}
+              <div>
+                <label className="block font-semibold mb-1">Día</label>
+                <input
+                  type="text"
+                  value={modalData.dia}
+                  readOnly
+                  className="w-full border rounded px-3 py-2 bg-gray-100 cursor-not-allowed"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-1">Hora</label>
+                <input
+                  type="text"
+                  value={modalData.hora}
+                  readOnly
+                  className="w-full border rounded px-3 py-2 bg-gray-100 cursor-not-allowed"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-1">Aula</label>
+                <input
+                  type="text"
+                  value={modalData.aula}
+                  readOnly
+                  className="w-full border rounded px-3 py-2 bg-gray-100 cursor-not-allowed"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-1">Curso</label>
+                <select
+                  className="w-full border rounded px-3 py-2"
+                  value={modalData.curso}
+                  onChange={(e) =>
+                    setModalData((d) => ({ ...d, curso: e.target.value }))
+                  }
+                  required
                 >
-                  Cancelar
+                  <option value="">Seleccione un curso</option>
+                  {cursos.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-1">Facilitador</label>
+                <select
+                  className="w-full border rounded px-3 py-2"
+                  value={modalData.facilitador}
+                  onChange={(e) =>
+                    setModalData((d) => ({ ...d, facilitador: e.target.value }))
+                  }
+                  required
+                >
+                  <option value="">Seleccione un facilitador</option>
+                  {facilitadores.map((f) => (
+                    <option key={f} value={f}>
+                      {f}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex justify-end space-x-3 mt-4">
+                <button
+                  type="button"
+                  className="bg-gray-300 text-gray-800 px-4 py-2 rounded hover:bg-gray-700"
+                  onClick={() => {
+                    // Eliminar asignación si existe
+                    setAsignaciones((prev) =>
+                      prev.filter(
+                        (a) =>
+                          !(
+                            a.sucursal === modalData.sucursal &&
+                            a.dia === modalData.dia &&
+                            a.hora === modalData.hora &&
+                            a.aula === modalData.aula
+                          )
+                      )
+                    );
+                    guardarDatosSucursal(
+                      horarios,
+                      asignaciones.filter(
+                        (a) =>
+                          !(
+                            a.sucursal === modalData.sucursal &&
+                            a.dia === modalData.dia &&
+                            a.hora === modalData.hora &&
+                            a.aula === modalData.aula
+                          )
+                      )
+                    );
+                    setModalAsignacionOpen(false);
+                  }}
+                >
+                  Borrar
                 </button>
                 <button
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                  onClick={crearHora}
+                  type="submit"
+                  className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
                 >
                   Guardar
                 </button>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal para editar hora */}
-      {modalEditarHoraOpen && horaEditando && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
-            <div className="p-6">
-              <h2 className="text-xl font-semibold mb-4">Editar Hora</h2>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Hora Inicio
-                  </label>
-                  <input
-                    type="time"
-                    className="w-full border border-gray-300 rounded-md px-3 py-2"
-                    value={formHora.hora_inicio}
-                    onChange={(e) =>
-                      setFormHora({
-                        ...formHora,
-                        hora_inicio: e.target.value,
-                      })
-                    }
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Hora Fin
-                  </label>
-                  <input
-                    type="time"
-                    className="w-full border border-gray-300 rounded-md px-3 py-2"
-                    value={formHora.hora_fin}
-                    onChange={(e) =>
-                      setFormHora({
-                        ...formHora,
-                        hora_fin: e.target.value,
-                      })
-                    }
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-3 mt-6">
-                <button
-                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-                  onClick={() => setModalEditarHoraOpen(false)}
-                >
-                  Cancelar
-                </button>
-                <button
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                  onClick={editarHora}
-                >
-                  Guardar
-                </button>
-              </div>
-            </div>
+            </form>
           </div>
         </div>
       )}
