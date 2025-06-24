@@ -104,7 +104,7 @@ export default function ModalInscripcionAlumno({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black bg-opacity-40 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center">
       <div className="bg-white shadow-lg rounded-lg w-full max-w-3xl p-6 max-h-[90vh] overflow-y-auto">
         <button
           onClick={onClose}

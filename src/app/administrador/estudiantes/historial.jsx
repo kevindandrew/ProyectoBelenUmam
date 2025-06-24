@@ -47,7 +47,7 @@ export default function HistorialAcademicoModal({
   return (
     <>
       <div
-        className="fixed inset-0 bg-black bg-black/25 bg-opacity-50 z-40"
+        className="fixed inset-0  bg-black/25 bg-opacity-50 z-40"
         onClick={onClose}
       ></div>
       <div className="fixed inset-0 flex justify-center items-center z-50 p-4">
