@@ -10,6 +10,14 @@ import DeleteConfirmationModal from "./DeleteConfirmationModal";
 import Tesseract from "tesseract.js"; // si usas OCR local
 
 export default function EstudiantesPage() {
+  // Dentro de tu componente EstudiantesPage (arriba de los demás estados)
+  const [showOCRModal, setShowOCRModal] = useState(false);
+  const [ocrLoading, setOcrLoading] = useState(false);
+  const [ocrImages, setOcrImages] = useState({
+    anverso: null,
+    reverso: null,
+    tipo: "tipo1", // 'tipo1' o 'tipo2'
+  });
   const [estudiantes, setEstudiantes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -67,6 +75,158 @@ export default function EstudiantesPage() {
     ],
   });
 
+  // Función para extraer datos del anverso (Tipo 1 - Carnet Azul)
+  const procesarAnversoTipo1 = (texto) => {
+    const resultado = {};
+    texto = texto.replace(/\s{2,}/g, " ").replace(/\n+/g, "\n");
+
+    // CI con más patrones
+    const ciMatch =
+      texto.match(/N\s*[:\-]?\s*(\d{6,10})/) || texto.match(/(\d{7,10})$/);
+
+    // Apellidos mejorados (como en el código original)
+    const apellidosMatch = texto.match(/APELLIDOS\s*[\n:\-]*\s*([A-Z\s]+)/i);
+    console.log(apellidosMatch);
+
+    if (apellidosMatch) {
+      let apellidosLimpios = apellidosMatch[1]
+        .trim()
+        .split(/\s+/) // divide por espacios reales
+        .filter((p) => p.length > 1)
+        .slice(0, 2);
+
+      console.log(apellidosLimpios);
+
+      resultado.apellido_paterno = apellidosLimpios[0] || "No encontrado";
+      resultado.apellido_materno = apellidosLimpios[1] || "No encontrado";
+    } else {
+      resultado.apellido_paterno = "No encontrado";
+      resultado.apellido_materno = "No encontrado";
+    }
+
+    //nombres
+    const nombresMatch = texto.match(/NOMBRES\s*[\n:\-]*\s*([A-Z\s]+)/i);
+    if (nombresMatch) {
+      let nombres = nombresMatch[1].trim();
+      nombres = nombres.replace(/^[A-Z]\s+/, "").trim();
+      resultado.nombres = nombres;
+    } else {
+      resultado.nombres = "No encontrado";
+    }
+    // Fecha de nacimiento
+    const fechas = texto.match(/\d{2}\/\d{2}\/\d{4}/g);
+    resultado.fecha_nacimiento = fechas?.[0] || "No encontrada";
+    return {
+      ci: ciMatch?.[1] || "",
+      nombres: resultado.nombres,
+      ap_paterno: resultado.apellido_paterno,
+      ap_materno: resultado.apellido_materno,
+      fecha_nacimiento: texto.match(/\d{2}\/\d{2}\/\d{4}/)?.[0] || "",
+    };
+  };
+
+  // Función para extraer datos del reverso (Tipo 1)
+  const procesarReversoTipo1 = (texto) => {
+    texto = texto.replace(/[^\w\sÁÉÍÓÚÑáéíóú°\/\.\-\n]/g, "");
+    // Ocupación como en el código original
+    const ocupacionMatch = texto.match(
+      /OCUPACION[\s\S]*?\n?([A-ZÁÉÍÓÚÑ\s]{4,})\n?/i
+    );
+    const ocupacionBruta = ocupacionMatch ? ocupacionMatch[1].trim() : "";
+    const ocupacionesPosibles = ["ESTUDIANTE", "MÉDICO", "ABOGADO" /* ... */];
+    let ocupacionFinal = "No encontrado";
+    for (let palabra of ocupacionesPosibles) {
+      if (ocupacionBruta.includes(palabra)) {
+        ocupacionFinal = palabra;
+        break;
+      }
+    }
+    return {
+      direccion:
+        texto.match(/DOMICILIO[\s\/:\-]*\n?.*?(AV\.[^\n]+)/i)?.[1]?.trim() ||
+        "",
+      estado_civil:
+        texto.match(/ESTADO\s*CIVIL\s*\n?([A-ZÁÉÍÓÚÑ]+)/i)?.[1] || "SOLTERO",
+      ocupacion: ocupacionFinal,
+    };
+  };
+
+  // Función unificada para procesar imágenes
+  const procesarCarnet = async () => {
+    if (!ocrImages.anverso || !ocrImages.reverso) {
+      alert("Sube ambas imágenes del carnet");
+      return;
+    }
+
+    setOcrLoading(true);
+
+    try {
+      const [anversoResult, reversoResult] = await Promise.all([
+        Tesseract.recognize(ocrImages.anverso, "eng"),
+        Tesseract.recognize(ocrImages.reverso, "eng"),
+      ]);
+      /* console.log("Texto anverso crudo:", anversoResult.data.text);
+      console.log("Texto reverso crudo:", reversoResult.data.text); */
+      const textoLimpio1anverso = anversoResult.data.text
+        .replace(/[^\w\sÁÉÍÓÚÑáéíóú°\/\.\-\n]/g, "")
+        .replace(/\s{2,}/g, " ")
+        .trim();
+      const textoLimpio1reverso = reversoResult.data.text
+        .replace(/[^\w\sÁÉÍÓÚÑáéíóú°\/\.\-\n]/g, "")
+        .replace(/\s{2,}/g, " ")
+        .trim();
+
+      const datosAnverso =
+        ocrImages.tipo === "tipo1"
+          ? procesarAnversoTipo1(textoLimpio1anverso)
+          : procesarAnversoTipo2(textoLimpio1anverso); // Crea esta función si necesitas otro formato
+
+      const datosReverso =
+        ocrImages.tipo === "tipo1"
+          ? procesarReversoTipo1(textoLimpio1reverso)
+          : procesarReversoTipo2(textoLimpio1reverso);
+
+      // Actualiza automáticamente el formulario
+      setNewEstudiante((prev) => ({
+        ...prev,
+        ci: datosAnverso.ci,
+        nombres: datosAnverso.nombres,
+        ap_paterno: datosAnverso.ap_paterno,
+        ap_materno: datosAnverso.ap_materno || "", // Algunos carnets no lo incluyen
+        fecha_nacimiento: datosAnverso.fecha_nacimiento.replace(/\//g, "-"),
+        direccion: datosReverso.direccion,
+        estado_civil: datosReverso.estado_civil,
+      }));
+      // Muestra feedback de qué campos se encontraron
+      const camposExtraidos = [
+        datosAnverso.ci && "CI",
+        datosAnverso.nombres && "Nombres",
+        datosAnverso.ap_paterno && "Apellido Paterno",
+        datosAnverso.ap_materno && "Apellido Materno",
+        datosAnverso.fecha_nacimiento && "Fecha Nacimiento",
+        datosReverso.direccion && "Dirección",
+        datosReverso.estado_civil && "Estado Civil",
+      ]
+        .filter(Boolean)
+        .join(", ");
+
+      console.log(
+        datosAnverso.nombres,
+        datosAnverso.ap_paterno,
+        datosAnverso.ap_materno,
+        datosAnverso.fecha_nacimiento,
+        datosReverso.direccion,
+        datosReverso.estado_civil
+      );
+      setShowOCRModal(false);
+    } catch (error) {
+      console.error("Error en OCR:", error);
+      alert("Error al leer el carnet. Sube una foto más clara");
+    } finally {
+      setOcrLoading(false);
+    }
+  };
+
   // Cargar estudiantes al montar el componente
   useEffect(() => {
     const fetchEstudiantes = async () => {
@@ -117,12 +277,12 @@ export default function EstudiantesPage() {
       ap_materno: "",
       nombres: "",
       ci: "",
-      como_se_entero: "Facebook",
+      como_se_entero: "",
       direccion: "",
-      estado_civil: "SOLTERO",
+      estado_civil: "",
       fecha_nacimiento: "",
-      genero: "MASCULINO",
-      lugar_nacimiento: "Cochabamba",
+      genero: "",
+      lugar_nacimiento: "",
       telefono: "",
       datos_academicos: [
         {
@@ -139,9 +299,9 @@ export default function EstudiantesPage() {
           direccion: "",
           nombres: "",
           parentesco: "",
-          relacion: "BUENA",
+          relacion: "",
           telefono: "",
-          tipo: "referencia",
+          tipo: "",
         },
       ],
       datos_medicos: [
@@ -436,7 +596,6 @@ export default function EstudiantesPage() {
       <h1 className="text-3xl font-bold text-[#13678A] border-b pb-2 mb-6">
         ESTUDIANTES
       </h1>
-
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-4">
         <div className="flex items-center gap-2">
           <label htmlFor="registros" className="text-sm text-gray-900">
@@ -467,7 +626,7 @@ export default function EstudiantesPage() {
           />
         </div>
         {/* OCR Buttons start */}
-        <div className="flex gap-2">
+        {/* <div className="flex gap-2">
           <input
             type="file"
             accept="image/*"
@@ -495,7 +654,7 @@ export default function EstudiantesPage() {
           >
             Subir Carnet Reverso
           </label>
-        </div>
+        </div> */}
         {/* OCR Buttons end */}
         <button
           className="bg-teal-500 text-white px-4 py-2 rounded text-sm hover:bg-teal-600 self-start sm:self-auto"
@@ -508,7 +667,6 @@ export default function EstudiantesPage() {
           + Nuevo Estudiante
         </button>
       </div>
-
       <EstudiantesTable
         estudiantes={filteredEstudiantes}
         loading={loading}
@@ -518,7 +676,6 @@ export default function EstudiantesPage() {
         onEdit={openEditForm}
         onDelete={(estudiante) => openDeleteModal(estudiante)}
       />
-
       <div className="flex justify-end items-center gap-4 mt-4">
         <button className="text-sm text-gray-500 hover:text-black">
           Anterior
@@ -527,7 +684,6 @@ export default function EstudiantesPage() {
           Siguiente
         </button>
       </div>
-
       {/* Modales */}
       {isHistorialOpen && (
         <HistorialAcademicoModal
@@ -539,7 +695,6 @@ export default function EstudiantesPage() {
           }}
         />
       )}
-
       {isInscripcionOpen && (
         <ModalInscripcionAlumno
           estudiante={estudianteSeleccionado}
@@ -550,7 +705,6 @@ export default function EstudiantesPage() {
           }}
         />
       )}
-
       {showForm && (
         <EstudianteForm
           estudiante={newEstudiante}
@@ -564,9 +718,9 @@ export default function EstudiantesPage() {
             resetForm();
           }}
           isSubmitting={isSubmitting}
+          onOpenOCR={() => setShowOCRModal(true)} // ← Nueva prop
         />
       )}
-
       {showDeleteModal && estudianteToDelete && (
         <DeleteConfirmationModal
           estudiante={estudianteToDelete}
@@ -579,6 +733,89 @@ export default function EstudiantesPage() {
         />
       )}
       {/* Nuevos modales - AÑADIR JUSTO AQUÍ */}
+
+      {showOCRModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg max-w-md w-full">
+            <h2 className="text-xl font-bold mb-4">Escanear Carnet</h2>
+
+            <select
+              value={ocrImages.tipo}
+              onChange={(e) =>
+                setOcrImages((prev) => ({ ...prev, tipo: e.target.value }))
+              }
+              className="mb-4 p-2 border rounded w-full"
+            >
+              <option value="tipo1">Carnet Tipo 1 (Azul)</option>
+              <option value="tipo2">Carnet Tipo 2 (Amarillo)</option>
+            </select>
+
+            <div className="space-y-4 mb-4">
+              <div>
+                <label className="block mb-2">Anverso:</label>
+                <input
+                  type="file"
+                  onChange={(e) =>
+                    setOcrImages((prev) => ({
+                      ...prev,
+                      anverso: e.target.files[0],
+                    }))
+                  }
+                  className="w-full"
+                />
+                {ocrImages.anverso && (
+                  <img
+                    src={URL.createObjectURL(ocrImages.anverso)}
+                    className="mt-2 max-h-40 rounded border"
+                    alt="Previsualización anverso"
+                  />
+                )}
+              </div>
+
+              <div>
+                <label className="block mb-2">Reverso:</label>
+                <input
+                  type="file"
+                  onChange={(e) =>
+                    setOcrImages((prev) => ({
+                      ...prev,
+                      reverso: e.target.files[0],
+                    }))
+                  }
+                  className="w-full"
+                />
+                {ocrImages.reverso && (
+                  <img
+                    src={URL.createObjectURL(ocrImages.reverso)}
+                    className="mt-2 max-h-40 rounded border"
+                    alt="Previsualización reverso"
+                  />
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowOCRModal(false)}
+                className="bg-gray-300 px-4 py-2 rounded"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={procesarCarnet}
+                disabled={
+                  ocrLoading || !ocrImages.anverso || !ocrImages.reverso
+                }
+                className={`bg-blue-600 text-white px-4 py-2 rounded ${
+                  ocrLoading ? "opacity-50 cursor-not-allowed" : ""
+                }`}
+              >
+                {ocrLoading ? "Procesando..." : "Extraer Datos"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

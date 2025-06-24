@@ -11,6 +11,7 @@ export default function EstudianteForm({
   onRemoveArrayItem,
   onClose,
   isSubmitting,
+  onOpenOCR,
 }) {
   return (
     <>
@@ -406,6 +407,13 @@ export default function EstudianteForm({
         </div>
 
         <div className="flex justify-end gap-4 mt-6">
+          <button
+            type="button"
+            onClick={onOpenOCR}
+            className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+          >
+            Escanear Carnet
+          </button>
           <button
             type="button"
             onClick={onClose}
