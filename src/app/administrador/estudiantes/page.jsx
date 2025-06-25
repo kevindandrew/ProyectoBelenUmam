@@ -75,6 +75,40 @@ export default function EstudiantesPage() {
     ],
   });
 
+  function formatearFecha(fechaStr) {
+    if (!fechaStr || fechaStr === "No encontrada") return "No encontrada";
+
+    // Map con meses en español a número
+    const meses = {
+      enero: "01",
+      febrero: "02",
+      marzo: "03",
+      abril: "04",
+      mayo: "05",
+      junio: "06",
+      julio: "07",
+      agosto: "08",
+      septiembre: "09",
+      octubre: "10",
+      noviembre: "11",
+      diciembre: "12",
+    };
+
+    // Extraer día, mes y año
+    const regex = /(\d{1,2})\s+de\s+([a-zA-Z]+)\s+de\s+(\d{4})/i;
+    const match = fechaStr.match(regex);
+
+    if (!match) return "No encontrada";
+
+    const dia = match[1].padStart(2, "0");
+    const mes = meses[match[2].toLowerCase()] || "00";
+    const anio = match[3];
+
+    if (mes === "00") return "No encontrada";
+
+    return `${anio}-${mes}-${dia}`;
+  }
+
   // Función para extraer datos del anverso (Tipo 1 - Carnet Azul)
   const procesarAnversoTipo1 = (texto) => {
     const resultado = {};
@@ -151,6 +185,162 @@ export default function EstudiantesPage() {
       ocupacion: ocupacionFinal,
     };
   };
+  // Función para extraer datos del anverso (Tipo 2 - Carnet Amarillo)
+  const procesarAnversoTipo2 = (texto) => {
+    const cleanedText = texto
+      .replace(/[^\w\sÁÉÍÓÚÑáéíóú°\/\.\-\n]/g, "")
+      .trim();
+
+    const ciMatch = cleanedText.match(
+      /(No\.|N°|Numero|Número)\s*([0-9]{6,8})/i
+    );
+
+    const fallbackMatch = cleanedText.match(/\b\d{6,8}\b/g);
+    const probableCi = fallbackMatch?.reduce(
+      (a, b) => (b.length > a.length ? b : a),
+      ""
+    );
+
+    return {
+      ci: ciMatch?.[2] || probableCi || "",
+    };
+  };
+  // Función para extraer datos del reverso (Tipo 2)
+  const procesarReversoTipo2 = (texto) => {
+    const resultado = {};
+    texto = texto.replace(/\s{2,}/g, " ").replace(/\n+/g, "\n");
+    console.log("Texto reverso para domicilio:", texto);
+    // 🔍 Extraer nombre completo robusto
+    const nombreMatch = texto.match(/A\s+([A-ZÁÉÍÓÚÑ\s]{10,})/);
+    const nombreCompleto = nombreMatch
+      ? nombreMatch[1].replace(/\s+/g, " ").trim()
+      : "No encontrado";
+
+    const partes = separarNombreCompletoDefinitivo(nombreCompleto);
+
+    resultado.nombres = partes.nombres;
+    resultado.apellido_paterno = partes.apellidoPaterno;
+    resultado.apellido_materno = partes.apellidoMaterno;
+
+    // 📅 Fecha de nacimiento (variante robusta con fallback)
+    const fechaMatch =
+      texto.match(
+        /(Nacido el|Nacido|Nac\.)\s*(\d{1,2}\s+de\s+[A-Za-z]+\s+de\s+\d{4})/i
+      ) || texto.match(/\d{2}\/\d{2}\/\d{4}/);
+
+    resultado.fecha_nacimiento =
+      fechaMatch?.[2] || fechaMatch?.[0] || "No encontrada";
+
+    // ❤️ Estado civil más robusto
+    const estadoCivilMatch = texto.match(
+      /ESTADO\s*CIVIL[:\-\n\s]*([A-ZÁÉÍÓÚÑ]+)/i
+    );
+    let estadoCivilRaw = estadoCivilMatch
+      ? estadoCivilMatch[1].trim().toUpperCase()
+      : "NO ENCONTRADO";
+
+    const estadoCivilMap = {
+      SOLTERA: "SOLTERO",
+      SOLTERO: "SOLTERO",
+      CASADA: "CASADO",
+      CASADO: "CASADO",
+      // agrega más equivalencias si quieres
+    };
+
+    resultado.estado_civil = estadoCivilMap[estadoCivilRaw] || estadoCivilRaw;
+    // 🏠 Dirección (más tolerante con OCR)
+    const domicilioLineMatch = texto.match(
+      /DOMICILI[A-Z]?\s*[:\-]?\s*([^\n]+)/i
+    );
+    const direccion = domicilioLineMatch
+      ? domicilioLineMatch[1].trim()
+      : "No encontrado";
+
+    resultado.direccion = direccion;
+    resultado.domicilio = direccion; // Añadirlo también como "domicilio"
+    console.log(resultado);
+    return resultado;
+  };
+
+  // Función auxiliar para separar nombres y apellidos (específica para formato tipo 2)
+  const separarNombreCompletoTipo2 = (nombreCompleto) => {
+    if (!nombreCompleto || nombreCompleto === "No encontrado") {
+      return {
+        nombres: "No identificado",
+        apellidoPaterno: "No identificado",
+        apellidoMaterno: "No identificado",
+      };
+    }
+
+    const partes = nombreCompleto.split(/\s+/).filter((p) => p.length > 1);
+
+    // Caso típico: 2 nombres + 2 apellidos
+    if (partes.length >= 4) {
+      return {
+        nombres: partes.slice(0, 2).join(" "),
+        apellidoPaterno: partes[2],
+        apellidoMaterno: partes[3],
+      };
+    }
+    // Caso con 1 nombre + 2 apellidos
+    else if (partes.length === 3) {
+      return {
+        nombres: partes[0],
+        apellidoPaterno: partes[1],
+        apellidoMaterno: partes[2],
+      };
+    }
+    // Caso con solo 2 partes (1 nombre + 1 apellido)
+    else if (partes.length === 2) {
+      return {
+        nombres: partes[0],
+        apellidoPaterno: partes[1],
+        apellidoMaterno: "No identificado",
+      };
+    }
+    // Caso de error
+    return {
+      nombres: nombreCompleto,
+      apellidoPaterno: "No identificado",
+      apellidoMaterno: "No identificado",
+    };
+  };
+  const separarNombreCompletoDefinitivo = (nombreCompleto) => {
+    if (!nombreCompleto || nombreCompleto === "No encontrado") {
+      return {
+        nombres: "No identificado",
+        apellidoPaterno: "No identificado",
+        apellidoMaterno: "No identificado",
+      };
+    }
+
+    const partes = nombreCompleto.split(/\s+/).filter((p) => p.length > 1);
+
+    if (partes.length >= 4) {
+      return {
+        nombres: partes.slice(0, 2).join(" "),
+        apellidoPaterno: partes[2],
+        apellidoMaterno: partes[3],
+      };
+    } else if (partes.length === 3) {
+      return {
+        nombres: partes[0],
+        apellidoPaterno: partes[1],
+        apellidoMaterno: partes[2],
+      };
+    } else if (partes.length === 2) {
+      return {
+        nombres: partes[0],
+        apellidoPaterno: partes[1],
+        apellidoMaterno: "No identificado",
+      };
+    }
+    return {
+      nombres: nombreCompleto,
+      apellidoPaterno: "No identificado",
+      apellidoMaterno: "No identificado",
+    };
+  };
 
   // Función unificada para procesar imágenes
   const procesarCarnet = async () => {
@@ -166,71 +356,91 @@ export default function EstudiantesPage() {
         Tesseract.recognize(ocrImages.anverso, "eng"),
         Tesseract.recognize(ocrImages.reverso, "eng"),
       ]);
-      /* console.log("Texto anverso crudo:", anversoResult.data.text);
-      console.log("Texto reverso crudo:", reversoResult.data.text); */
+
       const textoLimpio1anverso = anversoResult.data.text
         .replace(/[^\w\sÁÉÍÓÚÑáéíóú°\/\.\-\n]/g, "")
         .replace(/\s{2,}/g, " ")
         .trim();
+
       const textoLimpio1reverso = reversoResult.data.text
         .replace(/[^\w\sÁÉÍÓÚÑáéíóú°\/\.\-\n]/g, "")
         .replace(/\s{2,}/g, " ")
         .trim();
 
+      const tipo = ocrImages.tipo;
+
+      // Procesar datos según tipo
       const datosAnverso =
-        ocrImages.tipo === "tipo1"
+        tipo === "tipo1"
           ? procesarAnversoTipo1(textoLimpio1anverso)
-          : procesarAnversoTipo2(textoLimpio1anverso); // Crea esta función si necesitas otro formato
+          : procesarAnversoTipo2(textoLimpio1anverso);
 
       const datosReverso =
-        ocrImages.tipo === "tipo1"
+        tipo === "tipo1"
           ? procesarReversoTipo1(textoLimpio1reverso)
           : procesarReversoTipo2(textoLimpio1reverso);
-      console.log(datosAnverso.fecha_nacimiento);
-      // Convertir fecha de DD/MM/YYYY a YYYY-MM-DD
-      const fechaNacimiento = datosAnverso.fecha_nacimiento;
+
+      // Determinar fecha
+      const fechaNacimiento =
+        datosAnverso.fecha_nacimiento || datosReverso.fecha_nacimiento;
       let fechaFormateada = "No encontrada";
 
-      if (fechaNacimiento && fechaNacimiento.includes("/")) {
-        const [day, month, year] = fechaNacimiento.split("/");
-        fechaFormateada = `${year}-${month.padStart(2, "0")}-${day.padStart(
-          2,
-          "0"
-        )}`;
+      if (fechaNacimiento) {
+        if (fechaNacimiento.includes("de")) {
+          fechaFormateada = formatearFecha(fechaNacimiento);
+        } else if (fechaNacimiento.includes("/")) {
+          const [day, month, year] = fechaNacimiento.split("/");
+          fechaFormateada = `${year}-${month.padStart(2, "0")}-${day.padStart(
+            2,
+            "0"
+          )}`;
+        }
       }
 
-      // Actualiza automáticamente el formulario
+      // Extraer nombres y apellidos dependiendo del tipo
+      let nombres = "";
+      let ap_paterno = "";
+      let ap_materno = "";
+
+      if (tipo === "tipo1") {
+        nombres = datosAnverso.nombres || "";
+        ap_paterno =
+          datosAnverso.ap_paterno || datosAnverso.apellido_paterno || "";
+        ap_materno =
+          datosAnverso.ap_materno || datosAnverso.apellido_materno || "";
+      } else if (tipo === "tipo2") {
+        nombres = datosReverso.nombres || "";
+        ap_paterno = datosReverso.apellido_paterno || "";
+        ap_materno = datosReverso.apellido_materno || "";
+      }
+
+      const direccion = datosReverso.direccion || datosReverso.domicilio || "";
+      const estado_civil = datosReverso.estado_civil || "SOLTERO";
+
       setNewEstudiante((prev) => ({
         ...prev,
-        ci: datosAnverso.ci,
-        nombres: datosAnverso.nombres,
-        ap_paterno: datosAnverso.ap_paterno,
-        ap_materno: datosAnverso.ap_materno || "", // Algunos carnets no lo incluyen
+        ci: datosAnverso.ci || "",
+        nombres,
+        ap_paterno,
+        ap_materno,
         fecha_nacimiento: fechaFormateada,
-        direccion: datosReverso.direccion,
-        estado_civil: datosReverso.estado_civil,
+        direccion,
+        estado_civil,
       }));
-      // Muestra feedback de qué campos se encontraron
+
       const camposExtraidos = [
         datosAnverso.ci && "CI",
-        datosAnverso.nombres && "Nombres",
-        datosAnverso.ap_paterno && "Apellido Paterno",
-        datosAnverso.ap_materno && "Apellido Materno",
-        datosAnverso.fecha_nacimiento && "Fecha Nacimiento",
-        datosReverso.direccion && "Dirección",
-        datosReverso.estado_civil && "Estado Civil",
+        nombres && "Nombres",
+        ap_paterno && "Apellido Paterno",
+        ap_materno && "Apellido Materno",
+        fechaNacimiento && "Fecha Nacimiento",
+        direccion && "Dirección",
+        estado_civil && "Estado Civil",
       ]
         .filter(Boolean)
         .join(", ");
 
-      console.log(
-        datosAnverso.nombres,
-        datosAnverso.ap_paterno,
-        datosAnverso.ap_materno,
-        datosAnverso.fecha_nacimiento,
-        datosReverso.direccion,
-        datosReverso.estado_civil
-      );
+      console.log("Campos extraídos:", camposExtraidos);
       setShowOCRModal(false);
     } catch (error) {
       console.error("Error en OCR:", error);
