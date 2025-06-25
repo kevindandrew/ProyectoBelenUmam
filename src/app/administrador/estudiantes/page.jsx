@@ -116,12 +116,13 @@ export default function EstudiantesPage() {
     // Fecha de nacimiento
     const fechas = texto.match(/\d{2}\/\d{2}\/\d{4}/g);
     resultado.fecha_nacimiento = fechas?.[0] || "No encontrada";
+    console.log("Fecha de nacimiento:", resultado.fecha_nacimiento);
     return {
       ci: ciMatch?.[1] || "",
       nombres: resultado.nombres,
       ap_paterno: resultado.apellido_paterno,
       ap_materno: resultado.apellido_materno,
-      fecha_nacimiento: texto.match(/\d{2}\/\d{2}\/\d{4}/)?.[0] || "",
+      fecha_nacimiento: resultado.fecha_nacimiento,
     };
   };
 
@@ -185,6 +186,18 @@ export default function EstudiantesPage() {
         ocrImages.tipo === "tipo1"
           ? procesarReversoTipo1(textoLimpio1reverso)
           : procesarReversoTipo2(textoLimpio1reverso);
+      console.log(datosAnverso.fecha_nacimiento);
+      // Convertir fecha de DD/MM/YYYY a YYYY-MM-DD
+      const fechaNacimiento = datosAnverso.fecha_nacimiento;
+      let fechaFormateada = "No encontrada";
+
+      if (fechaNacimiento && fechaNacimiento.includes("/")) {
+        const [day, month, year] = fechaNacimiento.split("/");
+        fechaFormateada = `${year}-${month.padStart(2, "0")}-${day.padStart(
+          2,
+          "0"
+        )}`;
+      }
 
       // Actualiza automáticamente el formulario
       setNewEstudiante((prev) => ({
@@ -193,7 +206,7 @@ export default function EstudiantesPage() {
         nombres: datosAnverso.nombres,
         ap_paterno: datosAnverso.ap_paterno,
         ap_materno: datosAnverso.ap_materno || "", // Algunos carnets no lo incluyen
-        fecha_nacimiento: datosAnverso.fecha_nacimiento.replace(/\//g, "-"),
+        fecha_nacimiento: fechaFormateada,
         direccion: datosReverso.direccion,
         estado_civil: datosReverso.estado_civil,
       }));
