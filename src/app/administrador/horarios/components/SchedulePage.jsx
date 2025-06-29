@@ -301,6 +301,43 @@ const SchedulePage = () => {
       </button>
     ));
   };
+  const submitNewGestion = async ({ year, year_id, semester }) => {
+    setIsSubmitting(true);
+    setSubmitError(null);
+    try {
+      await fetchWithAuth("https://api-umam-1.onrender.com/cursos/gestion", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          year_id,
+          gestion: `${year} - ${semester === "1" ? "I" : "II"}`,
+          semester: parseInt(semester),
+          activo: true,
+        }),
+      });
+
+      // Recargar gestiones después de crear la nueva
+      const data = await fetchWithAuth(
+        "https://api-umam-1.onrender.com/cursos/gestiones"
+      );
+      const gestionesFormatted = data.map((g) => ({
+        value: g.gestion_id.toString(),
+        label: g.gestion,
+        rawData: g,
+      }));
+      setGestiones(gestionesFormatted);
+      setSelectedGestion(gestionesFormatted[0]);
+
+      setIsGestionModalOpen(false);
+    } catch (error) {
+      console.error("Error creando gestión:", error);
+      setSubmitError("Error al crear la gestión");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
   console.log(courses);
 
   return (
@@ -423,7 +460,7 @@ const SchedulePage = () => {
           onClose={() => !isSubmitting && setIsGestionModalOpen(false)}
         >
           <GestionForm
-            onSubmit={() => {}}
+            onSubmit={submitNewGestion}
             onCancel={() => !isSubmitting && setIsGestionModalOpen(false)}
             isLoading={isSubmitting}
             error={submitError}
