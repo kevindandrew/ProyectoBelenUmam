@@ -8,60 +8,50 @@ const CourseForm = ({
   timeSlots,
   days,
   availableClassrooms,
-  availableSubjects = [], // Valor por defecto para evitar errores
-  availableProfessors = [], // Valor por defecto
+  availableSubjects = [],
+  availableProfessors = [],
 }) => {
-  // Estado del formulario
+  // Estado del formulario con IDs en lugar de nombres para materia y profesor
   const [formData, setFormData] = useState({
-    subject: "",
-    professor: "",
+    curso_id: initialData?.curso_id || "",
+    profesor_id: initialData?.profesor_id || "",
     classroom:
       initialData?.classroom?.value || availableClassrooms[0]?.value || "",
     time: initialData?.time || timeSlots[0]?.label || timeSlots[0],
-    day: initialData?.day || days[0]?.name || days[0],
-    curso_id: initialData?.curso_id || "",
-    profesor_id: initialData?.profesor_id || "",
+    day: initialData?.day || days[0]?.id || "",
   });
 
-  // Efecto para actualizar datos iniciales
+  // Actualiza el estado si cambia initialData
   useEffect(() => {
     if (initialData) {
       setFormData((prev) => ({
         ...prev,
         ...initialData,
-        classroom: initialData.classroom?.value || prev.classroom,
-        time: initialData.time || prev.time,
-        day: initialData.day || prev.day,
+        curso_id: initialData?.curso_id || prev.curso_id,
+        profesor_id: initialData?.profesor_id || prev.profesor_id,
+        classroom: initialData?.classroom?.value || prev.classroom,
+        time: initialData?.time || prev.time,
+        day: initialData?.day || prev.day,
       }));
     }
   }, [initialData]);
 
-  // Manejar envío del formulario
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (formData.subject && formData.professor && formData.classroom) {
-      // Encontrar IDs correspondientes para curso y profesor
-      const cursoSeleccionado = availableSubjects.find(
-        (subj) => subj.nombre_curso === formData.subject
-      );
-      const profesorSeleccionado = availableProfessors.find(
-        (prof) => prof.nombre_completo === formData.professor
-      );
-
-      onSubmit({
-        ...formData,
-        curso_id: cursoSeleccionado?.curso_id || "",
-        profesor_id: profesorSeleccionado?.profesor_id || "",
-      });
-    }
-  };
-
-  // Manejar cambios en los inputs
+  // Maneja cambios en inputs/selects
   const handleChange = (e) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value,
     });
+  };
+
+  // Envía el formulario
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!formData.curso_id || !formData.profesor_id || !formData.classroom) {
+      alert("Por favor, completa todos los campos obligatorios");
+      return;
+    }
+    onSubmit(formData);
   };
 
   return (
@@ -76,15 +66,15 @@ const CourseForm = ({
           Materia *
         </label>
         <select
-          name="subject"
-          value={formData.subject}
+          name="curso_id"
+          value={formData.curso_id}
           onChange={handleChange}
           required
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="">Seleccionar materia</option>
           {availableSubjects.map((subject) => (
-            <option key={subject.curso_id} value={subject.nombre}>
+            <option key={subject.curso_id} value={subject.curso_id}>
               {subject.nombre}
             </option>
           ))}
@@ -97,16 +87,20 @@ const CourseForm = ({
           Profesor *
         </label>
         <select
-          name="professor"
-          value={formData.professor}
+          name="profesor_id"
+          value={formData.profesor_id}
           onChange={handleChange}
           required
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="">Seleccionar profesor</option>
           {availableProfessors.map((professor) => (
-            <option key={professor.usuario_id} value={professor.nombres}>
-              {professor.nombres}
+            <option key={professor.usuario_id} value={professor.usuario_id}>
+              {professor.nombres +
+                " " +
+                professor.ap_paterno +
+                " " +
+                professor.ap_materno}
             </option>
           ))}
         </select>
@@ -120,7 +114,7 @@ const CourseForm = ({
         <select
           name="classroom"
           value={formData.classroom}
-          onChange={handleChange}
+          disabled
           required
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
@@ -142,12 +136,12 @@ const CourseForm = ({
           <select
             name="time"
             value={formData.time}
-            onChange={handleChange}
+            disabled
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             {timeSlots.map((time) => (
-              <option key={time.id || time} value={time.label || time}>
-                {time.label || time}
+              <option key={time.id} value={time.label}>
+                {time.label}
               </option>
             ))}
           </select>
@@ -160,12 +154,12 @@ const CourseForm = ({
           <select
             name="day"
             value={formData.day}
-            onChange={handleChange}
+            disabled
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             {days.map((day) => (
-              <option key={day.id || day} value={day.name || day}>
-                {day.name || day}
+              <option key={day.id} value={day.id}>
+                {day.name}
               </option>
             ))}
           </select>

@@ -43,7 +43,7 @@ const SchedulePage = () => {
         "https://api-umam-1.onrender.com/horarios/dias-semana"
       );
       setDays(
-        data.map((dia) => ({ id: dia.dia_semana_id, name: dia.dia_semana }))
+        data.map((dia) => ({ id: dia.dias_semana_id, name: dia.dia_semana }))
       );
     } catch (error) {
       console.error("Error cargando días:", error);
@@ -69,22 +69,34 @@ const SchedulePage = () => {
       const data = await fetchWithAuth(
         `https://api-umam-1.onrender.com/horarios/?gestion_id=${selectedGestion.value}&sucursal_id=${selectedSucursal.value}`
       );
-      const formattedCourses = data.flatMap((horario) =>
-        horario.dias_clase.map((dia) => ({
+      const formattedCourses = data.flatMap((horario) => {
+        const curso = availableSubjects.find(
+          (c) => c.curso_id === horario.curso_id
+        );
+        const profesor = availableProfessors.find(
+          (p) => p.usuario_id === horario.profesor_id
+        );
+
+        return horario.dias_clase.map((dia) => ({
           id: `${horario.horario_id}-${dia.dia_clase_id}`,
-          subject: `Curso ${horario.curso_id}`,
-          professor: `Profesor ${horario.profesor_id}`,
+          subject: curso?.nombre || `Curso ${horario.curso_id}`,
+          professor: profesor
+            ? `${profesor.nombres} ${profesor.ap_paterno || ""} ${
+                profesor.ap_materno || ""
+              }`.trim()
+            : `Profesor ${horario.profesor_id}`,
           classroom: {
             value: horario.aula_id.toString(),
             label: `Aula ${horario.aula_id}`,
           },
           time: formatTimeSlot(dia.hora),
-          day: dia.dia_semana.dia_semana,
-          color: getCourseColor(`Curso ${horario.curso_id}`),
+          day: dia.dia_semana.dias_semana_id, // <- usa el ID como ahora estás haciendo
+          color: getCourseColor(curso?.nombre || `Curso ${horario.curso_id}`),
           gestion: horario.gestion_id.toString(),
           sucursal: selectedSucursal.value,
-        }))
-      );
+        }));
+      });
+
       setCourses(formattedCourses);
     } catch (error) {
       console.error("Error cargando horarios:", error);
@@ -147,16 +159,21 @@ const SchedulePage = () => {
 
   const submitNewCourse = async (formData) => {
     const { curso_id, profesor_id, classroom, day, time } = formData;
-    const dia = days.find((d) => d.name === day);
+    const dia = days.find((d) => d.id === parseInt(day)); // ojo aquí: usa id (numérico) y parsea
     const hora = timeSlots.find((h) => h.label === time);
-    if (!dia || !hora) return alert("Datos inválidos para día u hora");
+
+    if (!dia || !hora) {
+      alert("Datos inválidos para día u hora");
+      return;
+    }
+
     try {
       await fetchWithAuth("https://api-umam-1.onrender.com/horarios/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           curso_id: parseInt(curso_id),
-          aula_id: parseInt(classroom.value),
+          aula_id: parseInt(classroom),
           profesor_id: parseInt(profesor_id),
           gestion_id: parseInt(selectedGestion.value),
           activo: true,
@@ -167,8 +184,8 @@ const SchedulePage = () => {
       setCourseFormData(null);
       fetchHorarios();
     } catch (err) {
-      console.error(err);
-      alert("Error al crear horario");
+      console.error("Error en submitNewCourse:", err);
+      alert(`Error al crear horario: ${err.message || err}`);
     }
   };
 
@@ -284,7 +301,7 @@ const SchedulePage = () => {
       </button>
     ));
   };
-  console.log(availableProfessors, availableSubjects);
+  console.log(courses);
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -360,7 +377,7 @@ const SchedulePage = () => {
           <ScheduleTable
             courses={courses}
             timeSlots={timeSlots.map((t) => t.label)}
-            days={days.map((d) => d.name)}
+            days={days}
             availableClassrooms={
               selectedSucursal?.value
                 ? classroomsBySucursal[selectedSucursal.value] || []

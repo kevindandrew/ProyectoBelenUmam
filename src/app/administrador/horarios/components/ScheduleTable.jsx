@@ -5,22 +5,22 @@ import { X, Plus } from "lucide-react";
 const ScheduleTable = ({
   courses,
   timeSlots,
-  days,
+  days, // ahora es un array de objetos { id, name }
   availableClassrooms,
   onCellClick,
   onDeleteCourse,
 }) => {
-  const getCourseForSlot = (classroom, time, day) => {
+  const getCourseForSlot = (classroom, time, dayId) => {
     return (
       courses.find(
         (course) =>
           course.classroom.value === classroom.value &&
           course.time === time &&
-          course.day === day
+          course.day === dayId
       ) || null
     );
   };
-
+  console.log();
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
       <div className="overflow-x-auto">
@@ -35,10 +35,10 @@ const ScheduleTable = ({
               </th>
               {days.map((day) => (
                 <th
-                  key={day}
+                  key={day.id}
                   className="px-4 py-3 text-center text-sm font-medium text-gray-900 border-b border-gray-200 min-w-48"
                 >
-                  {day}
+                  {day.name}
                 </th>
               ))}
             </tr>
@@ -51,7 +51,7 @@ const ScheduleTable = ({
                     key={`${time}-${classroom.value}`}
                     className="border-b border-gray-100 hover:bg-gray-50"
                   >
-                    {/* Hora - Solo mostrar en la primera fila de cada horario */}
+                    {/* Hora */}
                     {classroomIndex === 0 && (
                       <td
                         rowSpan={availableClassrooms.length}
@@ -66,15 +66,14 @@ const ScheduleTable = ({
                     {/* Aula */}
                     <td className="px-4 py-3 text-sm font-medium text-gray-700 bg-gray-50 border-r border-gray-200 sticky left-32 z-10">
                       <div className="bg-gray-100 text-gray-800 px-3 py-2 rounded-lg border border-gray-200 font-medium text-center">
-                        {classroom.label}{" "}
-                        {/* Mostrar classroom.label en lugar del objeto */}
+                        {classroom.label}
                       </div>
                     </td>
 
                     {/* Días */}
                     {days.map((day) => {
-                      const course = getCourseForSlot(classroom, time, day);
-                      const cellKey = `${time}-${classroom.value}-${day}`; /* Key única */
+                      const course = getCourseForSlot(classroom, time, day.id);
+                      const cellKey = `${time}-${classroom.value}-${day.id}`;
 
                       return (
                         <td
@@ -82,7 +81,6 @@ const ScheduleTable = ({
                           className="px-2 py-2 relative align-top"
                         >
                           {course ? (
-                            /* Mostrar curso existente */
                             <div
                               className={`${course.color} rounded-lg p-3 border-2 cursor-pointer hover:shadow-md transition-shadow relative group`}
                             >
@@ -98,9 +96,8 @@ const ScheduleTable = ({
                               <div className="text-xs">{course.professor}</div>
                             </div>
                           ) : (
-                            /* Slot disponible para agregar curso */
                             <div
-                              onClick={() => onCellClick(time, day)}
+                              onClick={() => onCellClick(time, day.id)}
                               className="h-16 border-2 border-dashed border-gray-200 rounded-lg cursor-pointer hover:border-green-300 hover:bg-green-50 transition-colors flex items-center justify-center group"
                             >
                               <div className="flex items-center gap-1 text-gray-400 text-sm opacity-0 group-hover:opacity-100 transition-opacity">
@@ -115,7 +112,7 @@ const ScheduleTable = ({
                   </tr>
                 ))}
 
-                {/* Separador visual entre horarios */}
+                {/* Separador visual */}
                 {timeIndex < timeSlots.length - 1 && (
                   <tr>
                     <td
