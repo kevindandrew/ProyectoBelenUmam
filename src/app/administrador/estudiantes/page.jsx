@@ -641,7 +641,7 @@ export default function EstudiantesPage() {
       return false;
     }
 
-    if (!/^\d{7,8}$/.test(newEstudiante.ci)) {
+    if (!/^\d{5,10}$/.test(newEstudiante.ci)) {
       alert("El CI debe tener 7 u 8 dígitos");
       return false;
     }
