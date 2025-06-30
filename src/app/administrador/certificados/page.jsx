@@ -1,22 +1,8 @@
 // src/app/administrador/certificados/page.jsx
 "use client";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { jsPDF } from "jspdf";
 import Cookies from "js-cookie";
-
-// Datos de estudiantes por curso (simulados - en producción vendrían de una API)
-const estudiantesPorCurso = {
-  Computación: [
-    { nombre: "MARÍA FERNANDA GUTIÉRREZ", ci: "1234567 LP" },
-    { nombre: "JUAN CARLOS PÉREZ", ci: "7654321 SC" },
-  ],
-  "Computación Avanzada": [{ nombre: "ANA LUCÍA MÉNDEZ", ci: "9876543 LP" }],
-  Salud: [
-    { nombre: "CARLOS ALBERTO QUISPE", ci: "5432167 LP" },
-    { nombre: "SOFÍA ANDREA ARUQUIPA", ci: "8765432 LP" },
-  ],
-  "Orientación Legal": [{ nombre: "PEDRO ANTONIO GÓMEZ", ci: "1357924 CB" }],
-};
 
 export default function GeneradorCertificados() {
   // Estado principal
@@ -30,7 +16,7 @@ export default function GeneradorCertificados() {
     }),
     añoCurricular: new Date().getFullYear().toString(),
     fondo: "",
-    contenidoPersonalizado: "", // Se inicializa vacío, pero se llenará en useEffect
+    contenidoPersonalizado: "",
     firmantes: {
       alcalde: "Lic. Iván Arias Durán",
       cargoAlcalde: "ALCALDE MUNICIPAL DE LA PAZ",
@@ -42,16 +28,14 @@ export default function GeneradorCertificados() {
 
   // Fondos predeterminados
   const fondosPredeterminados = {
-    TALLER: "/fondos/fondo-taller.jpg", // Ruta a tu imagen de fondo para talleres
-    GESTORIA: "/fondos/fondo-gestoria.jpg", // Ruta a tu imagen de fondo para gestorías
+    TALLER: "/fondos/fondo-taller.jpg",
+    GESTORIA: "/fondos/fondo-gestoria.jpg",
   };
 
   // Previsualización de imágenes
   const [previewFondo, setPreviewFondo] = useState(
     fondosPredeterminados.TALLER
   );
-
-  // Referencia para input de archivo
   const fileInputRef = useRef(null);
 
   // Plantillas base
@@ -98,29 +82,29 @@ export default function GeneradorCertificados() {
     },
   };
 
-  // Estado para cursos y estudiantes desde API
+  // Estado para datos desde API
   const [cursosApi, setCursosApi] = useState({ TALLER: [], GESTORIA: [] });
-  const [cursosApiRaw, setCursosApiRaw] = useState([]); // Guardar cursos completos
+  const [cursosApiRaw, setCursosApiRaw] = useState([]);
   const [gestiones, setGestiones] = useState([]);
   const [estudiantesApi, setEstudiantesApi] = useState([]);
   const [gestionSeleccionada, setGestionSeleccionada] = useState("");
-  // Guardar la última plantilla generada para comparar si el usuario la editó
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
   const lastTemplateRef = useRef("");
 
-  // Inicializar contenidoPersonalizado con la plantilla base al cargar y al cambiar tipo/curso/gestion
+  // Inicializar contenidoPersonalizado
   useEffect(() => {
-    // Siempre actualizar el contenido al cambiar tipo, curso, fecha o año
     const plantilla = plantillasBase[formData.tipo].contenido
       .replace("[NOMBRE_ESTUDIANTE]", "[NOMBRE_ESTUDIANTE]")
       .replace("[NOMBRE_CURSO]", formData.curso || "[NOMBRE_CURSO]")
       .replace("[FECHA]", formData.fecha || "[FECHA]")
       .replace("[AÑO]", formData.añoCurricular || "[AÑO]");
+
     setFormData((prev) => ({
       ...prev,
       contenidoPersonalizado: plantilla,
     }));
     lastTemplateRef.current = plantilla;
-    // eslint-disable-next-line
   }, [
     formData.tipo,
     formData.curso,
@@ -129,244 +113,308 @@ export default function GeneradorCertificados() {
     formData.añoCurricular,
   ]);
 
-  // Cargar cursos y gestiones desde API al inicio
+  // Cargar cursos y gestiones
   useEffect(() => {
-    const token = Cookies.get("access_token") || Cookies.get("token");
-    if (!token) return;
-    // Cursos
-    fetch("https://api-umam-1.onrender.com/cursos/", {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((r) => r.json())
-      .then((data) => {
-        if (!Array.isArray(data)) return;
-        setCursosApiRaw(data); // Guardar cursos completos
+    const fetchData = async () => {
+      setIsLoading(true);
+      setError(null);
+      const token = Cookies.get("access_token") || Cookies.get("token");
+
+      if (!token) {
+        setError("No se encontró token de autenticación");
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        // Cargar cursos
+        const cursosResponse = await fetch(
+          "https://api-umam-1.onrender.com/cursos/",
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        const cursosData = await cursosResponse.json();
+
+        if (!Array.isArray(cursosData)) {
+          throw new Error("Formato de datos de cursos inválido");
+        }
+
+        setCursosApiRaw(cursosData);
         setCursosApi({
-          TALLER: data.filter((c) => !c.gestoria),
-          GESTORIA: data.filter((c) => c.gestoria),
+          TALLER: cursosData.filter((c) => !c.gestoria),
+          GESTORIA: cursosData.filter((c) => c.gestoria),
         });
-      });
-    // Gestiones
-    fetch("https://api-umam-1.onrender.com/cursos/gestiones", {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((r) => r.json())
-      .then((data) => {
-        if (!Array.isArray(data)) return;
-        setGestiones(data); // Guardar objetos completos con gestion_id
-      });
+
+        // Cargar gestiones
+        const gestionesResponse = await fetch(
+          "https://api-umam-1.onrender.com/cursos/gestiones",
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        const gestionesData = await gestionesResponse.json();
+
+        if (!Array.isArray(gestionesData)) {
+          throw new Error("Formato de datos de gestiones inválido");
+        }
+
+        setGestiones(gestionesData);
+      } catch (err) {
+        console.error("Error al cargar datos:", err);
+        setError(err.message);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
   }, []);
 
-  // Cargar estudiantes cuando cambian curso/tipo/gestion
+  // Cargar estudiantes
   useEffect(() => {
-    const token = Cookies.get("access_token") || Cookies.get("token");
-    if (!token || !formData.curso || !gestionSeleccionada) {
-      setEstudiantesApi([]);
-      return;
-    }
-    // Buscar estudiantes por curso y gestion usando el nuevo endpoint y gestion_id
-    const gestionObj = gestiones.find(
-      (g) => String(g.gestion) === String(gestionSeleccionada)
-    );
-    const gestion_id = gestionObj ? gestionObj.id : undefined;
-    if (!gestion_id) {
-      setEstudiantesApi([]);
-      return;
-    }
-    const params = new URLSearchParams({
-      curso_id: formData.curso,
-      gestion_id: gestion_id,
-    });
-    fetch(
-      `https://api-umam-1.onrender.com/listas/estudiantes?${params.toString()}`,
-      { headers: { Authorization: `Bearer ${token}` } }
-    )
-      .then((r) => r.json())
-      .then((data) => {
+    const fetchEstudiantes = async () => {
+      const token = Cookies.get("access_token") || Cookies.get("token");
+      if (!token || !formData.curso || !gestionSeleccionada) {
+        setEstudiantesApi([]);
+        return;
+      }
+
+      try {
+        const gestionObj = gestiones.find(
+          (g) => String(g.gestion) === String(gestionSeleccionada)
+        );
+        if (!gestionObj?.gestion_id) {
+          setEstudiantesApi([]);
+          return;
+        }
+
+        setIsLoading(true);
+        const response = await fetch(
+          `https://api-umam-1.onrender.com/listas/estudiantes?gestion_id=${gestionObj.gestion_id}&curso_id=${formData.curso}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        const data = await response.json();
         setEstudiantesApi(Array.isArray(data) ? data : []);
-      });
+      } catch (err) {
+        console.error("Error al cargar estudiantes:", err);
+        setEstudiantesApi([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchEstudiantes();
   }, [formData.curso, formData.tipo, gestionSeleccionada, gestiones]);
 
-  // Manejar cambio de imagen de fondo
-  const handleFondoChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreviewFondo(reader.result);
-        setFormData((prev) => ({ ...prev, fondo: reader.result }));
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  // Generar un certificado en el PDF
-  const agregarCertificadoAlPDF = (doc, estudiante, pageWidth, pageHeight) => {
-    // Agregar fondo
-    if (formData.fondo) {
-      doc.addImage(formData.fondo, "JPEG", 0, 0, pageWidth, pageHeight);
-    }
-
-    // Procesar contenido personalizado
-    const contenido = formData.contenidoPersonalizado
-      .replace("[NOMBRE_ESTUDIANTE]", estudiante.nombre.toUpperCase())
-      .replace("[NOMBRE_CURSO]", getCursoNombre())
-      .replace("[FECHA]", formData.fecha)
-      .replace("[AÑO]", formData.añoCurricular);
-
-    // Configuración de texto
-    doc.setFont("helvetica");
-    doc.setTextColor(0, 0, 0);
-
-    // Contenido - Texto justificado
-    doc.setFontSize(12);
-    doc.setFont(undefined, "normal");
-
-    let yPos = 80; // Posición inicial
-
-    contenido.split("\n").forEach((linea) => {
-      if (linea.trim() === "") {
-        yPos += 5;
+  // Manejadores de eventos
+  const handleFondoChange = useCallback(
+    (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setPreviewFondo(reader.result);
+          setFormData((prev) => ({ ...prev, fondo: reader.result }));
+        };
+        reader.readAsDataURL(file);
       } else {
-        // Procesar texto con formato HTML básico (negritas)
-        const hasBold = linea.includes("<b>");
+        setPreviewFondo(fondosPredeterminados[formData.tipo]);
+        setFormData((prev) => ({
+          ...prev,
+          fondo: fondosPredeterminados[prev.tipo],
+        }));
+      }
+    },
+    [formData.tipo]
+  );
 
-        if (hasBold) {
-          // Procesar partes en negrita
-          const parts = linea.split(/(<b>|<\/b>)/);
-          let currentX =
-            (pageWidth - doc.getTextWidth(linea.replace(/<b>|<\/b>/g, ""))) / 2;
+  const handleChange = useCallback((e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  }, []);
 
-          parts.forEach((part) => {
-            if (part === "<b>") {
-              doc.setFont(undefined, "bold");
-            } else if (part === "</b>") {
-              doc.setFont(undefined, "normal");
-            } else if (part) {
-              doc.text(part, currentX, yPos, { align: "left" });
-              currentX += doc.getTextWidth(part);
-            }
-          });
+  const handleFirmanteChange = useCallback((e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      firmantes: { ...prev.firmantes, [name]: value },
+    }));
+  }, []);
 
-          yPos += 6;
-        } else {
-          // Línea normal (nombre del estudiante con tratamiento especial)
-          if (linea === estudiante.nombre.toUpperCase()) {
-            doc.setFontSize(18);
-            doc.setFont(undefined, "bold");
-            doc.text(linea, pageWidth / 2, yPos, { align: "center" });
-            doc.setFontSize(12);
-            doc.setFont(undefined, "normal");
-            yPos += 8;
+  // Generar PDF
+  const generarPDFCursoCompleto = useCallback(() => {
+    try {
+      if (!formData.curso || !gestionSeleccionada) {
+        throw new Error("Por favor seleccione un curso y gestión");
+      }
+
+      const estudiantesAprobados = estudiantesApi.filter(
+        (e) => e.estado === "APROBADO" || e.nota_final >= 51
+      );
+
+      if (estudiantesAprobados.length === 0) {
+        throw new Error(
+          `No hay estudiantes aprobados para el curso ${formData.curso}`
+        );
+      }
+
+      const doc = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "letter",
+      });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+
+      // Función para agregar certificado
+      const agregarCertificado = (estudiante) => {
+        if (formData.fondo) {
+          doc.addImage(formData.fondo, "JPEG", 0, 0, pageWidth, pageHeight);
+        }
+        const nombreCompleto = `${estudiante.nombres || ""} ${
+          estudiante.ap_paterno || ""
+        } ${estudiante.ap_materno || ""}`
+          .trim()
+          .toUpperCase();
+        const contenido = formData.contenidoPersonalizado
+          .replace("[NOMBRE_ESTUDIANTE]", nombreCompleto)
+          .replace("[NOMBRE_CURSO]", getCursoNombre())
+          .replace("[FECHA]", formData.fecha)
+          .replace("[AÑO]", formData.añoCurricular);
+
+        doc.setFont("helvetica");
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(12);
+        doc.setFont(undefined, "normal");
+
+        let yPos = 80;
+
+        contenido.split("\n").forEach((linea) => {
+          if (linea.trim() === "") {
+            yPos += 5;
           } else {
-            // Texto justificado
-            const lines = doc.splitTextToSize(linea, pageWidth - 40);
-            lines.forEach((line) => {
-              doc.text(line, 20, yPos, {
-                align: "justify",
-                maxWidth: pageWidth - 40,
+            const hasBold = linea.includes("<b>");
+
+            if (hasBold) {
+              const parts = linea.split(/(<b>|<\/b>)/);
+              let currentX =
+                (pageWidth -
+                  doc.getTextWidth(linea.replace(/<b>|<\/b>/g, ""))) /
+                2;
+
+              parts.forEach((part) => {
+                if (part === "<b>") doc.setFont(undefined, "bold");
+                else if (part === "</b>") doc.setFont(undefined, "normal");
+                else if (part) {
+                  doc.text(part, currentX, yPos, { align: "left" });
+                  currentX += doc.getTextWidth(part);
+                }
               });
               yPos += 6;
-            });
+            } else {
+              if (linea === nombreCompleto) {
+                doc.setFontSize(18);
+                doc.setFont(undefined, "bold");
+                doc.text(linea, pageWidth / 2, yPos, { align: "center" });
+                doc.setFontSize(12);
+                doc.setFont(undefined, "normal");
+                yPos += 8;
+              } else {
+                const lines = doc.splitTextToSize(linea, pageWidth - 40);
+                lines.forEach((line) => {
+                  doc.text(line, 20, yPos, {
+                    align: "justify",
+                    maxWidth: pageWidth - 40,
+                  });
+                  yPos += 6;
+                });
+              }
+            }
           }
-        }
+        });
+
+        // Firmas
+        doc.setFontSize(10);
+        const firmaY = pageHeight - 60;
+
+        doc.setFont(undefined, "bold");
+        doc.text(formData.firmantes.alcalde, pageWidth / 2, firmaY, {
+          align: "center",
+        });
+        doc.setFont(undefined, "normal");
+        doc.text(formData.firmantes.cargoAlcalde, pageWidth / 2, firmaY + 5, {
+          align: "center",
+        });
+
+        doc.setFont(undefined, "bold");
+        doc.text(formData.firmantes.secretario, pageWidth / 2, firmaY + 20, {
+          align: "center",
+        });
+        doc.setFont(undefined, "normal");
+        doc.text(
+          formData.firmantes.cargoSecretario,
+          pageWidth / 2,
+          firmaY + 25,
+          { align: "center" }
+        );
+      };
+
+      // Generar primera página
+      agregarCertificado(estudiantesAprobados[0]);
+
+      // Generar páginas adicionales
+      for (let i = 1; i < estudiantesAprobados.length; i++) {
+        doc.addPage();
+        agregarCertificado(estudiantesAprobados[i]);
       }
-    });
 
-    // Firmas centradas
-    doc.setFontSize(10);
-    const firmaY = pageHeight - 60;
-
-    // Alcalde
-    doc.setFont(undefined, "bold");
-    doc.text(formData.firmantes.alcalde, pageWidth / 2, firmaY, {
-      align: "center",
-    });
-    doc.setFont(undefined, "normal");
-    doc.text(formData.firmantes.cargoAlcalde, pageWidth / 2, firmaY + 5, {
-      align: "center",
-    });
-
-    // Secretario
-    doc.setFont(undefined, "bold");
-    doc.text(formData.firmantes.secretario, pageWidth / 2, firmaY + 20, {
-      align: "center",
-    });
-    doc.setFont(undefined, "normal");
-    doc.text(formData.firmantes.cargoSecretario, pageWidth / 2, firmaY + 25, {
-      align: "center",
-    });
-  };
-
-  // Generar un solo PDF con todos los certificados del curso
-  const generarPDFCursoCompleto = () => {
-    if (!formData.curso || !gestionSeleccionada) {
-      alert("Por favor seleccione un curso y gestión");
-      return;
+      doc.save(`certificados_${formData.curso.replace(/\s+/g, "_")}.pdf`);
+    } catch (err) {
+      console.error("Error al generar PDF:", err);
+      alert(err.message);
     }
+  }, [formData, estudiantesApi, gestionSeleccionada]);
 
-    const estudiantes = estudiantesApi;
-    if (estudiantes.length === 0) {
-      alert(
-        `No hay estudiantes registrados para el curso de ${formData.curso} en la gestión ${gestionSeleccionada}`
-      );
-      return;
-    }
-
-    const doc = new jsPDF({
-      orientation: "portrait",
-      unit: "mm",
-      format: "letter",
-    });
-
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-
-    // Generar primera página
-    agregarCertificadoAlPDF(doc, estudiantes[0], pageWidth, pageHeight);
-
-    // Generar páginas adicionales para los demás estudiantes
-    for (let i = 1; i < estudiantes.length; i++) {
-      doc.addPage();
-      agregarCertificadoAlPDF(doc, estudiantes[i], pageWidth, pageHeight);
-    }
-
-    // Guardar el PDF con todos los certificados
-    doc.save(`certificados_${formData.curso.replace(/\s+/g, "_")}.pdf`);
-  };
-
-  // Manejar cambios en el formulario
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  // Manejar cambios en los firmantes
-  const handleFirmanteChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      firmantes: {
-        ...prev.firmantes,
-        [name]: value,
-      },
-    }));
-  };
-
-  // Para mostrar el nombre del curso seleccionado en el certificado
-  const getCursoNombre = () => {
+  // Obtener nombre del curso
+  const getCursoNombre = useCallback(() => {
     const curso = cursosApiRaw.find(
-      (c) => String(c.id) === String(formData.curso)
+      (c) => String(c.curso_id) === String(formData.curso)
     );
     return curso ? curso.nombre : formData.curso;
-  };
+  }, [formData.curso, cursosApiRaw]);
+
+  // Restablecer plantilla
+  const resetPlantilla = useCallback(() => {
+    const plantilla = plantillasBase[formData.tipo].contenido
+      .replace("[NOMBRE_ESTUDIANTE]", "[NOMBRE_ESTUDIANTE]")
+      .replace("[NOMBRE_CURSO]", formData.curso || "[NOMBRE_CURSO]")
+      .replace("[FECHA]", formData.fecha || "[FECHA]")
+      .replace("[AÑO]", formData.añoCurricular || "[AÑO]");
+
+    setFormData((prev) => ({ ...prev, contenidoPersonalizado: plantilla }));
+    lastTemplateRef.current = plantilla;
+  }, [formData.tipo, formData.curso, formData.fecha, formData.añoCurricular]);
 
   return (
     <div className="container mx-auto max-w-6xl">
       <h1 className="text-3xl font-bold text-[#13678A] mb-6">CERTIFICADOS</h1>
+
+      {isLoading && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg">
+            <p className="text-lg font-semibold">Cargando datos...</p>
+          </div>
+        </div>
+      )}
+
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          <p>Error: {error}</p>
+        </div>
+      )}
+
       <div className="bg-white p-6 rounded-lg shadow-lg border border-gray-200">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Columna izquierda - Formulario */}
@@ -374,6 +422,7 @@ export default function GeneradorCertificados() {
             <h2 className="text-xl font-semibold text-[#012030]">
               Configuración del Certificado
             </h2>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -385,10 +434,11 @@ export default function GeneradorCertificados() {
                   value={gestionSeleccionada}
                   onChange={(e) => setGestionSeleccionada(e.target.value)}
                   required
+                  disabled={isLoading}
                 >
                   <option value="">Seleccione una gestión</option>
                   {gestiones.map((g) => (
-                    <option key={g.id ? String(g.id) : String(g.gestion)} value={g.gestion}>
+                    <option key={`gestion-${g.gestion_id}`} value={g.gestion}>
                       {g.gestion}
                     </option>
                   ))}
@@ -405,6 +455,7 @@ export default function GeneradorCertificados() {
                   value={formData.tipo}
                   onChange={handleChange}
                   required
+                  disabled={isLoading}
                 >
                   <option value="TALLER">Taller</option>
                   <option value="GESTORIA">Gestoría</option>
@@ -423,10 +474,14 @@ export default function GeneradorCertificados() {
                   value={formData.curso}
                   onChange={handleChange}
                   required
+                  disabled={isLoading}
                 >
                   <option value="">Seleccione un curso</option>
-                  {cursosApi[formData.tipo].map((curso) => (
-                    <option key={curso.id} value={curso.id}>
+                  {cursosApi[formData.tipo]?.map((curso) => (
+                    <option
+                      key={`curso-${curso.curso_id}`}
+                      value={curso.curso_id}
+                    >
                       {curso.nombre}
                     </option>
                   ))}
@@ -443,6 +498,7 @@ export default function GeneradorCertificados() {
                   className="w-full border border-gray-300 rounded-md p-2"
                   value={formData.fecha}
                   onChange={handleChange}
+                  disabled={isLoading}
                 />
               </div>
             </div>
@@ -457,10 +513,12 @@ export default function GeneradorCertificados() {
                 onChange={handleFondoChange}
                 accept="image/*"
                 className="hidden"
+                disabled={isLoading}
               />
               <button
                 onClick={() => fileInputRef.current.click()}
-                className="w-full border border-gray-300 rounded-md p-2 text-left"
+                className="w-full border border-gray-300 rounded-md p-2 text-left disabled:opacity-50"
+                disabled={isLoading}
               >
                 {formData.fondo !== fondosPredeterminados[formData.tipo]
                   ? "Cambiar imagen"
@@ -482,7 +540,8 @@ export default function GeneradorCertificados() {
                         fondo: fondosPredeterminados[prev.tipo],
                       }));
                     }}
-                    className="text-red-500 text-sm mt-1"
+                    className="text-red-500 text-sm mt-1 disabled:opacity-50"
+                    disabled={isLoading}
                   >
                     Usar fondo predeterminado
                   </button>
@@ -506,6 +565,7 @@ export default function GeneradorCertificados() {
                     className="w-full border border-gray-300 rounded-md p-2"
                     value={formData.firmantes.alcalde}
                     onChange={handleFirmanteChange}
+                    disabled={isLoading}
                   />
                 </div>
 
@@ -519,6 +579,7 @@ export default function GeneradorCertificados() {
                     className="w-full border border-gray-300 rounded-md p-2"
                     value={formData.firmantes.cargoAlcalde}
                     onChange={handleFirmanteChange}
+                    disabled={isLoading}
                   />
                 </div>
 
@@ -532,6 +593,7 @@ export default function GeneradorCertificados() {
                     className="w-full border border-gray-300 rounded-md p-2"
                     value={formData.firmantes.secretario}
                     onChange={handleFirmanteChange}
+                    disabled={isLoading}
                   />
                 </div>
 
@@ -545,6 +607,7 @@ export default function GeneradorCertificados() {
                     className="w-full border border-gray-300 rounded-md p-2"
                     value={formData.firmantes.cargoSecretario}
                     onChange={handleFirmanteChange}
+                    disabled={isLoading}
                   />
                 </div>
               </div>
@@ -576,98 +639,57 @@ export default function GeneradorCertificados() {
 
             <textarea
               name="contenidoPersonalizado"
-              className="w-full h-64 border border-gray-300 rounded-md p-2 font-mono text-sm"
+              className="w-full h-64 border border-gray-300 rounded-md p-2 font-mono text-sm disabled:opacity-50"
               value={formData.contenidoPersonalizado}
               onChange={handleChange}
+              disabled={isLoading}
             />
 
             <div className="mt-4 flex justify-between items-center">
               <button
-                onClick={() => {
-                  const plantilla = plantillasBase[formData.tipo].contenido
-                    .replace("[NOMBRE_ESTUDIANTE]", "[NOMBRE_ESTUDIANTE]")
-                    .replace(
-                      "[NOMBRE_CURSO]",
-                      formData.curso || "[NOMBRE_CURSO]"
-                    )
-                    .replace("[FECHA]", formData.fecha || "[FECHA]")
-                    .replace("[AÑO]", formData.añoCurricular || "[AÑO]");
-                  setFormData((prev) => ({
-                    ...prev,
-                    contenidoPersonalizado: plantilla,
-                  }));
-                  lastTemplateRef.current = plantilla;
-                }}
-                className="text-sm text-blue-600 hover:text-blue-800"
+                onClick={resetPlantilla}
+                className="text-sm text-blue-600 hover:text-blue-800 disabled:opacity-50"
+                disabled={isLoading}
               >
                 Restablecer plantilla
               </button>
 
               <button
                 onClick={generarPDFCursoCompleto}
-                className="bg-[#13678A] hover:bg-[#012030] text-white px-6 py-2 rounded-lg shadow-md transition-colors"
-                disabled={!formData.curso}
+                className="bg-[#13678A] hover:bg-[#012030] text-white px-6 py-2 rounded-lg shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={
+                  !formData.curso || isLoading || estudiantesApi.length === 0
+                }
               >
                 Generar Certificados (
-                {estudiantesPorCurso[formData.curso]?.length || 0})
+                {estudiantesApi.filter(
+                  (e) => e.estado === "APROBADO" || e.nota_final >= 51
+                ).length || 0}
+                )
               </button>
             </div>
 
-            {formData.curso &&
-              estudiantesApi.filter(
-                (e) => e.estado === "APROBADO" || e.nota_final >= 51
-              ).length > 0 && (
-                <div className="mt-6 border-t pt-4">
-                  <h3 className="text-lg font-medium text-[#012030] mb-2">
-                    Estudiantes en este curso y gestión (solo aprobados)
-                  </h3>
-                  <ul className="max-h-40 overflow-y-auto border rounded-md p-2">
-                    {estudiantesApi
-                      .filter(
-                        (e) => e.estado === "APROBADO" || e.nota_final >= 51
-                      )
-                      .map((estudiante, index) => (
-                        <li
-                          key={index}
-                          className="py-1 border-b last:border-b-0"
-                        >
-                          {`${estudiante.nombres} ${estudiante.ap_paterno} ${estudiante.ap_materno}`} - {estudiante.ci} - Nota: {estudiante.nota_final} - Estado: {estudiante.estado}
-                        </li>
-                      ))}
-                  </ul>
-                </div>
-              )}
-
-            {/* DEBUG: Tabla de todos los estudiantes recibidos */}
             {formData.curso && estudiantesApi.length > 0 && (
               <div className="mt-6 border-t pt-4">
-                <h3 className="text-base font-medium text-gray-700 mb-2">
-                  DEBUG: Todos los estudiantes recibidos
+                <h3 className="text-lg font-medium text-[#012030] mb-2">
+                  Estudiantes en este curso y gestión (solo aprobados)
                 </h3>
-                <table className="w-full text-xs border mb-4">
-                  <thead>
-                    <tr className="bg-gray-100">
-                      <th className="border px-1">Nombres</th>
-                      <th className="border px-1">Ap. Paterno</th>
-                      <th className="border px-1">Ap. Materno</th>
-                      <th className="border px-1">CI</th>
-                      <th className="border px-1">Nota Final</th>
-                      <th className="border px-1">Estado</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {estudiantesApi.map((e, i) => (
-                      <tr key={i}>
-                        <td className="border px-1">{e.nombres}</td>
-                        <td className="border px-1">{e.ap_paterno}</td>
-                        <td className="border px-1">{e.ap_materno}</td>
-                        <td className="border px-1">{e.ci}</td>
-                        <td className="border px-1">{e.nota_final}</td>
-                        <td className="border px-1">{e.estado}</td>
-                      </tr>
+                <ul className="max-h-40 overflow-y-auto border rounded-md p-2">
+                  {estudiantesApi
+                    .filter(
+                      (e) => e.estado === "APROBADO" || e.nota_final >= 51
+                    )
+                    .map((estudiante, index) => (
+                      <li
+                        key={`${estudiante.ci}-${index}`}
+                        className="py-1 border-b last:border-b-0"
+                      >
+                        {`${estudiante.nombres} ${estudiante.ap_paterno} ${estudiante.ap_materno}`}{" "}
+                        -{estudiante.ci} - Nota: {estudiante.nota_final} -
+                        Estado: {estudiante.estado}
+                      </li>
                     ))}
-                  </tbody>
-                </table>
+                </ul>
               </div>
             )}
           </div>
