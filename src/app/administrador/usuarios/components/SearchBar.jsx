@@ -1,4 +1,10 @@
-export default function SearchBar({ searchTerm, onSearch, onAddUser }) {
+export default function SearchBar({
+  searchTerm,
+  onSearch,
+  onAddUser,
+  recordsPerPage,
+  onRecordsPerPageChange,
+}) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-4">
       <div className="flex items-center gap-2">
@@ -8,10 +14,12 @@ export default function SearchBar({ searchTerm, onSearch, onAddUser }) {
         <select
           id="registros"
           className="border border-gray-300 rounded px-2 py-1 text-sm"
+          value={recordsPerPage}
+          onChange={(e) => onRecordsPerPageChange(Number(e.target.value))}
         >
-          <option>10</option>
-          <option>25</option>
-          <option>50</option>
+          <option value={10}>10</option>
+          <option value={25}>25</option>
+          <option value={50}>50</option>
         </select>
         <span className="text-sm">registros</span>
       </div>

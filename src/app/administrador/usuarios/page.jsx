@@ -22,6 +22,9 @@ export default function UsuariosPage() {
   const [selectedUser, setSelectedUser] = useState(null);
   const [error, setError] = useState(null);
 
+  const [recordsPerPage, setRecordsPerPage] = useState(10);
+  const [currentPage, setCurrentPage] = useState(1);
+
   const API_URL = "https://api-umam-1.onrender.com";
 
   // Función para resetear el formulario
@@ -317,6 +320,21 @@ export default function UsuariosPage() {
       .includes(searchTerm.toLowerCase())
   );
 
+  // Función para manejar el cambio en el número de registros por página
+  const handleRecordsPerPageChange = (value) => {
+    setRecordsPerPage(value);
+    setCurrentPage(1); // Resetear a la primera página cuando cambia el tamaño
+  };
+
+  // Lógica de paginación
+  const paginatedUsuarios = filteredUsuarios.slice(
+    (currentPage - 1) * recordsPerPage,
+    currentPage * recordsPerPage
+  );
+
+  // Total de páginas
+  const totalPages = Math.ceil(filteredUsuarios.length / recordsPerPage);
+
   return (
     <div className="text-gray-900 relative p-4">
       <h1 className="text-3xl font-bold text-[#13678A] border-b pb-2 mb-6">
@@ -330,18 +348,44 @@ export default function UsuariosPage() {
           resetForm();
           setShowForm(true);
         }}
+        recordsPerPage={recordsPerPage}
+        onRecordsPerPageChange={handleRecordsPerPageChange}
       />
 
       {error && <ErrorAlert error={error} onClose={() => setError(null)} />}
 
       <UsuariosTable
-        usuarios={filteredUsuarios}
+        usuarios={paginatedUsuarios}
         loading={loading}
         onEdit={openEditForm}
         onDelete={openDeleteModal}
         onView={openViewModal}
       />
-
+      {filteredUsuarios.length > 0 && (
+        <div className="flex justify-between items-center mt-4">
+          <span className="text-sm text-gray-600">
+            Mostrando {(currentPage - 1) * recordsPerPage + 1} a{" "}
+            {Math.min(currentPage * recordsPerPage, filteredUsuarios.length)} de{" "}
+            {filteredUsuarios.length} registros
+          </span>
+          <div className="flex gap-1">
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-1 border rounded disabled:opacity-50"
+            >
+              Anterior
+            </button>
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1 border rounded disabled:opacity-50"
+            >
+              Siguiente
+            </button>
+          </div>
+        </div>
+      )}
       {showForm && (
         <UsuarioFormModal
           user={newUser}
