@@ -135,10 +135,11 @@ export default function SucursalesPage() {
         }
       );
       if (!response.ok) throw new Error("Error al cargar las aulas");
-      return await response.json();
+      const data = await response.json();
+      return Array.isArray(data) ? data.map(normalizeAula) : [];
     } catch (error) {
       console.error(error);
-      throw error;
+      return [];
     } finally {
       setLoadingAulas(false);
     }
@@ -146,6 +147,12 @@ export default function SucursalesPage() {
 
   const updateAula = async (aulaId, aulaData) => {
     try {
+      // Asegurarnos de enviar los datos con la estructura que espera la API
+      const dataToSend = {
+        nombre_aula: aulaData.nombre || aulaData.nombre_aula,
+        capacidad: parseInt(aulaData.capacidad),
+      };
+
       const response = await fetch(
         `https://api-umam-1.onrender.com/sucursales/aulas/${aulaId}`,
         {
@@ -154,7 +161,7 @@ export default function SucursalesPage() {
             "Content-Type": "application/json",
             Authorization: `bearer ${Cookies.get("access_token")}`,
           },
-          body: JSON.stringify(aulaData),
+          body: JSON.stringify(dataToSend),
         }
       );
 
@@ -169,7 +176,14 @@ export default function SucursalesPage() {
 
       const updatedAula = await response.json();
       setAulasSeleccionadas((prev) =>
-        prev.map((a) => (a.aula_id === aulaId ? updatedAula : a))
+        prev.map((a) =>
+          a.aula_id === aulaId
+            ? {
+                ...updatedAula,
+                nombre: updatedAula.nombre || updatedAula.nombre_aula,
+              }
+            : a
+        )
       );
       setEditingAula(null);
     } catch (error) {
@@ -270,7 +284,11 @@ export default function SucursalesPage() {
             "Content-Type": "application/json",
             Authorization: `bearer ${Cookies.get("access_token")}`,
           },
-          body: JSON.stringify(aulaData),
+          body: JSON.stringify({
+            nombre_aula: aulaData.nombre,
+            capacidad: parseInt(aulaData.capacidad),
+            sucursal_id: sucursalId,
+          }),
         }
       );
 
@@ -281,13 +299,14 @@ export default function SucursalesPage() {
         );
       }
 
-      const nuevaAula = await response.json();
+      const nuevaAula = normalizeAula(await response.json());
       setAulasSeleccionadas((prev) => [...prev, nuevaAula]);
       setNombreAula("");
       setCapacidadAula("");
+      return nuevaAula;
     } catch (error) {
       console.error("Error al crear aula:", error);
-      alert(`Error al crear aula: ${error.message}`);
+      throw error;
     }
   };
 
@@ -376,6 +395,15 @@ export default function SucursalesPage() {
       />
     </svg>
   );
+
+  const normalizeAula = (aula) => {
+    return {
+      aula_id: aula?.aula_id,
+      nombre: aula?.nombre || aula?.nombre_aula || "Sin nombre",
+      capacidad: aula?.capacidad ? parseInt(aula.capacidad) : 0,
+      sucursal_id: aula?.sucursal_id,
+    };
+  };
 
   return (
     <div className="text-gray-900">
@@ -475,8 +503,9 @@ export default function SucursalesPage() {
                             )}`,
                           },
                           body: JSON.stringify({
-                            nombre: nombreAula,
+                            nombre_aula: nombreAula,
                             capacidad: parseInt(capacidadAula),
+                            sucursal_id: sucursalSeleccionada.sucursal_id,
                           }),
                         }
                       );
@@ -529,10 +558,11 @@ export default function SucursalesPage() {
                         {idx + 1}
                       </td>
                       <td className="border px-2 py-1">
-                        {aula.nombre || aula.nombre_aula || "Sin nombre"}
+                        {(aula && (aula.nombre || aula.nombre_aula)) ||
+                          "Sin nombre"}
                       </td>
                       <td className="border px-2 py-1 text-center">
-                        {aula.capacidad}
+                        {aula?.capacidad ?? "N/A"}
                       </td>
                       <td className="border px-2 py-1 text-center flex justify-center gap-2">
                         <button
@@ -682,12 +712,11 @@ export default function SucursalesPage() {
               <div>
                 <label className="text-sm text-gray-700">Nombre del Aula</label>
                 <input
-                  value={editingAula.nombre || editingAula.nombre_aula || ""}
+                  value={editingAula?.nombre || ""}
                   onChange={(e) =>
                     setEditingAula({
                       ...editingAula,
                       nombre: e.target.value,
-                      nombre_aula: e.target.value, // Mantén ambos por compatibilidad
                     })
                   }
                   type="text"
@@ -699,7 +728,7 @@ export default function SucursalesPage() {
                 <input
                   type="number"
                   min="1"
-                  value={editingAula.capacidad}
+                  value={editingAula?.capacidad || ""}
                   onChange={(e) => {
                     const value = parseInt(e.target.value);
                     if (value >= 1 || e.target.value === "") {
@@ -723,15 +752,10 @@ export default function SucursalesPage() {
               <button
                 onClick={async () => {
                   try {
-                    const updatedAula = await updateAula(editingAula.aula_id, {
-                      nombre: editingAula.nombre_aula,
+                    await updateAula(editingAula.aula_id, {
+                      nombre: editingAula.nombre,
                       capacidad: parseInt(editingAula.capacidad),
                     });
-                    setAulasSeleccionadas((prev) =>
-                      prev.map((a) =>
-                        a.aula_id === editingAula.aula_id ? updatedAula : a
-                      )
-                    );
                     setEditingAula(null);
                   } catch (error) {
                     alert("Ocurrió un error al actualizar el aula");
