@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Cookies from "js-cookie";
 import UsuariosTable from "./components/UsuariosTable";
 import UsuarioFormModal from "./components/UsuarioFormModal";
@@ -8,215 +8,99 @@ import UserDetailsModal from "./components/UserDetailsModal";
 import SearchBar from "./components/SearchBar";
 import ErrorAlert from "@/components/ui/ErrorAlert";
 
+const initialUserState = {
+  nombres: "",
+  ap_paterno: "",
+  ap_materno: "",
+  ci: "",
+  telefono: "",
+  rol_id: 1,
+  sucursal_id: null,
+  username: "",
+  password: "",
+};
+
+const API_URL = "https://api-umam-1.onrender.com";
+
 export default function UsuariosPage() {
-  const [usuarios, setUsuarios] = useState([]);
+  // Estados agrupados por categoría
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [showForm, setShowForm] = useState(false);
-  const [editingUser, setEditingUser] = useState(null);
-  const [newUser, setNewUser] = useState(initialUserState);
-  const [sucursales, setSucursales] = useState([]);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [userToDelete, setUserToDelete] = useState(null);
-  const [showViewModal, setShowViewModal] = useState(false);
-  const [selectedUser, setSelectedUser] = useState(null);
   const [error, setError] = useState(null);
 
+  const [searchTerm, setSearchTerm] = useState("");
   const [recordsPerPage, setRecordsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
 
-  const API_URL = "https://api-umam-1.onrender.com";
+  const [showForm, setShowForm] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+
+  const [usuarios, setUsuarios] = useState([]);
+  const [sucursales, setSucursales] = useState([]);
+  const [editingUser, setEditingUser] = useState(null);
+  const [newUser, setNewUser] = useState(initialUserState);
+  const [userToDelete, setUserToDelete] = useState(null);
+  const [selectedUser, setSelectedUser] = useState(null);
 
   // Función para resetear el formulario
-  const resetForm = () => {
+  const resetForm = useCallback(() => {
     setNewUser(initialUserState);
     setEditingUser(null);
-  };
+  }, []);
 
-  // Función para manejar cambios en los inputs
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    const finalValue = name.endsWith("_id") ? parseInt(value) || null : value;
-
-    setNewUser((prev) => ({ ...prev, [name]: finalValue }));
-
-    // Generación automática de username
-    if (["nombres", "ap_paterno", "ap_materno", "ci"].includes(name)) {
-      const nombres = name === "nombres" ? value : newUser.nombres;
-      const ap_paterno = name === "ap_paterno" ? value : newUser.ap_paterno;
-      const ap_materno = name === "ap_materno" ? value : newUser.ap_materno;
-      const ci = name === "ci" ? value : newUser.ci;
-
-      const username = generateUsername(nombres, ap_paterno, ap_materno, ci);
-      setNewUser((prev) => ({ ...prev, username }));
-    }
-
-    // Establecer CI como contraseña por defecto
-    if (name === "ci") {
-      setNewUser((prev) => ({ ...prev, password: value }));
-    }
-  };
-
-  // Función para generar username
-  const generateUsername = (nombres, apellidoPaterno, apellidoMaterno, ci) => {
-    let usernameBase = "";
-    if (nombres.length > 0) usernameBase += nombres.charAt(0).toLowerCase();
-    if (apellidoPaterno.length > 0) {
-      usernameBase += apellidoPaterno.charAt(0).toLowerCase();
-    } else if (apellidoMaterno.length > 0) {
-      usernameBase += apellidoMaterno.charAt(0).toLowerCase();
-    }
-    if (ci.length > 0) usernameBase += ci;
-    return usernameBase;
-  };
-
-  // Función para manejar el envío del formulario
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError(null);
-
-    try {
-      // Validación mejorada de campos
-      if (
-        !newUser.nombres?.trim() ||
-        !newUser.ap_paterno?.trim() ||
-        !newUser.ci?.trim()
-      ) {
-        throw new Error("Por favor complete todos los campos requeridos");
+  // Función para generar username (memoizada)
+  const generateUsername = useCallback(
+    (nombres, apellidoPaterno, apellidoMaterno, ci) => {
+      let usernameBase = "";
+      if (nombres.length > 0) usernameBase += nombres.charAt(0).toLowerCase();
+      if (apellidoPaterno.length > 0) {
+        usernameBase += apellidoPaterno.charAt(0).toLowerCase();
+      } else if (apellidoMaterno.length > 0) {
+        usernameBase += apellidoMaterno.charAt(0).toLowerCase();
       }
+      if (ci.length > 0) usernameBase += ci;
+      return usernameBase;
+    },
+    []
+  );
 
-      // Prepara los datos del usuario
-      const userData = {
-        nombres: newUser.nombres.trim(),
-        ap_paterno: newUser.ap_paterno.trim(),
-        ap_materno: newUser.ap_materno?.trim() || null,
-        ci: newUser.ci.trim(),
-        telefono: newUser.telefono?.trim() || null,
-        rol_id: newUser.rol_id,
-        sucursal_id: newUser.rol_id === 2 ? newUser.sucursal_id : null,
-        password: newUser.password || newUser.ci,
-      };
+  // Manejador de cambios en inputs (memoizado)
+  const handleInputChange = useCallback(
+    (e) => {
+      const { name, value } = e.target;
+      const finalValue = name.endsWith("_id") ? parseInt(value) || null : value;
 
-      // Solo incluir username si estamos creando un nuevo usuario
-      if (!editingUser) {
-        userData.username = newUser.username;
-      }
+      setNewUser((prev) => {
+        const updatedUser = { ...prev, [name]: finalValue };
 
-      const response = await fetch(
-        editingUser
-          ? `${API_URL}/usuarios/${editingUser.id}`
-          : `${API_URL}/usuarios/`,
-        {
-          method: editingUser ? "PUT" : "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${Cookies.get("access_token")}`,
-          },
-          body: JSON.stringify(userData),
+        // Generación automática de username
+        if (["nombres", "ap_paterno", "ap_materno", "ci"].includes(name)) {
+          const nombres = name === "nombres" ? value : prev.nombres;
+          const ap_paterno = name === "ap_paterno" ? value : prev.ap_paterno;
+          const ap_materno = name === "ap_materno" ? value : prev.ap_materno;
+          const ci = name === "ci" ? value : prev.ci;
+
+          updatedUser.username = generateUsername(
+            nombres,
+            ap_paterno,
+            ap_materno,
+            ci
+          );
         }
-      );
-      // Si la respuesta no es OK, maneja el error
-      if (!response.ok) {
-        const errorData = await response.json();
-        const errorMessage =
-          errorData.detail || errorData.message || `Error ${response.status}`;
-        throw new Error(errorMessage);
-      }
 
-      // Procesa la respuesta exitosa
-      const result = await response.json();
+        // Establecer CI como contraseña por defecto
+        if (name === "ci") {
+          updatedUser.password = value;
+        }
 
-      // Actualiza el estado según si es edición o creación
-      if (editingUser) {
-        setUsuarios(
-          usuarios.map((u) =>
-            u.id === editingUser.id ? { ...u, ...result } : u
-          )
-        );
-      } else {
-        setUsuarios([...usuarios, result]);
-      }
-
-      // Cierra el formulario y resetea
-      setShowForm(false);
-      resetForm();
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  // Función para buscar usuarios
-  const handleSearch = (e) => {
-    setSearchTerm(e.target.value);
-  };
-
-  // Función para abrir el formulario de edición
-  const openEditForm = async (usuario) => {
-    try {
-      setLoading(true);
-      const usuarioCompleto = await fetchUsuarioById(usuario.id);
-
-      setEditingUser(usuarioCompleto);
-      setNewUser({
-        nombres: usuarioCompleto.nombres,
-        ap_paterno: usuarioCompleto.ap_paterno,
-        ap_materno: usuarioCompleto.ap_materno,
-        ci: usuarioCompleto.ci,
-        telefono: usuarioCompleto.telefono,
-        rol_id: usuarioCompleto.rol_id,
-        sucursal_id: usuarioCompleto.sucursal_id,
-        username: usuarioCompleto.username,
-        password: "********", // No mostrar la contraseña real
+        return updatedUser;
       });
+    },
+    [generateUsername]
+  );
 
-      setShowForm(true);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Función para abrir el modal de eliminación
-  const openDeleteModal = (usuario) => {
-    setUserToDelete(usuario);
-    setShowDeleteModal(true);
-  };
-
-  // Función para confirmar eliminación
-  const confirmDelete = async () => {
-    try {
-      const response = await fetch(`${API_URL}/usuarios/${userToDelete.id}`, {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `bearer ${Cookies.get("access_token")}`,
-        },
-      });
-
-      if (!response.ok) throw new Error("Error al eliminar usuario");
-
-      setUsuarios(usuarios.filter((u) => u.id !== userToDelete.id));
-      setShowDeleteModal(false);
-      setUserToDelete(null);
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  // Función para abrir el modal de visualización
-  const openViewModal = async (usuario) => {
-    try {
-      const usuarioCompleto = await fetchUsuarioById(usuario.id);
-      setSelectedUser(usuarioCompleto || usuario);
-      setShowViewModal(true);
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  // Función para obtener un usuario por ID
-  const fetchUsuarioById = async (id) => {
+  // Función para obtener un usuario por ID (memoizada)
+  const fetchUsuarioById = useCallback(async (id) => {
     try {
       const response = await fetch(`${API_URL}/usuarios/${id}`, {
         headers: {
@@ -255,11 +139,148 @@ export default function UsuariosPage() {
       };
     } catch (err) {
       console.error("Error al obtener usuario por ID:", err);
-      throw new Error(
-        "No se pudo cargar la información del usuario. Por favor intente nuevamente."
-      );
+      throw err;
     }
-  };
+  }, []);
+
+  // Función para abrir el formulario de edición (memoizada)
+  const openEditForm = useCallback(
+    async (usuario) => {
+      try {
+        const usuarioCompleto = await fetchUsuarioById(usuario.id);
+
+        setEditingUser(usuarioCompleto);
+        setNewUser((prev) => ({
+          ...prev,
+          nombres: usuarioCompleto.nombres,
+          ap_paterno: usuarioCompleto.ap_paterno,
+          ap_materno: usuarioCompleto.ap_materno,
+          ci: usuarioCompleto.ci,
+          telefono: usuarioCompleto.telefono,
+          rol_id: usuarioCompleto.rol_id,
+          sucursal_id: usuarioCompleto.sucursal_id,
+          username: usuarioCompleto.username,
+          password: "********", // No mostrar la contraseña real
+        }));
+
+        setShowForm(true);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [fetchUsuarioById]
+  );
+
+  // Función para manejar el envío del formulario (memoizada)
+  const handleSubmit = useCallback(
+    async (e) => {
+      e.preventDefault();
+      setError(null);
+
+      try {
+        if (
+          !newUser.nombres?.trim() ||
+          !newUser.ap_paterno?.trim() ||
+          !newUser.ci?.trim()
+        ) {
+          throw new Error("Por favor complete todos los campos requeridos");
+        }
+
+        const userData = {
+          nombres: newUser.nombres.trim(),
+          ap_paterno: newUser.ap_paterno.trim(),
+          ap_materno: newUser.ap_materno?.trim() || null,
+          ci: newUser.ci.trim(),
+          telefono: newUser.telefono?.trim() || null,
+          rol_id: newUser.rol_id,
+          sucursal_id: newUser.rol_id === 2 ? newUser.sucursal_id : null,
+          password: newUser.password || newUser.ci,
+        };
+
+        if (!editingUser) {
+          userData.username = newUser.username;
+        }
+
+        const response = await fetch(
+          editingUser
+            ? `${API_URL}/usuarios/${editingUser.id}`
+            : `${API_URL}/usuarios/`,
+          {
+            method: editingUser ? "PUT" : "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${Cookies.get("access_token")}`,
+            },
+            body: JSON.stringify(userData),
+          }
+        );
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(
+            errorData.detail || errorData.message || `Error ${response.status}`
+          );
+        }
+
+        const result = await response.json();
+
+        if (editingUser) {
+          setUsuarios((prev) =>
+            prev.map((u) => (u.id === editingUser.id ? { ...u, ...result } : u))
+          );
+        } else {
+          setUsuarios((prev) => [...prev, result]);
+        }
+
+        setShowForm(false);
+        resetForm();
+      } catch (err) {
+        setError(err.message);
+      }
+    },
+    [newUser, editingUser, resetForm]
+  );
+
+  // Funciones para manejar modales (memoizadas)
+  const openDeleteModal = useCallback((usuario) => {
+    setUserToDelete(usuario);
+    setShowDeleteModal(true);
+  }, []);
+
+  const confirmDelete = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_URL}/usuarios/${userToDelete.id}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `bearer ${Cookies.get("access_token")}`,
+        },
+      });
+
+      if (!response.ok) throw new Error("Error al eliminar usuario");
+
+      setUsuarios((prev) => prev.filter((u) => u.id !== userToDelete.id));
+      setShowDeleteModal(false);
+      setUserToDelete(null);
+    } catch (err) {
+      setError(err.message);
+    }
+  }, [userToDelete]);
+
+  const openViewModal = useCallback(
+    async (usuario) => {
+      try {
+        const usuarioCompleto = await fetchUsuarioById(usuario.id);
+        setSelectedUser(usuarioCompleto || usuario);
+        setShowViewModal(true);
+      } catch (err) {
+        setError(err.message);
+      }
+    },
+    [fetchUsuarioById]
+  );
 
   // Efecto para cargar datos iniciales
   useEffect(() => {
@@ -313,27 +334,42 @@ export default function UsuariosPage() {
     fetchData();
   }, []);
 
-  // Filtrar usuarios según término de búsqueda
-  const filteredUsuarios = usuarios.filter((usuario) =>
-    `${usuario.nombres} ${usuario.apellidoPaterno} ${usuario.apellidoMaterno} ${usuario.ci}`
-      .toLowerCase()
-      .includes(searchTerm.toLowerCase())
+  // Datos derivados memoizados
+  const filteredUsuarios = useMemo(
+    () =>
+      usuarios.filter((usuario) =>
+        `${usuario.nombres} ${usuario.apellidoPaterno} ${usuario.apellidoMaterno} ${usuario.ci}`
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase())
+      ),
+    [usuarios, searchTerm]
   );
 
-  // Función para manejar el cambio en el número de registros por página
-  const handleRecordsPerPageChange = (value) => {
+  const paginatedUsuarios = useMemo(
+    () =>
+      filteredUsuarios.slice(
+        (currentPage - 1) * recordsPerPage,
+        currentPage * recordsPerPage
+      ),
+    [filteredUsuarios, currentPage, recordsPerPage]
+  );
+
+  const totalPages = useMemo(
+    () => Math.ceil(filteredUsuarios.length / recordsPerPage),
+    [filteredUsuarios.length, recordsPerPage]
+  );
+
+  // Manejador de búsqueda memoizado
+  const handleSearch = useCallback((e) => {
+    setSearchTerm(e.target.value);
+    setCurrentPage(1); // Resetear a la primera página al buscar
+  }, []);
+
+  // Manejador de cambio de registros por página
+  const handleRecordsPerPageChange = useCallback((value) => {
     setRecordsPerPage(value);
-    setCurrentPage(1); // Resetear a la primera página cuando cambia el tamaño
-  };
-
-  // Lógica de paginación
-  const paginatedUsuarios = filteredUsuarios.slice(
-    (currentPage - 1) * recordsPerPage,
-    currentPage * recordsPerPage
-  );
-
-  // Total de páginas
-  const totalPages = Math.ceil(filteredUsuarios.length / recordsPerPage);
+    setCurrentPage(1);
+  }, []);
 
   return (
     <div className="text-gray-900 relative p-4">
@@ -361,6 +397,7 @@ export default function UsuariosPage() {
         onDelete={openDeleteModal}
         onView={openViewModal}
       />
+
       {filteredUsuarios.length > 0 && (
         <div className="flex justify-between items-center mt-4">
           <span className="text-sm text-gray-600">
@@ -386,6 +423,7 @@ export default function UsuariosPage() {
           </div>
         </div>
       )}
+
       {showForm && (
         <UsuarioFormModal
           user={newUser}
@@ -417,15 +455,3 @@ export default function UsuariosPage() {
     </div>
   );
 }
-
-const initialUserState = {
-  nombres: "",
-  ap_paterno: "",
-  ap_materno: "",
-  ci: "",
-  telefono: "",
-  rol_id: 1,
-  sucursal_id: null,
-  username: "",
-  password: "",
-};

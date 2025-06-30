@@ -1,65 +1,8 @@
 "use client";
+import React, { useMemo } from "react";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 
-export default function UsuariosTable({
-  usuarios,
-  loading,
-  onEdit,
-  onDelete,
-  onView,
-}) {
-  const usuariosOrdenados = [...usuarios].sort(
-    (a, b) => b.usuario_id - a.usuario_id
-  );
-
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full border text-sm bg-white min-w-max">
-        <thead className="bg-gray-100 text-left">
-          <tr>
-            <th className="px-4 py-2 border-b">N°</th>
-            <th className="px-4 py-2 border-b">NOMBRES</th>
-            <th className="px-4 py-2 border-b">APELLIDO PATERNO</th>
-            <th className="px-4 py-2 border-b">APELLIDO MATERNO</th>
-            <th className="px-4 py-2 border-b">CI</th>
-            <th className="px-4 py-2 border-b">CELULAR</th>
-            <th className="px-4 py-2 border-b">ROL</th>
-            <th className="px-4 py-2 border-b">ACCIÓN</th>
-          </tr>
-        </thead>
-        <tbody>
-          {loading ? (
-            <tr>
-              <td colSpan="9" className="text-center py-4 text-gray-500">
-                <LoadingSpinner />
-              </td>
-            </tr>
-          ) : usuarios.length === 0 ? (
-            <tr>
-              <td colSpan="9" className="text-center py-4 text-gray-500">
-                No hay usuarios registrados
-              </td>
-            </tr>
-          ) : (
-            usuarios.map((usuario, index) => (
-              <TableRow
-                key={usuario.usuario_id}
-                usuario={usuario}
-                numero={index + 1}
-                onEdit={onEdit}
-                onDelete={onDelete}
-                onView={onView}
-              />
-            ))
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function TableRow({ usuario, numero, onEdit, onDelete, onView }) {
-  // Asegúrate de mostrar el nombre del rol como string, no el objeto completo
+const TableRow = React.memo(({ usuario, numero, onEdit, onDelete, onView }) => {
   const nombreRol =
     typeof usuario.rol === "object" ? usuario.rol.nombre : usuario.rol;
 
@@ -78,7 +21,6 @@ function TableRow({ usuario, numero, onEdit, onDelete, onView }) {
         {usuario.celular || usuario.telefono}
       </td>
       <td className="px-4 py-2 border-b">{nombreRol || "Sin rol"}</td>
-
       <td className="px-4 py-2 border-b">
         <ActionButtons
           onView={() => onView(usuario)}
@@ -88,9 +30,11 @@ function TableRow({ usuario, numero, onEdit, onDelete, onView }) {
       </td>
     </tr>
   );
-}
+});
 
-function ActionButtons({ onView, onEdit, onDelete }) {
+TableRow.displayName = "TableRow";
+
+const ActionButtons = React.memo(({ onView, onEdit, onDelete }) => {
   return (
     <div className="flex gap-3 items-center">
       <button
@@ -162,4 +106,64 @@ function ActionButtons({ onView, onEdit, onDelete }) {
       </button>
     </div>
   );
-}
+});
+
+ActionButtons.displayName = "ActionButtons";
+
+export default React.memo(function UsuariosTable({
+  usuarios,
+  loading,
+  onEdit,
+  onDelete,
+  onView,
+}) {
+  const usuariosOrdenados = useMemo(
+    () => [...usuarios].sort((a, b) => b.usuario_id - a.usuario_id),
+    [usuarios]
+  );
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full border text-sm bg-white min-w-max">
+        <thead className="bg-gray-100 text-left">
+          <tr>
+            <th className="px-4 py-2 border-b">N°</th>
+            <th className="px-4 py-2 border-b">NOMBRES</th>
+            <th className="px-4 py-2 border-b">APELLIDO PATERNO</th>
+            <th className="px-4 py-2 border-b">APELLIDO MATERNO</th>
+            <th className="px-4 py-2 border-b">CI</th>
+            <th className="px-4 py-2 border-b">CELULAR</th>
+            <th className="px-4 py-2 border-b">ROL</th>
+            <th className="px-4 py-2 border-b">ACCIÓN</th>
+          </tr>
+        </thead>
+        <tbody>
+          {loading ? (
+            <tr>
+              <td colSpan="9" className="text-center py-4 text-gray-500">
+                <LoadingSpinner />
+              </td>
+            </tr>
+          ) : usuarios.length === 0 ? (
+            <tr>
+              <td colSpan="9" className="text-center py-4 text-gray-500">
+                No hay usuarios registrados
+              </td>
+            </tr>
+          ) : (
+            usuariosOrdenados.map((usuario, index) => (
+              <TableRow
+                key={usuario.usuario_id}
+                usuario={usuario}
+                numero={index + 1}
+                onEdit={onEdit}
+                onDelete={onDelete}
+                onView={onView}
+              />
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+});
