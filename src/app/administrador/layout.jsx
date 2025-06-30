@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
 import LogoutButton from "@/components/LogoutButton";
-
+import { redirect } from "next/navigation";
 export const metadata = {
   title: "Administrador | UMAM",
   description: "Panel del administrador",
@@ -36,24 +36,37 @@ async function getUserData() {
 }
 
 export default async function AdministradorLayout({ children }) {
+  // Obtener cookies con await
+  const cookieStore = cookies();
+  const userDataCookie = await cookieStore.get("user_data")?.value;
   const userData = await getUserData();
 
-  if (!userData) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">No autorizado</h1>
-          <Link href="/login" className="text-blue-500 hover:underline">
-            Ir al inicio de sesión
-          </Link>
-        </div>
-      </div>
-    );
+  if (!userDataCookie) {
+    redirect("/login");
   }
 
-  // Ajustado según el esquema proporcionado
-  const nombreCompleto = `${userData.nombres} ${userData.ap_paterno}`;
-  const cargo = userData.rol?.nombre || "Administrador";
+  let nombreCompleto = "";
+  let cargo = "";
+
+  try {
+    const parsedUserData = JSON.parse(userDataCookie);
+
+    // Verificar rol de administrador (1)
+    if (parsedUserData.rol_id !== 1) {
+      const roleRoutes = {
+        1: "/administrador",
+        2: "/encargado",
+        3: "/facilitador",
+      };
+      redirect(roleRoutes[parsedUserData.rol_id] || "/login");
+    }
+    console.log("User Data:", parsedUserData);
+    nombreCompleto = `${parsedUserData.nombres} ${parsedUserData.apellido}`;
+    cargo = parsedUserData.cargo || "Administrador";
+  } catch (error) {
+    // Si hay error al parsear o falta algún dato, redirigir al login
+    redirect("/login");
+  }
 
   return (
     <div className="flex h-screen">

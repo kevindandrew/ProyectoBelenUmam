@@ -1,33 +1,23 @@
+// components/LogoutButton.jsx
 "use client";
-
 import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
 
-export default function LogoutButton({ className }) {
+export default function LogoutButton() {
   const router = useRouter();
 
-  const handleLogout = async () => {
-    try {
-      // Opcional: Hacer una llamada a tu API para cerrar sesión
-      await fetch("https://api-umam-1.onrender.com/auth/logout", {
-        method: "POST",
-        credentials: "include",
-      });
-
-      // Eliminar las cookies del cliente
-      Cookies.remove("access_token");
-      Cookies.remove("refresh_token");
-
-      // Redirigir al login
-      router.push("/login");
-      router.refresh(); // Forzar recarga para limpiar el estado
-    } catch (error) {
-      console.error("Error al cerrar sesión:", error);
-    }
+  const handleLogout = () => {
+    Cookies.remove("access_token");
+    Cookies.remove("user_data");
+    router.push("/login");
+    router.refresh();
   };
 
   return (
-    <button onClick={handleLogout} className={className}>
+    <button
+      onClick={handleLogout}
+      className="text-red-600 hover:text-red-800 font-medium p-2"
+    >
       Cerrar sesión
     </button>
   );

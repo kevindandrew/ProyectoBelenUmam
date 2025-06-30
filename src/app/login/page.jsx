@@ -1,8 +1,6 @@
-// src/LoginForm.jsx
 "use client";
 import React, { useState } from "react";
 import Cookies from "js-cookie";
-import { useRouter } from "next/navigation";
 
 const LoginForm = () => {
   const [username, setUsername] = useState("");
@@ -10,10 +8,15 @@ const LoginForm = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!username.trim() || !password.trim()) {
+      setError("Por favor completa todos los campos");
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
@@ -29,44 +32,51 @@ const LoginForm = () => {
         }
       );
 
+      const data = await response.json();
+      console.log("Respuesta del servidor:", data);
       if (!response.ok) {
-        const errorData = await response.json();
-        setError(errorData.detail || "Credenciales incorrectas");
-        setIsLoading(false);
-        return;
+        throw new Error(data.detail || "Credenciales incorrectas");
       }
 
-      const data = await response.json();
-      const { access_token, refresh_token } = data.tokens;
-      const rolId = data.user.rol.rol_id;
-
-      Cookies.set("access_token", access_token, {
+      // Guardar tokens y datos de usuario
+      Cookies.set("access_token", data.tokens.access_token, {
         expires: 1,
-        secure: true,
+        secure: process.env.NODE_ENV === "production",
         sameSite: "strict",
+        path: "/",
       });
 
-      Cookies.set("refresh_token", refresh_token, {
-        expires: 7,
-        secure: true,
-        sameSite: "strict",
-      });
+      Cookies.set(
+        "user_data",
+        JSON.stringify({
+          id: data.user.usuario_id,
+          username: data.user.username,
+          nombres: data.user.nombres,
+          apellido: data.user.ap_paterno,
+          rol_id: data.user.rol.rol_id,
+          rol_nombre: data.user.rol.nombre,
+        }),
+        {
+          expires: 1,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "strict",
+          path: "/",
+        }
+      );
 
       // Redirigir según el rol
-      const roles = {
+      const roleRoutes = {
         1: "/administrador",
         2: "/encargado",
         3: "/facilitador",
       };
 
-      if (roles[rolId]) {
-        router.push(roles[rolId]);
-      } else {
-        setError("Rol no reconocido");
-      }
+      window.location.href = roleRoutes[data.user.rol.rol_id] || "/login";
     } catch (error) {
-      console.error("Error al iniciar sesión:", error);
-      setError("Error de conexión con el servidor");
+      console.error("Error en login:", error);
+      setError(error.message || "Error al iniciar sesión");
+      Cookies.remove("access_token");
+      Cookies.remove("user_data");
     } finally {
       setIsLoading(false);
     }
@@ -103,6 +113,8 @@ const LoginForm = () => {
               <input
                 type="text"
                 id="username"
+                name="username"
+                autoComplete="username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -122,6 +134,8 @@ const LoginForm = () => {
                 <input
                   type={showPassword ? "text" : "password"}
                   id="password"
+                  name="password"
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10"
@@ -180,7 +194,7 @@ const LoginForm = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className={`w-full bg-[#22dd9f] text-white py-3 rounded-md font-sans font-semibold hover:bg-[#159268] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+              className={`w-full bg-[#22dd9f] text-white py-3 rounded-md font-sans font-semibold hover:bg-[#159268] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-opacity ${
                 isLoading ? "opacity-70 cursor-not-allowed" : ""
               }`}
             >
@@ -218,7 +232,7 @@ const LoginForm = () => {
         <div className="hidden lg:flex lg:w-1/2 bg-slate-800 relative items-center justify-center p-8">
           <div className="relative w-full h-full flex items-center justify-center">
             <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-700 p-4">
-              <p className="text-7xl font-black text-center text-[#33ffbb] tracking-[15]">
+              <p className="text-7xl font-black text-center text-[#33ffbb] tracking-[15px]">
                 UMAM
               </p>
               <p className="font-sans font-bold tracking-tight text-center text-white">
