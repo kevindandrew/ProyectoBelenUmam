@@ -11,32 +11,37 @@ const CourseForm = ({
   availableSubjects = [],
   availableProfessors = [],
 }) => {
-  // Estado del formulario con IDs en lugar de nombres para materia y profesor
+  // Estado del formulario
   const [formData, setFormData] = useState({
-    curso_id: initialData?.curso_id || "",
-    profesor_id: initialData?.profesor_id || "",
-    classroom:
-      initialData?.classroom?.value || availableClassrooms[0]?.value || "",
-    time: initialData?.time || timeSlots[0]?.label || timeSlots[0],
-    day: initialData?.day || days[0]?.id || "",
+    curso_id: "",
+    profesor_id: "",
+    classroom: "",
+    time: "",
+    day: "",
   });
 
-  // Actualiza el estado si cambia initialData
+  // Obtener el label del aula seleccionada
+  const getClassroomLabel = () => {
+    if (!formData.classroom) return "Seleccionar aula";
+    const aula = availableClassrooms.find(
+      (a) => a.value === formData.classroom
+    );
+    return aula ? aula.label : `Aula ${formData.classroom}`;
+  };
+
+  // Efecto para actualizar con initialData
   useEffect(() => {
     if (initialData) {
-      setFormData((prev) => ({
-        ...prev,
-        ...initialData,
-        curso_id: initialData?.curso_id || prev.curso_id,
-        profesor_id: initialData?.profesor_id || prev.profesor_id,
-        classroom: initialData?.classroom?.value || prev.classroom,
-        time: initialData?.time || prev.time,
-        day: initialData?.day || prev.day,
-      }));
+      setFormData({
+        curso_id: initialData.curso_id || "",
+        profesor_id: initialData.profesor_id || "",
+        classroom: initialData.classroom || "", // Usar el aula recibida
+        time: initialData.time || timeSlots[0]?.label || "",
+        day: initialData.day || days[0]?.id || "",
+      });
     }
-  }, [initialData]);
+  }, [initialData, timeSlots, days]);
 
-  // Maneja cambios en inputs/selects
   const handleChange = (e) => {
     setFormData({
       ...formData,
@@ -44,7 +49,6 @@ const CourseForm = ({
     });
   };
 
-  // Envía el formulario
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!formData.curso_id || !formData.profesor_id || !formData.classroom) {
@@ -98,33 +102,32 @@ const CourseForm = ({
             <option key={professor.usuario_id} value={professor.usuario_id}>
               {professor.nombres +
                 " " +
-                professor.ap_paterno +
+                (professor.ap_paterno || "") +
                 " " +
-                professor.ap_materno}
+                (professor.ap_materno || "")}
             </option>
           ))}
         </select>
       </div>
 
-      {/* Aula */}
+      {/* Aula (solo lectura) */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Aula *
         </label>
-        <select
+        <input
+          type="text"
           name="classroom"
+          value={getClassroomLabel()}
+          readOnly
+          className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100"
+        />
+        {/* Campo oculto para mantener el valor en el formulario */}
+        <input
+          type="hidden"
+          name="classroom_value"
           value={formData.classroom}
-          disabled
-          required
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="">Seleccionar aula</option>
-          {availableClassrooms.map((classroom) => (
-            <option key={classroom.value} value={classroom.value}>
-              {classroom.label}
-            </option>
-          ))}
-        </select>
+        />
       </div>
 
       {/* Horario y Día */}

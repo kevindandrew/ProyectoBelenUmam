@@ -261,7 +261,20 @@ const SchedulePage = () => {
   };
 
   const handleCellClick = (time, day, classroom) => {
-    setCourseFormData({ time, day, classroom, curso_id: "", profesor_id: "" });
+    // Verifica que classroom tenga el formato correcto
+    if (!classroom || !classroom.value) {
+      console.error("Classroom inválido:", classroom);
+      return;
+    }
+
+    setCourseFormData({
+      time,
+      day,
+      classroom: classroom.value, // Pasamos solo el value para el formulario
+      classroomObject: classroom, // Guardamos el objeto completo para referencia
+      curso_id: "",
+      profesor_id: "",
+    });
     setIsModalOpen(true);
   };
 

@@ -97,7 +97,9 @@ const ScheduleTable = ({
                             </div>
                           ) : (
                             <div
-                              onClick={() => onCellClick(time, day.id)}
+                              onClick={() =>
+                                onCellClick(time, day.id, classroom)
+                              }
                               className="h-16 border-2 border-dashed border-gray-200 rounded-lg cursor-pointer hover:border-green-300 hover:bg-green-50 transition-colors flex items-center justify-center group"
                             >
                               <div className="flex items-center gap-1 text-gray-400 text-sm opacity-0 group-hover:opacity-100 transition-opacity">
