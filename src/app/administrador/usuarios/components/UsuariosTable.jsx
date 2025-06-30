@@ -8,19 +8,22 @@ export default function UsuariosTable({
   onDelete,
   onView,
 }) {
+  const usuariosOrdenados = [...usuarios].sort(
+    (a, b) => b.usuario_id - a.usuario_id
+  );
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full border text-sm bg-white min-w-max">
         <thead className="bg-gray-100 text-left">
           <tr>
-            <th className="px-4 py-2 border-b">ID</th>
+            <th className="px-4 py-2 border-b">N°</th>
             <th className="px-4 py-2 border-b">NOMBRES</th>
             <th className="px-4 py-2 border-b">APELLIDO PATERNO</th>
             <th className="px-4 py-2 border-b">APELLIDO MATERNO</th>
             <th className="px-4 py-2 border-b">CI</th>
             <th className="px-4 py-2 border-b">CELULAR</th>
             <th className="px-4 py-2 border-b">ROL</th>
-            <th className="px-4 py-2 border-b">USUARIO</th>
             <th className="px-4 py-2 border-b">ACCIÓN</th>
           </tr>
         </thead>
@@ -38,10 +41,11 @@ export default function UsuariosTable({
               </td>
             </tr>
           ) : (
-            usuarios.map((usuario) => (
+            usuarios.map((usuario, index) => (
               <TableRow
                 key={usuario.usuario_id}
                 usuario={usuario}
+                numero={index + 1}
                 onEdit={onEdit}
                 onDelete={onDelete}
                 onView={onView}
@@ -54,14 +58,14 @@ export default function UsuariosTable({
   );
 }
 
-function TableRow({ usuario, onEdit, onDelete, onView }) {
+function TableRow({ usuario, numero, onEdit, onDelete, onView }) {
   // Asegúrate de mostrar el nombre del rol como string, no el objeto completo
   const nombreRol =
     typeof usuario.rol === "object" ? usuario.rol.nombre : usuario.rol;
 
   return (
     <tr className="hover:bg-gray-50">
-      <td className="px-4 py-2 border-b">{usuario.usuario_id}</td>
+      <td className="px-4 py-2 border-b">{numero}</td>
       <td className="px-4 py-2 border-b">{usuario.nombres}</td>
       <td className="px-4 py-2 border-b">
         {usuario.apellidoPaterno || usuario.ap_paterno}
@@ -74,7 +78,7 @@ function TableRow({ usuario, onEdit, onDelete, onView }) {
         {usuario.celular || usuario.telefono}
       </td>
       <td className="px-4 py-2 border-b">{nombreRol || "Sin rol"}</td>
-      <td className="px-4 py-2 border-b">{usuario.username}</td>
+
       <td className="px-4 py-2 border-b">
         <ActionButtons
           onView={() => onView(usuario)}

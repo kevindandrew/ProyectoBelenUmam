@@ -168,9 +168,16 @@ export default function CursosPage() {
     });
   };
   // Filtrar cursos por término de búsqueda
-  const cursosFiltrados = cursos.filter((curso) =>
-    curso.nombre.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const cursosFiltrados = cursos.filter((curso) => {
+    const terminoBusqueda = searchTerm.toLowerCase();
+    const nombreCurso = curso.nombre.toLowerCase();
+    const tipoCurso = curso.gestoria ? "gestoría" : "taller";
+
+    return (
+      nombreCurso.includes(terminoBusqueda) ||
+      tipoCurso.includes(terminoBusqueda)
+    );
+  });
 
   const totalPaginas = Math.ceil(cursosFiltrados.length / registrosPorPagina);
   const inicio = (paginaActual - 1) * registrosPorPagina;

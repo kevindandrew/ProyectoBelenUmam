@@ -161,17 +161,15 @@ export default function SucursalesPage() {
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(
-          `Error al actualizar aula: ${errorData.message || "Sin detalles"}`
+          `Error al actualizar aula: ${
+            errorData.detail || errorData.message || "Sin detalles"
+          }`
         );
       }
 
       const updatedAula = await response.json();
       setAulasSeleccionadas((prev) =>
-        prev.map((a) =>
-          a.aula_id === aulaId
-            ? { ...updatedAula, nombre_aula: updatedAula.nombre }
-            : a
-        )
+        prev.map((a) => (a.aula_id === aulaId ? updatedAula : a))
       );
       setEditingAula(null);
     } catch (error) {
@@ -179,7 +177,6 @@ export default function SucursalesPage() {
       alert(`Error al actualizar aula: ${error.message}`);
     }
   };
-
   const deleteAula = async (aulaId) => {
     try {
       const response = await fetch(
@@ -195,7 +192,9 @@ export default function SucursalesPage() {
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(
-          `Error al eliminar aula: ${errorData.message || "Sin detalles"}`
+          `Error al eliminar aula: ${
+            errorData.detail || errorData.message || "Sin detalles"
+          }`
         );
       }
 
