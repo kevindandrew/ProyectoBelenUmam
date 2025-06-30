@@ -4,6 +4,96 @@ import Cookies from "js-cookie";
 
 const API_URL = "https://api-umam-1.onrender.com";
 
+// Componente para editar notas
+const EditarNota = ({ estudiante, onUpdate }) => {
+  const [editando, setEditando] = useState(false);
+  const [nuevaNota, setNuevaNota] = useState(estudiante.nota_final || "");
+  const [cargando, setCargando] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleConfirmar = async () => {
+    // Validación
+    if (nuevaNota === "" || isNaN(nuevaNota)) {
+      setError("Ingrese un número válido");
+      return;
+    }
+
+    const notaNum = Number(nuevaNota);
+    if (notaNum < 0 || notaNum > 100) {
+      setError("La nota debe estar entre 0 y 100");
+      return;
+    }
+
+    setCargando(true);
+    setError(null);
+
+    try {
+      await onUpdate(estudiante.estudiante_id, notaNum);
+      setEditando(false);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setCargando(false);
+    }
+  };
+
+  const handleCancelar = () => {
+    setNuevaNota(estudiante.nota_final || "");
+    setError(null);
+    setEditando(false);
+  };
+
+  return (
+    <div className="relative">
+      {editando ? (
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            min="0"
+            max="100"
+            value={nuevaNota}
+            onChange={(e) => setNuevaNota(e.target.value)}
+            className="w-16 border rounded px-2 py-1 text-center"
+            disabled={cargando}
+          />
+          <button
+            onClick={handleConfirmar}
+            disabled={cargando}
+            className="p-1 text-green-600 hover:text-green-800 disabled:opacity-50"
+            title="Confirmar"
+          >
+            {cargando ? "..." : "✓"}
+          </button>
+          <button
+            onClick={handleCancelar}
+            disabled={cargando}
+            className="p-1 text-red-600 hover:text-red-800 disabled:opacity-50"
+            title="Cancelar"
+          >
+            ✗
+          </button>
+          {error && (
+            <span className="absolute top-full left-0 text-xs text-red-600 mt-1">
+              {error}
+            </span>
+          )}
+        </div>
+      ) : (
+        <div className="flex items-center gap-2">
+          <span>{estudiante.nota_final || "-"}</span>
+          <button
+            onClick={() => setEditando(true)}
+            className="p-1 text-blue-600 hover:text-blue-800"
+            title="Editar nota"
+          >
+            ✏️
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export default function InscripcionesPage() {
   const [filtros, setFiltros] = useState({
     gestion_id: "",
@@ -151,11 +241,16 @@ export default function InscripcionesPage() {
   // Actualizar nota de estudiante
   const actualizarNota = async (estudiante_id, nuevaNota) => {
     try {
-      await fetchData(`${API_URL}/listas/estudiante/${estudiante_id}/nota`, {
-        method: "PUT",
-        body: JSON.stringify({ nota_final: nuevaNota }),
-      });
+      // Encontrar el estudiante para obtener su matricula_id
+      const estudiante = estudiantes.find(
+        (est) => est.estudiante_id === estudiante_id
+      );
 
+      if (!estudiante || !estudiante.matricula_id) {
+        throw new Error("No se encontró la matrícula del estudiante");
+      }
+
+      // Optimistic update
       setEstudiantes((prev) =>
         prev.map((est) =>
           est.estudiante_id === estudiante_id
@@ -163,9 +258,19 @@ export default function InscripcionesPage() {
             : est
         )
       );
+
+      await fetchData(
+        `${API_URL}/listas/matricula/${estudiante.matricula_id}/nota`,
+        {
+          method: "PUT",
+          body: JSON.stringify({ nota_final: nuevaNota }),
+        }
+      );
     } catch (error) {
       console.error("Error al actualizar nota:", error);
-      alert(error.message);
+      // Revertir el cambio si falla
+      setEstudiantes((prev) => [...prev]);
+      throw error;
     }
   };
 
@@ -377,18 +482,9 @@ export default function InscripcionesPage() {
                       <td className="border px-3 py-2">{est.ci}</td>
                       <td className="border px-3 py-2">{est.telefono}</td>
                       <td className="border px-3 py-2">
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          value={est.nota_final || 0}
-                          onChange={(e) =>
-                            actualizarNota(
-                              est.estudiante_id,
-                              Number(e.target.value)
-                            )
-                          }
-                          className="w-16 border rounded px-2 py-1 text-center"
+                        <EditarNota
+                          estudiante={est}
+                          onUpdate={actualizarNota}
                         />
                       </td>
                       <td className="border px-3 py-2">{est.estado}</td>
