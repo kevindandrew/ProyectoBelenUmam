@@ -2,6 +2,7 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 import { jsPDF } from "jspdf";
+import Cookies from "js-cookie";
 
 // Datos de estudiantes por curso (simulados - en producción vendrían de una API)
 const estudiantesPorCurso = {
@@ -29,7 +30,7 @@ export default function GeneradorCertificados() {
     }),
     añoCurricular: new Date().getFullYear().toString(),
     fondo: "",
-    contenidoPersonalizado: "",
+    contenidoPersonalizado: "", // Se inicializa vacío, pero se llenará en useEffect
     firmantes: {
       alcalde: "Lic. Iván Arias Durán",
       cargoAlcalde: "ALCALDE MUNICIPAL DE LA PAZ",
@@ -97,34 +98,94 @@ export default function GeneradorCertificados() {
     },
   };
 
-  // Cursos disponibles
-  const cursos = {
-    TALLER: [
-      "Computación",
-      "Computación Avanzada",
-      "Manualidades",
-      "Repostería y Pastelería",
-      "Inglés Básico",
-      "Danza Folklórica",
-    ],
-    GESTORIA: ["Orientación Legal", "Nuevas Tecnologías", "Salud", "Turismo"],
-  };
+  // Estado para cursos y estudiantes desde API
+  const [cursosApi, setCursosApi] = useState({ TALLER: [], GESTORIA: [] });
+  const [cursosApiRaw, setCursosApiRaw] = useState([]); // Guardar cursos completos
+  const [gestiones, setGestiones] = useState([]);
+  const [estudiantesApi, setEstudiantesApi] = useState([]);
+  const [gestionSeleccionada, setGestionSeleccionada] = useState("");
+  // Guardar la última plantilla generada para comparar si el usuario la editó
+  const lastTemplateRef = useRef("");
 
-  // Cargar plantilla al cambiar tipo
+  // Inicializar contenidoPersonalizado con la plantilla base al cargar y al cambiar tipo/curso/gestion
   useEffect(() => {
-    const fondo = formData.fondo || fondosPredeterminados[formData.tipo];
-    setPreviewFondo(fondo);
-
+    // Siempre actualizar el contenido al cambiar tipo, curso, fecha o año
+    const plantilla = plantillasBase[formData.tipo].contenido
+      .replace("[NOMBRE_ESTUDIANTE]", "[NOMBRE_ESTUDIANTE]")
+      .replace("[NOMBRE_CURSO]", formData.curso || "[NOMBRE_CURSO]")
+      .replace("[FECHA]", formData.fecha || "[FECHA]")
+      .replace("[AÑO]", formData.añoCurricular || "[AÑO]");
     setFormData((prev) => ({
       ...prev,
-      fondo,
-      contenidoPersonalizado: plantillasBase[prev.tipo].contenido
-        .replace("[NOMBRE_ESTUDIANTE]", "[NOMBRE_ESTUDIANTE]")
-        .replace("[NOMBRE_CURSO]", prev.curso || "[NOMBRE_CURSO]")
-        .replace("[FECHA]", prev.fecha || "[FECHA]")
-        .replace("[AÑO]", prev.añoCurricular || "[AÑO]"),
+      contenidoPersonalizado: plantilla,
     }));
-  }, [formData.tipo, formData.curso, formData.fecha, formData.añoCurricular]);
+    lastTemplateRef.current = plantilla;
+    // eslint-disable-next-line
+  }, [
+    formData.tipo,
+    formData.curso,
+    gestionSeleccionada,
+    formData.fecha,
+    formData.añoCurricular,
+  ]);
+
+  // Cargar cursos y gestiones desde API al inicio
+  useEffect(() => {
+    const token = Cookies.get("access_token") || Cookies.get("token");
+    if (!token) return;
+    // Cursos
+    fetch("https://api-umam-1.onrender.com/cursos/", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (!Array.isArray(data)) return;
+        setCursosApiRaw(data); // Guardar cursos completos
+        setCursosApi({
+          TALLER: data.filter((c) => !c.gestoria),
+          GESTORIA: data.filter((c) => c.gestoria),
+        });
+      });
+    // Gestiones
+    fetch("https://api-umam-1.onrender.com/cursos/gestiones", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (!Array.isArray(data)) return;
+        setGestiones(data); // Guardar objetos completos con gestion_id
+      });
+  }, []);
+
+  // Cargar estudiantes cuando cambian curso/tipo/gestion
+  useEffect(() => {
+    const token = Cookies.get("access_token") || Cookies.get("token");
+    if (!token || !formData.curso || !gestionSeleccionada) {
+      setEstudiantesApi([]);
+      return;
+    }
+    // Buscar estudiantes por curso y gestion usando el nuevo endpoint y gestion_id
+    const gestionObj = gestiones.find(
+      (g) => String(g.gestion) === String(gestionSeleccionada)
+    );
+    const gestion_id = gestionObj ? gestionObj.id : undefined;
+    if (!gestion_id) {
+      setEstudiantesApi([]);
+      return;
+    }
+    const params = new URLSearchParams({
+      curso_id: formData.curso,
+      gestion_id: gestion_id,
+    });
+    fetch(
+      `https://api-umam-1.onrender.com/listas/estudiantes?${params.toString()}`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    )
+      .then((r) => r.json())
+      .then((data) => {
+        setEstudiantesApi(Array.isArray(data) ? data : []);
+      });
+  }, [formData.curso, formData.tipo, gestionSeleccionada, gestiones]);
 
   // Manejar cambio de imagen de fondo
   const handleFondoChange = (e) => {
@@ -149,7 +210,7 @@ export default function GeneradorCertificados() {
     // Procesar contenido personalizado
     const contenido = formData.contenidoPersonalizado
       .replace("[NOMBRE_ESTUDIANTE]", estudiante.nombre.toUpperCase())
-      .replace("[NOMBRE_CURSO]", formData.curso)
+      .replace("[NOMBRE_CURSO]", getCursoNombre())
       .replace("[FECHA]", formData.fecha)
       .replace("[AÑO]", formData.añoCurricular);
 
@@ -239,15 +300,15 @@ export default function GeneradorCertificados() {
 
   // Generar un solo PDF con todos los certificados del curso
   const generarPDFCursoCompleto = () => {
-    if (!formData.curso) {
-      alert("Por favor seleccione un curso");
+    if (!formData.curso || !gestionSeleccionada) {
+      alert("Por favor seleccione un curso y gestión");
       return;
     }
 
-    const estudiantes = estudiantesPorCurso[formData.curso] || [];
+    const estudiantes = estudiantesApi;
     if (estudiantes.length === 0) {
       alert(
-        `No hay estudiantes registrados para el curso de ${formData.curso}`
+        `No hay estudiantes registrados para el curso de ${formData.curso} en la gestión ${gestionSeleccionada}`
       );
       return;
     }
@@ -277,28 +338,10 @@ export default function GeneradorCertificados() {
   // Manejar cambios en el formulario
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => {
-      const newData = { ...prev, [name]: value };
-
-      // Actualizar contenido si cambian campos clave
-      if (["curso", "fecha", "añoCurricular"].includes(name)) {
-        newData.contenidoPersonalizado = prev.contenidoPersonalizado
-          .replace(
-            "[NOMBRE_CURSO]",
-            name === "curso" ? value : prev.curso || "[NOMBRE_CURSO]"
-          )
-          .replace(
-            "[FECHA]",
-            name === "fecha" ? value : prev.fecha || "[FECHA]"
-          )
-          .replace(
-            "[AÑO]",
-            name === "añoCurricular" ? value : prev.añoCurricular || "[AÑO]"
-          );
-      }
-
-      return newData;
-    });
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   };
 
   // Manejar cambios en los firmantes
@@ -313,12 +356,17 @@ export default function GeneradorCertificados() {
     }));
   };
 
+  // Para mostrar el nombre del curso seleccionado en el certificado
+  const getCursoNombre = () => {
+    const curso = cursosApiRaw.find(
+      (c) => String(c.id) === String(formData.curso)
+    );
+    return curso ? curso.nombre : formData.curso;
+  };
+
   return (
     <div className="container mx-auto max-w-6xl">
-      <h1 className="text-3xl font-bold text-[#13678A] mb-6">
-        CERTIFICADOS
-      </h1>
-
+      <h1 className="text-3xl font-bold text-[#13678A] mb-6">CERTIFICADOS</h1>
       <div className="bg-white p-6 rounded-lg shadow-lg border border-gray-200">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Columna izquierda - Formulario */}
@@ -326,8 +374,27 @@ export default function GeneradorCertificados() {
             <h2 className="text-xl font-semibold text-[#012030]">
               Configuración del Certificado
             </h2>
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Gestión*
+                </label>
+                <select
+                  name="gestion"
+                  className="w-full border border-gray-300 rounded-md p-2"
+                  value={gestionSeleccionada}
+                  onChange={(e) => setGestionSeleccionada(e.target.value)}
+                  required
+                >
+                  <option value="">Seleccione una gestión</option>
+                  {gestiones.map((g) => (
+                    <option key={g.id ? String(g.id) : String(g.gestion)} value={g.gestion}>
+                      {g.gestion}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Tipo de Certificado*
@@ -343,7 +410,9 @@ export default function GeneradorCertificados() {
                   <option value="GESTORIA">Gestoría</option>
                 </select>
               </div>
+            </div>
 
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Curso/Mención*
@@ -356,27 +425,12 @@ export default function GeneradorCertificados() {
                   required
                 >
                   <option value="">Seleccione un curso</option>
-                  {cursos[formData.tipo].map((curso) => (
-                    <option key={curso} value={curso}>
-                      {curso}
+                  {cursosApi[formData.tipo].map((curso) => (
+                    <option key={curso.id} value={curso.id}>
+                      {curso.nombre}
                     </option>
                   ))}
                 </select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Año Curricular
-                </label>
-                <input
-                  type="text"
-                  name="añoCurricular"
-                  className="w-full border border-gray-300 rounded-md p-2"
-                  value={formData.añoCurricular}
-                  onChange={handleChange}
-                />
               </div>
 
               <div>
@@ -530,14 +584,19 @@ export default function GeneradorCertificados() {
             <div className="mt-4 flex justify-between items-center">
               <button
                 onClick={() => {
+                  const plantilla = plantillasBase[formData.tipo].contenido
+                    .replace("[NOMBRE_ESTUDIANTE]", "[NOMBRE_ESTUDIANTE]")
+                    .replace(
+                      "[NOMBRE_CURSO]",
+                      formData.curso || "[NOMBRE_CURSO]"
+                    )
+                    .replace("[FECHA]", formData.fecha || "[FECHA]")
+                    .replace("[AÑO]", formData.añoCurricular || "[AÑO]");
                   setFormData((prev) => ({
                     ...prev,
-                    contenidoPersonalizado: plantillasBase[prev.tipo].contenido
-                      .replace("[NOMBRE_ESTUDIANTE]", "[NOMBRE_ESTUDIANTE]")
-                      .replace("[NOMBRE_CURSO]", prev.curso || "[NOMBRE_CURSO]")
-                      .replace("[FECHA]", prev.fecha || "[FECHA]")
-                      .replace("[AÑO]", prev.añoCurricular || "[AÑO]"),
+                    contenidoPersonalizado: plantilla,
                   }));
+                  lastTemplateRef.current = plantilla;
                 }}
                 className="text-sm text-blue-600 hover:text-blue-800"
               >
@@ -554,20 +613,61 @@ export default function GeneradorCertificados() {
               </button>
             </div>
 
-            {formData.curso && estudiantesPorCurso[formData.curso] && (
+            {formData.curso &&
+              estudiantesApi.filter(
+                (e) => e.estado === "APROBADO" || e.nota_final >= 51
+              ).length > 0 && (
+                <div className="mt-6 border-t pt-4">
+                  <h3 className="text-lg font-medium text-[#012030] mb-2">
+                    Estudiantes en este curso y gestión (solo aprobados)
+                  </h3>
+                  <ul className="max-h-40 overflow-y-auto border rounded-md p-2">
+                    {estudiantesApi
+                      .filter(
+                        (e) => e.estado === "APROBADO" || e.nota_final >= 51
+                      )
+                      .map((estudiante, index) => (
+                        <li
+                          key={index}
+                          className="py-1 border-b last:border-b-0"
+                        >
+                          {`${estudiante.nombres} ${estudiante.ap_paterno} ${estudiante.ap_materno}`} - {estudiante.ci} - Nota: {estudiante.nota_final} - Estado: {estudiante.estado}
+                        </li>
+                      ))}
+                  </ul>
+                </div>
+              )}
+
+            {/* DEBUG: Tabla de todos los estudiantes recibidos */}
+            {formData.curso && estudiantesApi.length > 0 && (
               <div className="mt-6 border-t pt-4">
-                <h3 className="text-lg font-medium text-[#012030] mb-2">
-                  Estudiantes en este curso
+                <h3 className="text-base font-medium text-gray-700 mb-2">
+                  DEBUG: Todos los estudiantes recibidos
                 </h3>
-                <ul className="max-h-40 overflow-y-auto border rounded-md p-2">
-                  {estudiantesPorCurso[formData.curso].map(
-                    (estudiante, index) => (
-                      <li key={index} className="py-1 border-b last:border-b-0">
-                        {estudiante.nombre} - {estudiante.ci}
-                      </li>
-                    )
-                  )}
-                </ul>
+                <table className="w-full text-xs border mb-4">
+                  <thead>
+                    <tr className="bg-gray-100">
+                      <th className="border px-1">Nombres</th>
+                      <th className="border px-1">Ap. Paterno</th>
+                      <th className="border px-1">Ap. Materno</th>
+                      <th className="border px-1">CI</th>
+                      <th className="border px-1">Nota Final</th>
+                      <th className="border px-1">Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {estudiantesApi.map((e, i) => (
+                      <tr key={i}>
+                        <td className="border px-1">{e.nombres}</td>
+                        <td className="border px-1">{e.ap_paterno}</td>
+                        <td className="border px-1">{e.ap_materno}</td>
+                        <td className="border px-1">{e.ci}</td>
+                        <td className="border px-1">{e.nota_final}</td>
+                        <td className="border px-1">{e.estado}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
