@@ -1,11 +1,7 @@
-// Importación compatible con Next.js/React (solo en cliente)
 let pdfMake;
 if (typeof window !== "undefined") {
-  // Usar require solo en cliente para evitar errores SSR
-  // y proteger el acceso a pdfMake.vfs
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
   pdfMake = require("pdfmake/build/pdfmake");
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
+
   const pdfFonts = require("pdfmake/build/vfs_fonts");
   if (pdfMake && pdfFonts && pdfFonts.pdfMake) {
     pdfMake.vfs = pdfFonts.pdfMake.vfs;
