@@ -96,7 +96,7 @@ export default function GeneradorCertificados() {
   useEffect(() => {
     const plantilla = plantillasBase[formData.tipo].contenido
       .replace("[NOMBRE_ESTUDIANTE]", "[NOMBRE_ESTUDIANTE]")
-      .replace("[NOMBRE_CURSO]", formData.curso || "[NOMBRE_CURSO]")
+      .replace("[NOMBRE_CURSO]", getCursoNombre() || "[NOMBRE_CURSO]")
       .replace("[FECHA]", formData.fecha || "[FECHA]")
       .replace("[AÑO]", formData.añoCurricular || "[AÑO]");
 
@@ -111,6 +111,7 @@ export default function GeneradorCertificados() {
     gestionSeleccionada,
     formData.fecha,
     formData.añoCurricular,
+    cursosApiRaw, // Asegura que getCursoNombre tenga los datos
   ]);
 
   // Cargar cursos y gestiones
@@ -273,11 +274,13 @@ export default function GeneradorCertificados() {
         if (formData.fondo) {
           doc.addImage(formData.fondo, "JPEG", 0, 0, pageWidth, pageHeight);
         }
+
         const nombreCompleto = `${estudiante.nombres || ""} ${
           estudiante.ap_paterno || ""
         } ${estudiante.ap_materno || ""}`
           .trim()
           .toUpperCase();
+
         const contenido = formData.contenidoPersonalizado
           .replace("[NOMBRE_ESTUDIANTE]", nombreCompleto)
           .replace("[NOMBRE_CURSO]", getCursoNombre())
@@ -286,89 +289,101 @@ export default function GeneradorCertificados() {
 
         doc.setFont("helvetica");
         doc.setTextColor(0, 0, 0);
-        doc.setFontSize(12);
-        doc.setFont(undefined, "normal");
 
         let yPos = 80;
 
         contenido.split("\n").forEach((linea) => {
           if (linea.trim() === "") {
             yPos += 5;
-          } else {
-            const hasBold = linea.includes("<b>");
+          } else if (linea === nombreCompleto) {
+            // Nombre del estudiante más grande (hasta 20pt), ajustado si es muy largo
+            let fontSize = 20;
+            doc.setFont(undefined, "bold");
+            doc.setFontSize(fontSize);
 
-            if (hasBold) {
-              const parts = linea.split(/(<b>|<\/b>)/);
-              let currentX =
-                (pageWidth -
-                  doc.getTextWidth(linea.replace(/<b>|<\/b>/g, ""))) /
-                2;
-
-              parts.forEach((part) => {
-                if (part === "<b>") doc.setFont(undefined, "bold");
-                else if (part === "</b>") doc.setFont(undefined, "normal");
-                else if (part) {
-                  doc.text(part, currentX, yPos, { align: "left" });
-                  currentX += doc.getTextWidth(part);
-                }
-              });
-              yPos += 6;
-            } else {
-              if (linea === nombreCompleto) {
-                doc.setFontSize(18);
-                doc.setFont(undefined, "bold");
-                doc.text(linea, pageWidth / 2, yPos, { align: "center" });
-                doc.setFontSize(12);
-                doc.setFont(undefined, "normal");
-                yPos += 8;
-              } else {
-                const lines = doc.splitTextToSize(linea, pageWidth - 40);
-                lines.forEach((line) => {
-                  doc.text(line, 20, yPos, {
-                    align: "justify",
-                    maxWidth: pageWidth - 40,
-                  });
-                  yPos += 6;
-                });
-              }
+            while (
+              doc.getTextWidth(nombreCompleto) > pageWidth - 30 &&
+              fontSize > 14
+            ) {
+              fontSize -= 1;
+              doc.setFontSize(fontSize);
             }
+
+            doc.text(nombreCompleto, pageWidth / 2, yPos, { align: "center" });
+            yPos += fontSize < 18 ? 10 : 12;
+          } else if (linea.includes("<b>")) {
+            // Línea con fragmentos en negrita
+            const parts = linea.split(/(<b>|<\/b>)/);
+            let currentX = pageWidth / 2;
+            let fullLine = parts
+              .filter((p) => !["<b>", "</b>"].includes(p))
+              .join("");
+            doc.setFontSize(12);
+            let offsetX = doc.getTextWidth(fullLine) / 2;
+            currentX -= offsetX;
+            parts.forEach((part) => {
+              if (part === "<b>") {
+                doc.setFont(undefined, "bold");
+              } else if (part === "</b>") {
+                doc.setFont(undefined, "normal");
+              } else if (part) {
+                doc.text(part, currentX, yPos);
+                currentX += doc.getTextWidth(part);
+              }
+            });
+            yPos += 6;
+          } else {
+            // Línea normal
+            doc.setFontSize(12);
+            doc.setFont(undefined, "normal");
+            doc.text(linea, pageWidth / 2, yPos, { align: "center" });
+            yPos += 6;
           }
         });
 
-        // Firmas
+        // Firmas centradas
         doc.setFontSize(10);
-        const firmaY = pageHeight - 60;
+        const firmaY = pageHeight - 50;
+        const centerX = pageWidth / 2;
+        const spacingX = 60;
 
+        // Alcalde (izquierda)
         doc.setFont(undefined, "bold");
-        doc.text(formData.firmantes.alcalde, pageWidth / 2, firmaY, {
-          align: "center",
-        });
-        doc.setFont(undefined, "normal");
-        doc.text(formData.firmantes.cargoAlcalde, pageWidth / 2, firmaY + 5, {
-          align: "center",
-        });
-
-        doc.setFont(undefined, "bold");
-        doc.text(formData.firmantes.secretario, pageWidth / 2, firmaY + 20, {
+        doc.text(formData.firmantes.alcalde, centerX - spacingX, firmaY, {
           align: "center",
         });
         doc.setFont(undefined, "normal");
         doc.text(
-          formData.firmantes.cargoSecretario,
-          pageWidth / 2,
-          firmaY + 25,
-          { align: "center" }
+          formData.firmantes.cargoAlcalde,
+          centerX - spacingX,
+          firmaY + 5,
+          {
+            align: "center",
+          }
         );
+
+        // Secretario (derecha)
+        doc.setFont(undefined, "bold");
+        doc.text(formData.firmantes.secretario, centerX + spacingX, firmaY, {
+          align: "center",
+        });
+
+        doc.setFont(undefined, "normal");
+        const cargoSec = formData.firmantes.cargoSecretario;
+        const maxWidth = 80;
+        const cargoLines = doc.splitTextToSize(cargoSec, maxWidth);
+        cargoLines.forEach((linea, i) => {
+          doc.text(linea, centerX + spacingX, firmaY + 5 + i * 5, {
+            align: "center",
+          });
+        });
       };
 
       // Generar primera página
-      agregarCertificado(estudiantesAprobados[0]);
-
-      // Generar páginas adicionales
-      for (let i = 1; i < estudiantesAprobados.length; i++) {
-        doc.addPage();
-        agregarCertificado(estudiantesAprobados[i]);
-      }
+      estudiantesAprobados.forEach((estudiante, index) => {
+        if (index !== 0) doc.addPage();
+        agregarCertificado(estudiante);
+      });
 
       doc.save(`certificados_${formData.curso.replace(/\s+/g, "_")}.pdf`);
     } catch (err) {
@@ -389,13 +404,19 @@ export default function GeneradorCertificados() {
   const resetPlantilla = useCallback(() => {
     const plantilla = plantillasBase[formData.tipo].contenido
       .replace("[NOMBRE_ESTUDIANTE]", "[NOMBRE_ESTUDIANTE]")
-      .replace("[NOMBRE_CURSO]", formData.curso || "[NOMBRE_CURSO]")
+      .replace("[NOMBRE_CURSO]", getCursoNombre() || "[NOMBRE_CURSO]")
       .replace("[FECHA]", formData.fecha || "[FECHA]")
       .replace("[AÑO]", formData.añoCurricular || "[AÑO]");
 
     setFormData((prev) => ({ ...prev, contenidoPersonalizado: plantilla }));
     lastTemplateRef.current = plantilla;
-  }, [formData.tipo, formData.curso, formData.fecha, formData.añoCurricular]);
+  }, [
+    formData.tipo,
+    formData.curso,
+    formData.fecha,
+    formData.añoCurricular,
+    cursosApiRaw,
+  ]);
 
   return (
     <div className="container mx-auto max-w-6xl">

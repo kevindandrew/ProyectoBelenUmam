@@ -11,7 +11,6 @@ const CourseForm = ({
   availableSubjects = [],
   availableProfessors = [],
 }) => {
-  // Estado del formulario
   const [formData, setFormData] = useState({
     curso_id: "",
     profesor_id: "",
@@ -20,7 +19,6 @@ const CourseForm = ({
     day: "",
   });
 
-  // Obtener el label del aula seleccionada
   const getClassroomLabel = () => {
     if (!formData.classroom) return "Seleccionar aula";
     const aula = availableClassrooms.find(
@@ -29,7 +27,6 @@ const CourseForm = ({
     return aula ? aula.label : `Aula ${formData.classroom}`;
   };
 
-  // Efecto para actualizar con initialData
   useEffect(() => {
     if (initialData) {
       setFormData({
