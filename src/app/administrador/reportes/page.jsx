@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Cookies from "js-cookie";
 
 export default function DashboardUMAM() {
-  // Filtros dinámicos (moved inside component)
+  // Filtros dinámicos
   const [sucursales, setSucursales] = useState([]);
   const [gestiones, setGestiones] = useState([]);
   const [añosAcademicos, setAñosAcademicos] = useState([]);
@@ -12,12 +12,13 @@ export default function DashboardUMAM() {
   const [talleres, setTalleres] = useState([]);
   const [gestorias, setGestorias] = useState([]);
 
-  // Gráficos dinámicos (moved inside component)
+  // Gráficos dinámicos
   const [estudiantesPorSucursal, setEstudiantesPorSucursal] = useState([]);
   const [estudiantesPorGestion, setEstudiantesPorGestion] = useState([]);
   const [estudiantesPorCurso, setEstudiantesPorCurso] = useState([]);
   const [facilitadoresPorGestion, setFacilitadoresPorGestion] = useState([]);
 
+  // Estado para pestañas y filtros
   const [tabActiva, setTabActiva] = useState("general");
   const [filtros, setFiltros] = useState({
     año: "",
@@ -37,6 +38,17 @@ export default function DashboardUMAM() {
   const [loadingDetalle, setLoadingDetalle] = useState(false);
   const [errorDetalle, setErrorDetalle] = useState(null);
 
+  // Estado para reporte general filtrado
+  const [reporteFiltrado, setReporteFiltrado] = useState({
+    total_estudiantes: 0,
+    aprobados: 0,
+    reprobados: 0,
+    porcentaje_aprobados: 0,
+    porcentaje_reprobados: 0,
+  });
+  const [loadingReporte, setLoadingReporte] = useState(false);
+  const [errorReporte, setErrorReporte] = useState(null);
+
   // Cargar filtros y gráficos al inicio
   useEffect(() => {
     const token = Cookies.get("access_token") || Cookies.get("token");
@@ -47,6 +59,7 @@ export default function DashboardUMAM() {
     }
     setLoadingGeneral(true);
     setErrorGeneral(null);
+
     // Sucursales
     fetch("https://api-umam-1.onrender.com/sucursales/", {
       headers: { Authorization: `Bearer ${token}` },
@@ -65,8 +78,13 @@ export default function DashboardUMAM() {
       })
       .then((data) => {
         if (!data || data.error) return;
-        setSucursales(Array.isArray(data) ? data.map((s) => s.nombre) : []);
+        setSucursales(
+          Array.isArray(data)
+            ? data.map((s) => ({ nombre: s.nombre, id: s.sucursal_id }))
+            : []
+        );
       });
+
     // Gestiones
     fetch("https://api-umam-1.onrender.com/cursos/gestiones", {
       headers: { Authorization: `Bearer ${token}` },
@@ -85,8 +103,13 @@ export default function DashboardUMAM() {
       })
       .then((data) => {
         if (!data || data.error) return;
-        setGestiones(Array.isArray(data) ? data.map((g) => g.gestion) : []);
+        setGestiones(
+          Array.isArray(data)
+            ? data.map((g) => ({ nombre: g.gestion, id: g.gestion_id }))
+            : []
+        );
       });
+
     // Años académicos
     fetch("https://api-umam-1.onrender.com/cursos/years", {
       headers: { Authorization: `Bearer ${token}` },
@@ -107,6 +130,7 @@ export default function DashboardUMAM() {
         if (!data || data.error) return;
         setAñosAcademicos(Array.isArray(data) ? data.map((y) => y.year) : []);
       });
+
     // Cursos
     fetch("https://api-umam-1.onrender.com/cursos/", {
       headers: { Authorization: `Bearer ${token}` },
@@ -127,14 +151,23 @@ export default function DashboardUMAM() {
         if (!data || data.error) return;
         if (Array.isArray(data)) {
           setCursos(data.map((c) => c.nombre));
-          setTalleres(data.filter((c) => !c.gestoria).map((c) => c.nombre));
-          setGestorias(data.filter((c) => c.gestoria).map((c) => c.nombre));
+          setTalleres(
+            data
+              .filter((c) => !c.gestoria)
+              .map((c) => ({ nombre: c.nombre, id: c.curso_id }))
+          );
+          setGestorias(
+            data
+              .filter((c) => c.gestoria)
+              .map((c) => ({ nombre: c.nombre, id: c.curso_id }))
+          );
         } else {
           setCursos([]);
           setTalleres([]);
           setGestorias([]);
         }
       });
+
     // Gráficos
     fetch("https://api-umam-1.onrender.com/reportes/por-sucursal", {
       headers: { Authorization: `Bearer ${token}` },
@@ -153,7 +186,6 @@ export default function DashboardUMAM() {
       })
       .then((data) => {
         if (!data || data.error) return;
-        // Colores diferenciados para cada sucursal
         const colores = [
           "#0088FE",
           "#00C49F",
@@ -178,6 +210,7 @@ export default function DashboardUMAM() {
             : []
         );
       });
+
     fetch("https://api-umam-1.onrender.com/reportes/por-gestion", {
       headers: { Authorization: `Bearer ${token}` },
     })
@@ -204,6 +237,7 @@ export default function DashboardUMAM() {
             : []
         );
       });
+
     fetch("https://api-umam-1.onrender.com/reportes/por-curso", {
       headers: { Authorization: `Bearer ${token}` },
     })
@@ -221,15 +255,12 @@ export default function DashboardUMAM() {
       })
       .then((data) => {
         if (!data || data.error) return;
-        // Filtrar solo talleres y gestorías, y asignar colores diferenciados
-        // Necesitamos saber si es taller o gestoria, así que cruzamos con cursos
         fetch("https://api-umam-1.onrender.com/cursos/", {
           headers: { Authorization: `Bearer ${token}` },
         })
           .then((r) => r.json())
           .then((cursosData) => {
             if (!Array.isArray(cursosData)) return;
-            // Colores alternos para talleres y gestorías
             const coloresTalleres = [
               "#0088FE",
               "#00C49F",
@@ -254,12 +285,12 @@ export default function DashboardUMAM() {
             });
             const filtrados = Array.isArray(data)
               ? data
-                  .filter((c) => cursosMap[c.nombre] !== undefined) // Solo cursos válidos
+                  .filter((c) => cursosMap[c.nombre] !== undefined)
                   .filter(
                     (c) =>
                       cursosMap[c.nombre] === true ||
                       cursosMap[c.nombre] === false
-                  ) // Solo talleres o gestorías
+                  )
                   .map((c) => {
                     const esGestoria = cursosMap[c.nombre];
                     const color = esGestoria
@@ -279,6 +310,7 @@ export default function DashboardUMAM() {
             setEstudiantesPorCurso(filtrados);
           });
       });
+
     fetch("https://api-umam-1.onrender.com/reportes/por-facilitador", {
       headers: { Authorization: `Bearer ${token}` },
     })
@@ -296,7 +328,6 @@ export default function DashboardUMAM() {
       })
       .then((data) => {
         if (!data || data.error) return;
-        // Mostrar solo las últimas 4 gestiones creadas (por fecha/orden)
         let gestionesFiltradas = Array.isArray(data)
           ? data
               .filter(
@@ -305,15 +336,12 @@ export default function DashboardUMAM() {
                   typeof f.gestion_id === "number"
               )
               .sort((a, b) => {
-                // Si hay fecha, usarla; si no, usar nombre como string
                 if (a.fecha && b.fecha) {
                   return new Date(b.fecha) - new Date(a.fecha);
                 }
-                // Si gestion_id es número, comparar como número
                 if (!isNaN(a.gestion_id) && !isNaN(b.gestion_id)) {
                   return Number(b.gestion_id) - Number(a.gestion_id);
                 }
-                // Si gestion_id es string, comparar como string
                 if (
                   typeof a.gestion_id === "string" &&
                   typeof b.gestion_id === "string"
@@ -332,54 +360,90 @@ export default function DashboardUMAM() {
           : [];
         setFacilitadoresPorGestion(gestionesFiltradas);
       });
+
     setLoadingGeneral(false);
   }, []);
 
-  // Fetch detalle cada vez que cambian los filtros
+  // Fetch detalle y reporte general cada vez que cambian los filtros
   useEffect(() => {
     const fetchDetalle = async () => {
       setLoadingDetalle(true);
+      setLoadingReporte(true);
       setErrorDetalle(null);
-      // Usa el nombre correcto de la cookie
+      setErrorReporte(null);
+
       const token = Cookies.get("access_token") || Cookies.get("token");
       if (!token) {
         setErrorDetalle("No hay token de autenticación. Inicia sesión.");
+        setErrorReporte("No hay token de autenticación. Inicia sesión.");
         setLoadingDetalle(false);
+        setLoadingReporte(false);
         return;
       }
+
       try {
         // Construir query params según filtros
         const params = new URLSearchParams();
-        if (filtros.sucursal) params.append("sucursal", filtros.sucursal);
-        if (filtros.gestion) params.append("gestion", filtros.gestion);
-        if (filtros.curso) params.append("curso", filtros.curso);
-        if (filtros.año) params.append("anio", filtros.año);
-        // Puedes ajustar los nombres de los parámetros según tu API
-        const url = `https://api-umam-1.onrender.com/reportes/por-sucursal?${params.toString()}`;
-        const res = await fetch(url, {
+        if (filtros.sucursal) params.append("sucursal_id", filtros.sucursal);
+        if (filtros.gestion) params.append("gestion_id", filtros.gestion);
+        if (filtros.curso) params.append("curso_id", filtros.curso);
+        console.log("Filtros aplicados:", filtros);
+
+        // Petición para el detalle
+        const urlDetalle = `https://api-umam-1.onrender.com/reportes/por-sucursal?${params.toString()}`;
+        const resDetalle = await fetch(urlDetalle, {
           headers: {
             Authorization: `Bearer ${token}`,
             Accept: "application/json",
           },
         });
-        if (res.status === 401) {
+
+        // Petición para el reporte general filtrado
+        const urlReporte = `https://api-umam-1.onrender.com/reportes/general?${params.toString()}`;
+        const resReporte = await fetch(urlReporte, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+          },
+        });
+
+        if (resDetalle.status === 401 || resReporte.status === 401) {
           Cookies.remove("access_token");
           Cookies.remove("token");
           setErrorDetalle(
             "Sesión expirada. Por favor vuelve a iniciar sesión."
           );
+          setErrorReporte(
+            "Sesión expirada. Por favor vuelve a iniciar sesión."
+          );
           setLoadingDetalle(false);
+          setLoadingReporte(false);
           return;
         }
-        if (!res.ok) throw new Error("Error al obtener detalle");
-        const data = await res.json();
-        setDetalleData(Array.isArray(data) ? data : []);
+
+        if (!resDetalle.ok) throw new Error("Error al obtener detalle");
+        if (!resReporte.ok) throw new Error("Error al obtener reporte general");
+
+        const dataDetalle = await resDetalle.json();
+        const dataReporte = await resReporte.json();
+
+        setDetalleData(Array.isArray(dataDetalle) ? dataDetalle : []);
+        setReporteFiltrado({
+          total_estudiantes: dataReporte.total_estudiantes || 0,
+          aprobados: dataReporte.aprobados || 0,
+          reprobados: dataReporte.reprobados || 0,
+          porcentaje_aprobados: dataReporte.porcentaje_aprobados || 0,
+          porcentaje_reprobados: dataReporte.porcentaje_reprobados || 0,
+        });
       } catch (err) {
         setErrorDetalle(err.message);
+        setErrorReporte(err.message);
       } finally {
         setLoadingDetalle(false);
+        setLoadingReporte(false);
       }
     };
+
     fetchDetalle();
   }, [filtros]);
 
@@ -460,7 +524,7 @@ export default function DashboardUMAM() {
     link.click();
     document.body.removeChild(link);
   };
-
+  console.log(gestorias);
   return (
     <div className="space-y-8 max-w-6xl mx-auto">
       <h1 className="text-3xl font-bold text-[#13678A] border-b pb-2">
@@ -662,8 +726,8 @@ export default function DashboardUMAM() {
               >
                 <option value="">Todas</option>
                 {gestiones.map((gestion) => (
-                  <option key={gestion} value={gestion}>
-                    {gestion}
+                  <option key={gestion.id} value={gestion.id}>
+                    {gestion.nombre}
                   </option>
                 ))}
               </select>
@@ -682,8 +746,8 @@ export default function DashboardUMAM() {
               >
                 <option value="">Todas</option>
                 {sucursales.map((sucursal) => (
-                  <option key={sucursal} value={sucursal}>
-                    {sucursal}
+                  <option key={sucursal.id} value={sucursal.id}>
+                    {sucursal.nombre}
                   </option>
                 ))}
               </select>
@@ -703,121 +767,128 @@ export default function DashboardUMAM() {
                 <option value="">Todos</option>
                 <optgroup label="Talleres">
                   {talleres.map((taller) => (
-                    <option key={taller} value={taller}>
-                      {taller}
+                    <option key={taller.id} value={taller.id}>
+                      {taller.nombre}
                     </option>
                   ))}
                 </optgroup>
                 <optgroup label="Gestorías">
                   {gestorias.map((gestoria) => (
-                    <option key={gestoria} value={gestoria}>
-                      {gestoria}
+                    <option key={gestoria.id} value={gestoria.id}>
+                      {gestoria.nombre}
                     </option>
                   ))}
                 </optgroup>
               </select>
             </div>
-
-            <div className="md:col-span-2 lg:col-span-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Buscar
-              </label>
-              <input
-                type="text"
-                className="w-full border border-gray-300 rounded-md p-2"
-                placeholder="Buscar por sucursal o curso..."
-                value={filtros.busqueda}
-                onChange={(e) =>
-                  setFiltros({ ...filtros, busqueda: e.target.value })
-                }
-              />
-            </div>
           </div>
 
-          {/* Tabla de resultados */}
-          <div className="bg-white rounded-lg shadow-lg border border-gray-100 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Sucursal
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Curso
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Inscritos
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Aprobados
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      % Aprobación
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Reprobados
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Abandonos
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {loadingDetalle ? (
-                    <tr>
-                      <td colSpan="7" className="px-6 py-4 text-center text-sm">
-                        Cargando...
-                      </td>
-                    </tr>
-                  ) : errorDetalle ? (
-                    <tr>
-                      <td
-                        colSpan="7"
-                        className="px-6 py-4 text-center text-sm text-red-500"
-                      >
-                        {errorDetalle}
-                      </td>
-                    </tr>
-                  ) : datosFiltrados.length > 0 ? (
-                    datosFiltrados.map((item, index) => (
-                      <tr key={index} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {item.sucursal || ""}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {item.curso || ""}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {safeNumber(item.inscritos)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
-                          {safeNumber(item.aprobados)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {safePercent(item.aprobados, item.inscritos)}%
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {safeNumber(item.reprobados)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {safeNumber(item.abandonos)}
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td
-                        colSpan="7"
-                        className="px-6 py-4 text-center text-sm text-gray-500"
-                      >
-                        No se encontraron resultados con los filtros
-                        seleccionados
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+          {/* Resumen General Filtrado */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+            {/* Tarjeta Total Estudiantes */}
+            <div className="bg-white p-4 rounded-lg shadow border border-gray-200">
+              <h3 className="text-sm font-medium text-gray-500">
+                Total Estudiantes
+              </h3>
+              {loadingReporte ? (
+                <div className="animate-pulse h-8 w-3/4 bg-gray-200 rounded mt-2"></div>
+              ) : errorReporte ? (
+                <p className="text-red-500 text-sm mt-1">{errorReporte}</p>
+              ) : (
+                <p className="text-2xl font-bold text-[#13678A]">
+                  {reporteFiltrado.total_estudiantes}
+                </p>
+              )}
+            </div>
+
+            {/* Tarjeta Aprobados */}
+            <div className="bg-white p-4 rounded-lg shadow border border-gray-200">
+              <h3 className="text-sm font-medium text-gray-500">Aprobados</h3>
+              {loadingReporte ? (
+                <div className="animate-pulse h-8 w-3/4 bg-gray-200 rounded mt-2"></div>
+              ) : errorReporte ? (
+                <p className="text-red-500 text-sm mt-1">{errorReporte}</p>
+              ) : (
+                <div>
+                  <p className="text-2xl font-bold text-green-600">
+                    {reporteFiltrado.aprobados}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {reporteFiltrado.porcentaje_aprobados}% del total
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Tarjeta Reprobados */}
+            <div className="bg-white p-4 rounded-lg shadow border border-gray-200">
+              <h3 className="text-sm font-medium text-gray-500">Reprobados</h3>
+              {loadingReporte ? (
+                <div className="animate-pulse h-8 w-3/4 bg-gray-200 rounded mt-2"></div>
+              ) : errorReporte ? (
+                <p className="text-red-500 text-sm mt-1">{errorReporte}</p>
+              ) : (
+                <div>
+                  <p className="text-2xl font-bold text-red-600">
+                    {reporteFiltrado.reprobados}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {reporteFiltrado.porcentaje_reprobados}% del total
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Tarjeta Porcentaje Aprobación */}
+            <div className="bg-white p-4 rounded-lg shadow border border-gray-200">
+              <h3 className="text-sm font-medium text-gray-500">
+                Tasa de Aprobación
+              </h3>
+              {loadingReporte ? (
+                <div className="animate-pulse h-8 w-3/4 bg-gray-200 rounded mt-2"></div>
+              ) : errorReporte ? (
+                <p className="text-red-500 text-sm mt-1">{errorReporte}</p>
+              ) : (
+                <div className="flex items-center">
+                  <div className="w-full bg-gray-200 rounded-full h-2.5 mr-2">
+                    <div
+                      className="bg-green-600 h-2.5 rounded-full"
+                      style={{
+                        width: `${reporteFiltrado.porcentaje_aprobados}%`,
+                      }}
+                    ></div>
+                  </div>
+                  <span className="text-sm font-medium">
+                    {reporteFiltrado.porcentaje_aprobados}%
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Tarjeta Porcentaje Reprobación */}
+            <div className="bg-white p-4 rounded-lg shadow border border-gray-200">
+              <h3 className="text-sm font-medium text-gray-500">
+                Tasa de Reprobación
+              </h3>
+              {loadingReporte ? (
+                <div className="animate-pulse h-8 w-3/4 bg-gray-200 rounded mt-2"></div>
+              ) : errorReporte ? (
+                <p className="text-red-500 text-sm mt-1">{errorReporte}</p>
+              ) : (
+                <div className="flex items-center">
+                  <div className="w-full bg-gray-200 rounded-full h-2.5 mr-2">
+                    <div
+                      className="bg-red-600 h-2.5 rounded-full"
+                      style={{
+                        width: `${reporteFiltrado.porcentaje_reprobados}%`,
+                      }}
+                    ></div>
+                  </div>
+                  <span className="text-sm font-medium">
+                    {reporteFiltrado.porcentaje_reprobados}%
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </div>
