@@ -32,6 +32,7 @@ export default function UsuarioFormModal({
             value={user.nombres}
             onChange={onChange}
             required
+            maxLength={50}
           />
 
           <FormField
@@ -40,6 +41,7 @@ export default function UsuarioFormModal({
             value={user.ap_paterno}
             onChange={onChange}
             required
+            maxLength={50}
           />
 
           <FormField
@@ -47,6 +49,7 @@ export default function UsuarioFormModal({
             name="ap_materno"
             value={user.ap_materno}
             onChange={onChange}
+            maxLength={50}
           />
 
           <FormField
@@ -55,6 +58,8 @@ export default function UsuarioFormModal({
             value={user.ci}
             onChange={onChange}
             required
+            maxLength={15}
+            type="number"
           />
 
           <FormField
@@ -62,6 +67,8 @@ export default function UsuarioFormModal({
             name="telefono"
             value={user.telefono}
             onChange={onChange}
+            maxLength={15}
+            type="number"
           />
 
           <div>
@@ -109,6 +116,7 @@ export default function UsuarioFormModal({
             name="username"
             value={user.username}
             readOnly
+            maxLength={20}
           />
 
           <FormField
@@ -116,6 +124,7 @@ export default function UsuarioFormModal({
             name="password"
             value={user.password}
             readOnly
+            maxLength={20}
           />
         </div>
 
@@ -139,6 +148,7 @@ export default function UsuarioFormModal({
   );
 }
 
+// 💡 Actualizamos el componente FormField
 function FormField({
   label,
   name,
@@ -146,17 +156,27 @@ function FormField({
   onChange,
   required = false,
   readOnly = false,
+  maxLength = 100,
+  type = "text",
 }) {
   return (
     <div>
       <label className="block text-sm font-medium mb-1">{label}</label>
       <input
-        type="text"
+        type={type}
         name={name}
         value={value}
-        onChange={onChange}
+        onChange={(e) => {
+          // Validación para solo números en campos tipo number
+          if (type === "number" && e.target.value !== "") {
+            const regex = /^[0-9\b]+$/;
+            if (!regex.test(e.target.value)) return;
+          }
+          onChange(e);
+        }}
         readOnly={readOnly}
         required={required}
+        maxLength={maxLength}
         className={`w-full border rounded px-3 py-2 ${
           readOnly ? "bg-gray-100" : ""
         }`}

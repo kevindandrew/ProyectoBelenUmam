@@ -438,6 +438,7 @@ export default function SucursalesPage() {
             placeholder="Buscar sucursal..."
             className="border border-gray-300 rounded px-2 py-1 text-sm"
             value={searchTerm}
+            maxLength={100}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
@@ -465,6 +466,7 @@ export default function SucursalesPage() {
                   value={nombreAula}
                   onChange={(e) => setNombreAula(e.target.value)}
                   type="text"
+                  maxLength={50}
                   className="w-full border border-gray-300 px-3 py-2 rounded text-sm"
                 />
               </div>
@@ -474,11 +476,13 @@ export default function SucursalesPage() {
                 <input
                   type="number"
                   min="1"
+                  max="9999"
+                  maxLength={4}
                   value={capacidadAula}
                   onChange={(e) => {
-                    const value = parseInt(e.target.value);
-                    if (value >= 1 || e.target.value === "") {
-                      setCapacidadAula(e.target.value);
+                    const value = e.target.value;
+                    if (/^\d{0,4}$/.test(value)) {
+                      setCapacidadAula(value);
                     }
                   }}
                   className="w-full border border-gray-300 px-3 py-2 rounded text-sm"
@@ -635,6 +639,7 @@ export default function SucursalesPage() {
                 <input
                   id="nombre"
                   type="text"
+                  maxLength={50}
                   className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
                   value={formData.nombre}
                   onChange={handleInputChange}
@@ -653,6 +658,7 @@ export default function SucursalesPage() {
                 <input
                   id="direccion"
                   type="text"
+                  maxLength={100}
                   className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
                   value={formData.direccion}
                   onChange={handleInputChange}
@@ -712,6 +718,8 @@ export default function SucursalesPage() {
               <div>
                 <label className="text-sm text-gray-700">Nombre del Aula</label>
                 <input
+                  type="text"
+                  maxLength={50}
                   value={editingAula?.nombre || ""}
                   onChange={(e) =>
                     setEditingAula({
@@ -719,7 +727,6 @@ export default function SucursalesPage() {
                       nombre: e.target.value,
                     })
                   }
-                  type="text"
                   className="w-full border border-gray-300 px-3 py-2 rounded text-sm"
                 />
               </div>
@@ -728,13 +735,15 @@ export default function SucursalesPage() {
                 <input
                   type="number"
                   min="1"
+                  max="9999"
+                  maxLength={4}
                   value={editingAula?.capacidad || ""}
                   onChange={(e) => {
-                    const value = parseInt(e.target.value);
-                    if (value >= 1 || e.target.value === "") {
+                    const value = e.target.value;
+                    if (/^\d{0,4}$/.test(value)) {
                       setEditingAula({
                         ...editingAula,
-                        capacidad: e.target.value,
+                        capacidad: value,
                       });
                     }
                   }}

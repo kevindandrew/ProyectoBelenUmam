@@ -845,6 +845,7 @@ export default function EstudiantesPage() {
             placeholder="Buscar estudiante..."
             className="border border-gray-300 rounded px-2 py-1 text-sm"
             value={searchTerm}
+            maxLength={100}
             onChange={handleSearch}
           />
         </div>

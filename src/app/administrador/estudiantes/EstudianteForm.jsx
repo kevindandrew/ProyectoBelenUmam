@@ -80,6 +80,7 @@ export default function EstudianteForm({
                   value: estudiante.ap_paterno,
                   onChange: onInputChange,
                   required: true,
+                  maxLength: 60,
                 },
                 {
                   type: "text",
@@ -88,6 +89,7 @@ export default function EstudianteForm({
                   value: estudiante.ap_materno,
                   onChange: onInputChange,
                   required: true,
+                  maxLength: 60,
                 },
                 {
                   type: "text",
@@ -96,6 +98,9 @@ export default function EstudianteForm({
                   value: estudiante.nombres,
                   onChange: onInputChange,
                   required: true,
+                  maxLength: 60,
+                  pattern: "^[a-zA-ZÁÉÍÓÚáéíóúÑñ\\s]+$",
+                  title: "Solo letras y espacios",
                 },
                 {
                   type: "date",
@@ -104,6 +109,7 @@ export default function EstudianteForm({
                   value: estudiante.fecha_nacimiento,
                   onChange: onInputChange,
                   required: true,
+                  max: new Date().toISOString().split("T")[0],
                 },
                 {
                   type: "text",
@@ -125,7 +131,9 @@ export default function EstudianteForm({
                   },
                   required: true,
                   inputMode: "numeric",
-                  pattern: "\\d*",
+                  pattern: "\\d{5,10}",
+                  maxLength: 10,
+                  title: "Solo números, entre 5 y 10 dígitos",
                 },
                 {
                   type: "select",
@@ -167,6 +175,7 @@ export default function EstudianteForm({
                   ],
                   value: estudiante.estado_civil,
                   onChange: onInputChange,
+                  required: true,
                 },
                 {
                   type: "text",
@@ -175,6 +184,7 @@ export default function EstudianteForm({
                   value: estudiante.direccion,
                   onChange: onInputChange,
                   colSpan: 2,
+                  maxLength: 100,
                 },
                 {
                   type: "text",
@@ -196,6 +206,8 @@ export default function EstudianteForm({
                   },
                   inputMode: "numeric",
                   pattern: "\\d*",
+                  maxLength: 15,
+                  title: "Solo números entre 6 y 15 dígitos",
                 },
               ]}
             />

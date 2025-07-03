@@ -34,6 +34,7 @@ export default function SearchBar({
           placeholder="Buscar usuario..."
           className="border border-gray-300 rounded px-2 py-1 text-sm"
           value={searchTerm}
+          maxLength={100}
           onChange={onSearch}
         />
       </div>

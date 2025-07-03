@@ -1,320 +1,438 @@
 "use client";
 import { useState, useEffect } from "react";
 import Cookies from "js-cookie";
-import { useRouter } from "next/navigation";
 
-export default function DashboardUMAM() {
-  const router = useRouter();
-  const [tabActiva, setTabActiva] = useState("general");
-  const [filtros, setFiltros] = useState({
-    sucursal_id: 1,
-    gestion_id: 1,
-    curso_id: "",
-    profesor_id: "",
-  });
+// Componentes de iconos
+const EditIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    fill="none"
+    viewBox="0 0 24 24"
+    strokeWidth={2}
+    stroke="currentColor"
+    className="w-5 h-5"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M16.862 4.487a2.062 2.062 0 112.91 2.91l-9.193 9.193a2.062 2.062 0 01-1.035.556l-3.47.694a.516.516 0 01-.605-.605l.694-3.47a2.062 2.062 0 01.556-1.035l9.193-9.193z"
+    />
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M19.5 7.5l-1.25 1.25"
+    />
+  </svg>
+);
 
-  // Estados para los datos
-  const [reporteGeneral, setReporteGeneral] = useState(null);
-  const [estudiantesPorSucursal, setEstudiantesPorSucursal] = useState([]);
-  const [estudiantesPorGestion, setEstudiantesPorGestion] = useState([]);
+const DeleteIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    fill="none"
+    viewBox="0 0 24 24"
+    strokeWidth={2}
+    stroke="currentColor"
+    className="w-5 h-5"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M6 18L18 6M6 6l12 12"
+    />
+  </svg>
+);
+
+export default function CursosPage() {
+  const API_URL = "https://api-umam-1.onrender.com/cursos";
+  const [cursos, setCursos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [modalAbierto, setModalAbierto] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [editingCurso, setEditingCurso] = useState(null);
+  const [registrosPorPagina, setRegistrosPorPagina] = useState(10);
+  const [paginaActual, setPaginaActual] = useState(1);
+  const [cursoAEliminar, setCursoAEliminar] = useState(null);
+  const [formData, setFormData] = useState({
+    nombre: "",
+    gestoria: false,
+  });
 
-  // Colores para gráficos
-  const colors = [
-    "#0088FE",
-    "#00C49F",
-    "#FFBB28",
-    "#FF8042",
-    "#8884d8",
-    "#82ca9d",
-  ];
-
-  // Función genérica para hacer fetch con autenticación
-  const fetchData = async (endpoint, params = {}) => {
-    const token = Cookies.get("access_token");
-
-    if (!token) {
-      router.push("/login");
-      throw new Error("No autenticado");
-    }
-
-    try {
-      // Construir URL con parámetros
-      const url = new URL(`https://api-umam-1.onrender.com${endpoint}`);
-      Object.entries(params).forEach(([key, value]) => {
-        if (value !== "" && value !== null) {
-          url.searchParams.append(key, value);
-        }
-      });
-
-      const response = await fetch(url, {
-        headers: {
-          Accept: "application/json",
-          Authorization: `bearer ${token}`,
-        },
-      });
-
-      if (response.status === 401) {
-        // Token expirado o inválido
-        Cookies.remove("access_token");
-        router.push("/login");
-        throw new Error("Sesión expirada. Por favor vuelve a iniciar sesión.");
-      }
-
-      if (!response.ok) {
-        throw new Error(`Error HTTP! estado: ${response.status}`);
-      }
-
-      return await response.json();
-    } catch (err) {
-      console.error(`Error fetching ${endpoint}:`, err);
-      throw err;
-    }
-  };
-
-  // Obtener reporte general con filtros actuales
-  const fetchReporteGeneral = async () => {
-    try {
-      const data = await fetchData("/reportes/general", {
-        sucursal_id: filtros.sucursal_id,
-        gestion_id: filtros.gestion_id,
-        curso_id: filtros.curso_id,
-        profesor_id: filtros.profesor_id,
-      });
-      setReporteGeneral(data);
-    } catch (err) {
-      setError(err.message);
-      setReporteGeneral({
-        total_estudiantes: 0,
-        aprobados: 0,
-        reprobados: 0,
-        porcentaje_aprobados: 0,
-        porcentaje_reprobados: 0,
-      });
-    }
-  };
-
-  // Obtener estudiantes por gestión con filtros actuales
-  const fetchEstudiantesPorGestion = async () => {
-    try {
-      const data = await fetchData("/reportes/por-gestion", {
-        sucursal_id: filtros.sucursal_id,
-      });
-
-      const transformedData = data.map((item) => ({
-        gestion: item.gestion_anio || `Gestión ${item.gestion_id}`,
-        estudiantes: item.total_estudiantes || 0,
-      }));
-
-      setEstudiantesPorGestion(transformedData);
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  // Cargar datos cuando cambian los filtros
+  // Obtener cursos de la API
   useEffect(() => {
-    // Verificar autenticación primero
-    if (!Cookies.get("access_token")) {
-      router.push("/login");
-      return;
-    }
-
-    const loadData = async () => {
-      setLoading(true);
-      setError(null);
-
+    const fetchCursos = async () => {
       try {
-        await Promise.all([
-          fetchReporteGeneral(),
-          fetchEstudiantesPorGestion(),
-        ]);
-      } catch (err) {
-        setError(err.message);
+        setLoading(true);
+        const response = await fetch(API_URL, {
+          headers: {
+            Authorization: `bearer ${Cookies.get("access_token")}`,
+          },
+        });
+
+        if (!response.ok) throw new Error("Error al cargar cursos");
+        const data = await response.json();
+        setCursos(data);
+      } catch (error) {
+        setError(error.message);
       } finally {
         setLoading(false);
       }
     };
 
-    loadData();
-  }, [filtros, router]);
+    fetchCursos();
+  }, []);
 
-  // Componente para mostrar estado de autenticación
-  const AuthStatus = () => {
-    const handleLogout = () => {
-      Cookies.remove("access_token");
-      router.push("/login");
-    };
+  // Crear o actualizar curso
+  const guardarCurso = async () => {
+    const nombreValido = formData.nombre.trim();
 
-    return (
-      <div className="mb-4 p-4 rounded-lg bg-blue-50 text-blue-800 flex justify-between items-center">
-        <p>Autenticado correctamente</p>
-        <button
-          onClick={handleLogout}
-          className="bg-red-500 text-white px-3 py-1 rounded text-sm"
-        >
-          Cerrar sesión
-        </button>
-      </div>
-    );
+    if (nombreValido.length === 0) {
+      alert("El nombre del curso no puede estar vacío.");
+      return;
+    }
+
+    if (nombreValido.length > 100) {
+      alert("El nombre del curso no puede superar los 100 caracteres.");
+      return;
+    }
+
+    try {
+      let response;
+      if (editingCurso) {
+        response = await fetch(`${API_URL}/${editingCurso.curso_id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `bearer ${Cookies.get("access_token")}`,
+          },
+          body: JSON.stringify({ ...formData, nombre: nombreValido }),
+        });
+      } else {
+        response = await fetch(API_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `bearer ${Cookies.get("access_token")}`,
+          },
+          body: JSON.stringify({ ...formData, nombre: nombreValido }),
+        });
+      }
+
+      if (!response.ok) throw new Error("Error al guardar el curso");
+
+      const cursoActualizado = await response.json();
+
+      if (editingCurso) {
+        setCursos(
+          cursos.map((c) =>
+            c.curso_id === editingCurso.curso_id ? cursoActualizado : c
+          )
+        );
+      } else {
+        setCursos([...cursos, cursoActualizado]);
+      }
+
+      cerrarModal();
+    } catch (error) {
+      alert(error.message);
+    }
   };
 
+  // Eliminar curso
+  const eliminarCurso = async (id) => {
+    if (!confirm("¿Estás seguro de eliminar este curso?")) return;
+
+    try {
+      const response = await fetch(`${API_URL}/${id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `bearer ${Cookies.get("access_token")}`,
+        },
+      });
+
+      if (!response.ok) throw new Error("Error al eliminar curso");
+
+      setCursos(cursos.filter((curso) => curso.curso_id !== id));
+    } catch (error) {
+      alert(error.message);
+    }
+  };
+
+  // Abrir modal para edición
+  const abrirEdicion = (curso) => {
+    setEditingCurso(curso);
+    setFormData({
+      nombre: curso.nombre,
+      gestoria: curso.gestoria,
+    });
+    setModalAbierto(true);
+  };
+
+  // Cerrar modal y resetear estado
+  const cerrarModal = () => {
+    setModalAbierto(false);
+    setEditingCurso(null);
+    setFormData({
+      nombre: "",
+      gestoria: false,
+    });
+  };
+  // Filtrar cursos por término de búsqueda
+  const cursosFiltrados = cursos.filter((curso) => {
+    const terminoBusqueda = searchTerm.toLowerCase();
+    const nombreCurso = curso.nombre.toLowerCase();
+    const tipoCurso = curso.gestoria ? "gestoría" : "taller";
+
+    return (
+      nombreCurso.includes(terminoBusqueda) ||
+      tipoCurso.includes(terminoBusqueda)
+    );
+  });
+
+  const totalPaginas = Math.ceil(cursosFiltrados.length / registrosPorPagina);
+  const inicio = (paginaActual - 1) * registrosPorPagina;
+  const cursosPaginados = cursosFiltrados.slice(
+    inicio,
+    inicio + registrosPorPagina
+  );
+
   return (
-    <div className="space-y-8 max-w-6xl mx-auto">
+    <div className="text-gray-900">
       <h1 className="text-3xl font-bold text-[#13678A] border-b pb-2">
-        REPORTES
+        CURSOS
       </h1>
 
-      {Cookies.get("access_token") && <AuthStatus />}
+      {/* Controles superiores */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-4">
+        <div className="flex items-center gap-2">
+          <label htmlFor="registros" className="text-sm text-gray-900">
+            Mostrar
+          </label>
+          <select
+            id="registros"
+            className="border border-gray-300 rounded px-2 py-1 text-sm"
+            value={registrosPorPagina}
+            onChange={(e) => {
+              setRegistrosPorPagina(parseInt(e.target.value));
+              setPaginaActual(1); // Reiniciar a la primera página
+            }}
+          >
+            <option value={10}>10</option>
+            <option value={25}>25</option>
+            <option value={50}>50</option>
+          </select>
 
-      {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
-          <strong className="font-bold">Error: </strong>
-          <span className="block sm:inline">{error}</span>
-          {error.includes("Sesión expirada") && (
+          <span className="text-sm">registros</span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <label htmlFor="buscar" className="text-sm">
+            Buscar:
+          </label>
+          <input
+            id="buscar"
+            type="text"
+            placeholder="Buscar cursos..."
+            className="border border-gray-300 rounded px-2 py-1 text-sm"
+            value={searchTerm}
+            maxLength={100}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+
+        <button
+          onClick={() => setModalAbierto(true)}
+          className="bg-teal-500 text-white px-4 py-2 rounded text-sm hover:bg-teal-600 self-start sm:self-auto"
+        >
+          + Nuevo Curso
+        </button>
+      </div>
+
+      {/* Tabla de cursos */}
+      <div className="overflow-auto">
+        <table className="w-full border text-sm bg-white">
+          <thead className="bg-gray-100 text-left">
+            <tr>
+              <th className="px-4 py-2 border-b">N°</th>
+              <th className="px-4 py-2 border-b">NOMBRE CURSO</th>
+              <th className="px-4 py-2 border-b">TIPO</th>
+              <th className="px-4 py-2 border-b">ACCIÓN</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan="4" className="text-center py-4 text-gray-500">
+                  Cargando cursos...
+                </td>
+              </tr>
+            ) : error ? (
+              <tr>
+                <td colSpan="4" className="text-center py-4 text-red-500">
+                  {error}
+                </td>
+              </tr>
+            ) : cursosFiltrados.length === 0 ? (
+              <tr>
+                <td colSpan="4" className="text-center py-4 text-gray-500">
+                  No hay cursos registrados
+                </td>
+              </tr>
+            ) : (
+              cursosPaginados.map((curso, index) => (
+                <tr key={curso.curso_id}>
+                  <td className="px-4 py-2 border-b">{inicio + index + 1}</td>
+                  <td className="px-4 py-2 border-b">{curso.nombre}</td>
+                  <td className="px-4 py-2 border-b">
+                    {curso.gestoria ? "Gestoría" : "Taller"}
+                  </td>
+                  <td className="px-4 py-2 border-b flex gap-2">
+                    <button
+                      onClick={() => abrirEdicion(curso)}
+                      className="text-blue-500 hover:text-blue-700"
+                      title="Editar"
+                    >
+                      <EditIcon />
+                    </button>
+                    <button
+                      onClick={() => setCursoAEliminar(curso)}
+                      className="text-red-500 hover:text-red-700"
+                      title="Eliminar"
+                    >
+                      <DeleteIcon />
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+        <div className="mt-4 flex justify-between items-center text-sm">
+          <div>
+            Página {paginaActual} de {totalPaginas}
+          </div>
+          <div className="flex gap-2">
             <button
-              onClick={() => router.push("/login")}
-              className="mt-2 bg-blue-500 text-white px-3 py-1 rounded text-sm"
+              onClick={() => setPaginaActual((prev) => Math.max(prev - 1, 1))}
+              disabled={paginaActual === 1}
+              className={`px-3 py-1 rounded border ${
+                paginaActual === 1
+                  ? "text-gray-400 border-gray-300"
+                  : "text-blue-600 border-blue-600 hover:bg-blue-50"
+              }`}
             >
-              Ir a login
+              Anterior
             </button>
-          )}
+            <button
+              onClick={() =>
+                setPaginaActual((prev) => Math.min(prev + 1, totalPaginas))
+              }
+              disabled={paginaActual === totalPaginas}
+              className={`px-3 py-1 rounded border ${
+                paginaActual === totalPaginas
+                  ? "text-gray-400 border-gray-300"
+                  : "text-blue-600 border-blue-600 hover:bg-blue-50"
+              }`}
+            >
+              Siguiente
+            </button>
+          </div>
         </div>
-      )}
+      </div>
 
-      {loading ? (
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#13678A]"></div>
-          <span className="ml-3 text-[#13678A]">Cargando datos...</span>
-        </div>
-      ) : (
-        <>
-          {/* Filtros */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-gray-50 p-4 rounded-lg">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Sucursal
+      {/* Modal para crear/editar curso */}
+      {modalAbierto && (
+        <div className="fixed inset-0 bg-black/25 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded shadow-lg w-full max-w-md mx-4 sm:mx-0">
+            <h2 className="text-xl font-bold mb-4">
+              {editingCurso ? "EDITAR CURSO" : "NUEVO CURSO"}
+            </h2>
+
+            {/* Campo: nombre del curso */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-1">
+                Nombre del Curso *
               </label>
-              <select
-                className="w-full border border-gray-300 rounded-md p-2"
-                value={filtros.sucursal_id}
+              <input
+                type="text"
+                maxLength={100}
+                className="w-full border border-gray-300 px-3 py-2 rounded"
+                value={formData.nombre}
                 onChange={(e) =>
-                  setFiltros({ ...filtros, sucursal_id: e.target.value })
+                  setFormData({ ...formData, nombre: e.target.value })
                 }
+                required
+              />
+            </div>
+
+            {/* Campo: tipo de curso */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-1">Tipo *</label>
+              <select
+                className="w-full border border-gray-300 px-3 py-2 rounded"
+                value={formData.gestoria ? "Gestoría" : "Taller"}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    gestoria: e.target.value === "Gestoría",
+                  })
+                }
+                required
               >
-                <option value="1">Central</option>
-                <option value="2">Sur</option>
-                <option value="3">Norte</option>
+                <option value="Gestoría">Gestoría</option>
+                <option value="Taller">Taller</option>
               </select>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Gestión
-              </label>
-              <select
-                className="w-full border border-gray-300 rounded-md p-2"
-                value={filtros.gestion_id}
-                onChange={(e) =>
-                  setFiltros({ ...filtros, gestion_id: e.target.value })
-                }
+            {/* Botones */}
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={cerrarModal}
+                className="bg-gray-300 text-gray-800 px-4 py-2 rounded hover:bg-gray-400"
               >
-                <option value="1">I-2023</option>
-                <option value="2">II-2023</option>
-                <option value="3">I-2024</option>
-              </select>
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={guardarCurso}
+                className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+              >
+                {editingCurso ? "Actualizar" : "Guardar"}
+              </button>
             </div>
           </div>
-
-          {/* Reporte General */}
-          {reporteGeneral && (
-            <div className="bg-white p-6 rounded-lg shadow-lg border border-gray-100">
-              <h2 className="text-xl font-semibold text-[#012030] mb-4">
-                Resumen General
-              </h2>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-blue-50 p-4 rounded-lg">
-                  <h3 className="text-sm font-medium text-blue-800">
-                    Total Estudiantes
-                  </h3>
-                  <p className="text-2xl font-bold text-blue-600">
-                    {reporteGeneral.total_estudiantes}
-                  </p>
-                </div>
-                <div className="bg-green-50 p-4 rounded-lg">
-                  <h3 className="text-sm font-medium text-green-800">
-                    Aprobados
-                  </h3>
-                  <p className="text-2xl font-bold text-green-600">
-                    {reporteGeneral.aprobados}
-                  </p>
-                  <p className="text-xs text-green-600">
-                    {reporteGeneral.porcentaje_aprobados}%
-                  </p>
-                </div>
-                <div className="bg-red-50 p-4 rounded-lg">
-                  <h3 className="text-sm font-medium text-red-800">
-                    Reprobados
-                  </h3>
-                  <p className="text-2xl font-bold text-red-600">
-                    {reporteGeneral.reprobados}
-                  </p>
-                  <p className="text-xs text-red-600">
-                    {reporteGeneral.porcentaje_reprobados}%
-                  </p>
-                </div>
-                <div className="bg-yellow-50 p-4 rounded-lg">
-                  <h3 className="text-sm font-medium text-yellow-800">
-                    Tasa de Éxito
-                  </h3>
-                  <p className="text-2xl font-bold text-yellow-600">
-                    {100 - reporteGeneral.porcentaje_reprobados}%
-                  </p>
-                </div>
-              </div>
+        </div>
+      )}
+      {cursoAEliminar && (
+        <div className="fixed inset-0 bg-black/25 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded shadow-lg w-full max-w-sm mx-4 sm:mx-0">
+            <h2 className="text-lg font-semibold mb-4 text-red-600">
+              Confirmar Eliminación
+            </h2>
+            <p className="mb-4 text-sm">
+              ¿Estás seguro de que deseas eliminar el curso{" "}
+              <strong>{cursoAEliminar.nombre}</strong>?
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setCursoAEliminar(null)}
+                className="bg-gray-300 text-gray-800 px-4 py-2 rounded hover:bg-gray-400"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={async () => {
+                  await eliminarCurso(cursoAEliminar.curso_id);
+                  setCursoAEliminar(null);
+                }}
+                className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+              >
+                Eliminar
+              </button>
             </div>
-          )}
-
-          {/* Gráfico de estudiantes por gestión */}
-          {estudiantesPorGestion.length > 0 && (
-            <div className="bg-white p-6 rounded-lg shadow-lg border border-gray-100">
-              <h2 className="text-xl font-semibold text-[#012030] mb-4">
-                Estudiantes por Gestión
-              </h2>
-              <div className="space-y-4">
-                {estudiantesPorGestion.map((item) => {
-                  const total = estudiantesPorGestion.reduce(
-                    (sum, i) => sum + i.estudiantes,
-                    0
-                  );
-                  const percentage =
-                    total > 0 ? (item.estudiantes / total) * 100 : 0;
-
-                  return (
-                    <div key={item.gestion}>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="font-medium">{item.gestion}</span>
-                        <span className="text-gray-600">
-                          {item.estudiantes} estudiantes
-                        </span>
-                      </div>
-                      <div className="w-full bg-gray-100 rounded-full h-3">
-                        <div
-                          className="bg-[#13678A] h-3 rounded-full transition-all duration-500"
-                          style={{ width: `${percentage}%` }}
-                        />
-                      </div>
-                      <div className="text-right text-xs text-gray-500 mt-1">
-                        {Math.round(percentage)}% del total
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </>
+          </div>
+        </div>
       )}
     </div>
   );

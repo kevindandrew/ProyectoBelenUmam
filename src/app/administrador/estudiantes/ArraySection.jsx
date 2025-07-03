@@ -84,6 +84,7 @@ export default function ArraySection({
                     className="w-full border rounded px-3 py-2"
                     inputMode={field.inputMode}
                     pattern={field.pattern}
+                    maxLength={100}
                   />
                 )}
               </div>
