@@ -125,6 +125,12 @@ export default async function AdministradorLayout({ children }) {
             >
               Certificados
             </Link>
+            <Link
+              href="/administrador/backups"
+              className="block px-6 py-2 hover:bg-teal-400"
+            >
+              Backups
+            </Link>
           </nav>
         </div>
       </aside>
