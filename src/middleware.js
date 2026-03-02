@@ -1,13 +1,11 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 
-export async function proxy(request) {
+export function middleware(request) {
   const { pathname } = request.nextUrl;
-  const cookieStore = cookies();
 
-  // Obtener cookies con await
-  const accessToken = await cookieStore.get("access_token")?.value;
-  const userDataCookie = await cookieStore.get("user_data")?.value;
+  // Obtener cookies directamente del request
+  const accessToken = request.cookies.get("access_token")?.value;
+  const userDataCookie = request.cookies.get("user_data")?.value;
 
   // Rutas públicas
   const publicPaths = ["/login"];
