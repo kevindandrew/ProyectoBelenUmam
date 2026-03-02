@@ -31,7 +31,7 @@ const GestionForm = ({ onSubmit, onCancel, isLoading, error }) => {
       try {
         setLoadingYears(true);
         const years = await fetchWithAuth(
-          "https://api-umam-1.onrender.com/cursos/years"
+          "https://api-umam-1.onrender.com/cursos/years",
         );
         setYearsData(years);
       } catch (err) {
@@ -55,7 +55,7 @@ const GestionForm = ({ onSubmit, onCancel, isLoading, error }) => {
     }
 
     const selectedYear = yearsData.find(
-      (y) => y.year_id.toString() === formData.year_id
+      (y) => y.year_id.toString() === formData.year_id,
     );
 
     if (!selectedYear) {
@@ -95,12 +95,12 @@ const GestionForm = ({ onSubmit, onCancel, isLoading, error }) => {
           body: JSON.stringify({
             year: newYear,
           }),
-        }
+        },
       );
 
       // Recargar la lista de años
       const updatedYears = await fetchWithAuth(
-        "https://api-umam-1.onrender.com/cursos/years"
+        "https://api-umam-1.onrender.com/cursos/years",
       );
       setYearsData(updatedYears);
 
@@ -131,13 +131,6 @@ const GestionForm = ({ onSubmit, onCancel, isLoading, error }) => {
     <div className="bg-white rounded-lg p-6 max-w-md w-full">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-bold text-gray-800">Nueva Gestión</h2>
-        <button
-          onClick={onCancel}
-          disabled={isLoading}
-          className="text-gray-500 hover:text-gray-700 disabled:opacity-50"
-        >
-          <X size={20} />
-        </button>
       </div>
 
       {(error || yearsError) && (
@@ -204,7 +197,7 @@ const GestionForm = ({ onSubmit, onCancel, isLoading, error }) => {
                 value={formData.year_id}
                 onChange={(e) => {
                   const selected = yearsData.find(
-                    (y) => y.year_id.toString() === e.target.value
+                    (y) => y.year_id.toString() === e.target.value,
                   );
                   setFormData({
                     year_id: e.target.value,

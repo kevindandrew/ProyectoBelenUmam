@@ -40,6 +40,14 @@ const SchedulePage = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState(null);
+
+  // Estados para eliminar gestión
+  const [gestionToDelete, setGestionToDelete] = useState(null);
+  const [isDeleteGestionModalOpen, setIsDeleteGestionModalOpen] =
+    useState(false);
+  const [isDeletingGestion, setIsDeletingGestion] = useState(false);
+  const [deleteGestionError, setDeleteGestionError] = useState(null);
+
   // Nuevos estados para manejar horas
   const [selectedHourToRender, setSelectedHourToRender] = useState(null);
   const [isHourModalOpen, setIsHourModalOpen] = useState(false);
@@ -63,12 +71,12 @@ const SchedulePage = () => {
               gestionesFormatted[0] || {
                 value: "",
                 label: "No hay gestiones disponibles",
-              }
+              },
             );
-          }
+          },
         ),
         fetchWithAuth("https://api-umam-1.onrender.com/cursos/years").then(
-          setAvailableYears
+          setAvailableYears,
         ),
         fetchSucursales(),
         fetchDays(),
@@ -87,10 +95,10 @@ const SchedulePage = () => {
   const fetchDays = async () => {
     try {
       const data = await fetchWithAuth(
-        "https://api-umam-1.onrender.com/horarios/dias-semana"
+        "https://api-umam-1.onrender.com/horarios/dias-semana",
       );
       setDays(
-        data.map((dia) => ({ id: dia.dias_semana_id, name: dia.dia_semana }))
+        data.map((dia) => ({ id: dia.dias_semana_id, name: dia.dia_semana })),
       );
     } catch (error) {
       console.error("Error cargando días:", error);
@@ -100,7 +108,7 @@ const SchedulePage = () => {
   const fetchTimeSlots = async () => {
     try {
       const data = await fetchWithAuth(
-        "https://api-umam-1.onrender.com/horarios/horas"
+        "https://api-umam-1.onrender.com/horarios/horas",
       );
       const formattedSlots = data.map((h) => ({
         id: h.hora_id,
@@ -117,14 +125,14 @@ const SchedulePage = () => {
     if (!selectedGestion?.value || !selectedSucursal?.value) return;
     try {
       const data = await fetchWithAuth(
-        `https://api-umam-1.onrender.com/horarios/?gestion_id=${selectedGestion.value}&sucursal_id=${selectedSucursal.value}`
+        `https://api-umam-1.onrender.com/horarios/?gestion_id=${selectedGestion.value}&sucursal_id=${selectedSucursal.value}`,
       );
       const formattedCourses = data.flatMap((horario) => {
         const curso = availableSubjects.find(
-          (c) => c.curso_id === horario.curso_id
+          (c) => c.curso_id === horario.curso_id,
         );
         const profesor = availableProfessors.find(
-          (p) => p.usuario_id === horario.profesor_id
+          (p) => p.usuario_id === horario.profesor_id,
         );
 
         return horario.dias_clase.map((dia) => ({
@@ -158,7 +166,7 @@ const SchedulePage = () => {
     setErrorSucursales(null);
     try {
       const data = await fetchWithAuth(
-        "https://api-umam-1.onrender.com/sucursales/"
+        "https://api-umam-1.onrender.com/sucursales/",
       );
       const formattedSucursales = data.map((sucursal) => ({
         value: sucursal.sucursal_id.toString(),
@@ -181,7 +189,7 @@ const SchedulePage = () => {
   const fetchAulasForSucursal = async (sucursalId) => {
     try {
       const data = await fetchWithAuth(
-        `https://api-umam-1.onrender.com/sucursales/${sucursalId}/aulas`
+        `https://api-umam-1.onrender.com/sucursales/${sucursalId}/aulas`,
       );
       setClassroomsBySucursal((prev) => ({
         ...prev,
@@ -198,7 +206,7 @@ const SchedulePage = () => {
   const fetchSubjects = async () => {
     try {
       const data = await fetchWithAuth(
-        "https://api-umam-1.onrender.com/cursos/"
+        "https://api-umam-1.onrender.com/cursos/",
       );
       setAvailableSubjects(data.map((curso) => curso));
     } catch (error) {
@@ -209,7 +217,7 @@ const SchedulePage = () => {
   const fetchProfessors = async () => {
     try {
       const data = await fetchWithAuth(
-        "https://api-umam-1.onrender.com/usuarios/?rol_id=3"
+        "https://api-umam-1.onrender.com/usuarios/?rol_id=3",
       );
       setAvailableProfessors(data.map((prof) => prof));
     } catch (error) {
@@ -236,20 +244,20 @@ const SchedulePage = () => {
 
   // Lógica para filtrar horas
   const availableHoursToAdd = timeSlots.filter(
-    (timeSlot) => !courses.some((course) => course.time === timeSlot.label)
+    (timeSlot) => !courses.some((course) => course.time === timeSlot.label),
   );
 
   const filteredTimeSlots = selectedHourToRender
     ? [
         ...new Set([
           ...timeSlots.filter((timeSlot) =>
-            courses.some((course) => course.time === timeSlot.label)
+            courses.some((course) => course.time === timeSlot.label),
           ),
           selectedHourToRender,
         ]),
       ]
     : timeSlots.filter((timeSlot) =>
-        courses.some((course) => course.time === timeSlot.label)
+        courses.some((course) => course.time === timeSlot.label),
       );
 
   // Handlers existentes
@@ -314,6 +322,16 @@ const SchedulePage = () => {
     setIsSubmitting(true);
     setSubmitError(null);
     try {
+      const nuevaGestion = `Gestión ${semester === "1" ? "I" : "II"} - ${year}`;
+
+      // Validar que no exista una gestión con el mismo nombre
+      const gestionExistente = gestiones.find((g) => g.label === nuevaGestion);
+      if (gestionExistente) {
+        setSubmitError(`Ya existe una gestión con el nombre "${nuevaGestion}"`);
+        setIsSubmitting(false);
+        return;
+      }
+
       await fetchWithAuth("https://api-umam-1.onrender.com/cursos/gestion", {
         method: "POST",
         headers: {
@@ -321,14 +339,14 @@ const SchedulePage = () => {
         },
         body: JSON.stringify({
           year_id,
-          gestion: `${year} - ${semester === "1" ? "I" : "II"}`,
+          gestion: nuevaGestion,
           semester: parseInt(semester),
           activo: true,
         }),
       });
 
       const data = await fetchWithAuth(
-        "https://api-umam-1.onrender.com/cursos/gestiones"
+        "https://api-umam-1.onrender.com/cursos/gestiones",
       );
       const gestionesFormatted = data.map((g) => ({
         value: g.gestion_id.toString(),
@@ -341,9 +359,58 @@ const SchedulePage = () => {
       setIsGestionModalOpen(false);
     } catch (error) {
       console.error("Error creando gestión:", error);
-      setSubmitError("Error al crear la gestión");
+      setSubmitError(error.message || "Error al crear la gestión");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // Función para manejar la solicitud de eliminación de gestión
+  const handleDeleteGestion = (gestion) => {
+    setGestionToDelete(gestion);
+    setIsDeleteGestionModalOpen(true);
+  };
+
+  // Función para confirmar la eliminación de gestión
+  const confirmDeleteGestion = async () => {
+    if (!gestionToDelete) return;
+
+    setIsDeletingGestion(true);
+    setDeleteGestionError(null);
+
+    try {
+      await fetchWithAuthDelete(
+        `https://api-umam-1.onrender.com/cursos/gestion/${gestionToDelete.value}`,
+      );
+
+      // Recargar las gestiones
+      const data = await fetchWithAuth(
+        "https://api-umam-1.onrender.com/cursos/gestiones",
+      );
+      const gestionesFormatted = data.map((g) => ({
+        value: g.gestion_id.toString(),
+        label: g.gestion,
+        rawData: g,
+      }));
+      setGestiones(gestionesFormatted);
+
+      // Si la gestión eliminada era la seleccionada, seleccionar la primera disponible
+      if (selectedGestion?.value === gestionToDelete.value) {
+        setSelectedGestion(
+          gestionesFormatted[0] || {
+            value: "",
+            label: "No hay gestiones disponibles",
+          },
+        );
+      }
+
+      setIsDeleteGestionModalOpen(false);
+      setGestionToDelete(null);
+    } catch (error) {
+      console.error("Error eliminando gestión:", error);
+      setDeleteGestionError(error.message || "Error al eliminar la gestión");
+    } finally {
+      setIsDeletingGestion(false);
     }
   };
 
@@ -424,7 +491,7 @@ const SchedulePage = () => {
 
       // Usamos la nueva función específica para DELETE
       await fetchWithAuthDelete(
-        `https://api-umam-1.onrender.com/horarios/${horarioId}`
+        `https://api-umam-1.onrender.com/horarios/${horarioId}`,
       );
 
       // Actualización optimista
@@ -472,6 +539,7 @@ const SchedulePage = () => {
                 options={gestiones}
                 selected={selectedGestion}
                 onSelect={setSelectedGestion}
+                onDelete={handleDeleteGestion}
                 className="min-w-40"
               />
             ) : (
@@ -502,7 +570,7 @@ const SchedulePage = () => {
             selected={null}
             onSelect={(selected) => {
               setSelectedHourToRender(
-                timeSlots.find((h) => h.id === selected.value)
+                timeSlots.find((h) => h.id === selected.value),
               );
             }}
             placeholder="Seleccionar hora"
@@ -745,6 +813,85 @@ const SchedulePage = () => {
                   </>
                 ) : (
                   "Eliminar Horario"
+                )}
+              </button>
+            </div>
+          </div>
+        </Modal>
+
+        {/* Modal de confirmación para eliminar gestión */}
+        <Modal
+          isOpen={isDeleteGestionModalOpen}
+          onClose={() =>
+            !isDeletingGestion && setIsDeleteGestionModalOpen(false)
+          }
+          title="Eliminar Gestión"
+        >
+          <div className="p-6">
+            {gestionToDelete && (
+              <div className="mb-6">
+                <p className="mb-2">
+                  ¿Estás seguro que deseas eliminar esta gestión?
+                </p>
+                <div className="bg-gray-100 rounded-lg p-3 border-2 border-gray-300">
+                  <div className="text-sm font-semibold">
+                    {gestionToDelete.label}
+                  </div>
+                </div>
+                <p className="text-sm text-red-600 mt-3">
+                  Advertencia: Esta acción eliminará todos los horarios
+                  asociados a esta gestión.
+                </p>
+              </div>
+            )}
+
+            {deleteGestionError && (
+              <div className="mb-4 text-red-500 text-sm">
+                {deleteGestionError}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() =>
+                  !isDeletingGestion && setIsDeleteGestionModalOpen(false)
+                }
+                disabled={isDeletingGestion}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmDeleteGestion}
+                disabled={isDeletingGestion}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-50 flex items-center gap-2"
+              >
+                {isDeletingGestion ? (
+                  <>
+                    <svg
+                      className="animate-spin h-4 w-4"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                    Eliminando...
+                  </>
+                ) : (
+                  "Eliminar Gestión"
                 )}
               </button>
             </div>
