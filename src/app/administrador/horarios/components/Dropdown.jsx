@@ -1,11 +1,12 @@
 "use client";
 import React, { useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, X } from "lucide-react";
 
 const Dropdown = ({
   options = [],
   selected = { value: "", label: "Seleccionar..." },
   onSelect = () => {},
+  onDelete = null, // Nueva prop para permitir eliminar
   className = "",
   placeholder = "Seleccionar...",
   disabled = false,
@@ -42,20 +43,39 @@ const Dropdown = ({
         <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
           {safeOptions.length > 0 ? (
             safeOptions.map((option) => (
-              <button
+              <div
                 key={option.value}
-                onClick={() => {
-                  onSelect(option);
-                  setIsOpen(false);
-                }}
-                className={`w-full px-3 py-2 text-sm text-left hover:bg-gray-100 focus:outline-none focus:bg-gray-100 ${
+                className={`flex items-center justify-between hover:bg-gray-100 ${
                   option.value === selected?.value
                     ? "bg-blue-50 text-blue-600"
                     : ""
                 }`}
               >
-                {option.label}
-              </button>
+                <button
+                  onClick={() => {
+                    onSelect(option);
+                    setIsOpen(false);
+                  }}
+                  className={`flex-1 px-3 py-2 text-sm text-left focus:outline-none ${
+                    option.value === selected?.value ? "text-blue-600" : ""
+                  }`}
+                >
+                  {option.label}
+                </button>
+                {onDelete && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDelete(option);
+                      setIsOpen(false);
+                    }}
+                    className="p-2 text-red-600 hover:bg-red-50 rounded-md mr-1"
+                    title="Eliminar"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
             ))
           ) : (
             <div className="px-3 py-2 text-sm text-gray-500">
