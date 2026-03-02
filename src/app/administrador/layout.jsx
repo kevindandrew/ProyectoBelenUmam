@@ -8,7 +8,7 @@ export const metadata = {
 };
 
 async function getUserData() {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const token = cookieStore.get("access_token")?.value;
 
   if (!token) {
@@ -37,8 +37,8 @@ async function getUserData() {
 
 export default async function AdministradorLayout({ children }) {
   // Obtener cookies con await
-  const cookieStore = cookies();
-  const userDataCookie = await cookieStore.get("user_data")?.value;
+  const cookieStore = await cookies();
+  const userDataCookie = cookieStore.get("user_data")?.value;
   const userData = await getUserData();
 
   if (!userDataCookie) {
