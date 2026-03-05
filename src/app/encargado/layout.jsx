@@ -22,15 +22,20 @@ async function getUserData() {
         "Content-Type": "application/json",
       },
       credentials: "include",
+      cache: "no-store",
     });
 
     if (!response.ok) {
-      throw new Error("Failed to fetch user data");
+      console.warn("Auth check failed, but continuing with cookie data");
+      return null;
     }
 
     return await response.json();
   } catch (error) {
-    console.error("Error fetching user data:", error);
+    console.warn(
+      "Error fetching user data, continuing with cookie:",
+      error.message,
+    );
     return null;
   }
 }
@@ -60,7 +65,6 @@ export default async function AdministradorLayout({ children }) {
       };
       redirect(roleRoutes[parsedUserData.rol_id] || "/login");
     }
-    console.log("User Data:", parsedUserData);
     nombreCompleto = `${parsedUserData.nombres} ${parsedUserData.apellido}`;
     cargo = parsedUserData.cargo || "encargado";
   } catch (error) {

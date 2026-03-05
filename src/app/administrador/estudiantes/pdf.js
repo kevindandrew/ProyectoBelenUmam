@@ -21,6 +21,18 @@ function calcularEdad(fechaNacimiento) {
   return edad + " Años";
 }
 
+function extraerMacrodistrito(direccionCompleta) {
+  if (!direccionCompleta) return "";
+  const partes = direccionCompleta.split(", ");
+  return partes[0] || "";
+}
+
+function extraerDireccion(direccionCompleta) {
+  if (!direccionCompleta) return "";
+  const partes = direccionCompleta.split(", ");
+  return partes.slice(1).join(", ") || "";
+}
+
 export const generarFichaEstudiante = async (estudiante) => {
   if (typeof window === "undefined") return;
   const fechaFormateada = formatoDDMMYYYY(estudiante.fecha_registro);
@@ -35,57 +47,78 @@ export const generarFichaEstudiante = async (estudiante) => {
 
   const tablaTresColumnas = {
     table: {
-      widths: [80, 255, "*"],
-      heights: [20],
+      widths: [75, "*", 130],
       body: [
         [
           {
             image: logoBase64,
-            fit: [70, 70],
+            fit: [65, 65],
             rowSpan: 3,
-            margin: [0, 0, 0, 0],
+            margin: [2, 2, 2, 2],
           },
           {
-            text: "Secretaria Municipal de Educación y Desarrollo Social",
-            fontSize: 9,
-            paddingBottom: 0.5,
-            bold: true,
+            stack: [
+              {
+                text: "Secretaría Municipal de Educación y Desarrollo Social",
+                fontSize: 8.5,
+                bold: true,
+                margin: [0, 0, 0, 1],
+              },
+              {
+                text: "Dirección de Atención Social Integral",
+                fontSize: 8.5,
+                bold: true,
+                margin: [0, 0, 0, 1],
+              },
+              {
+                text: "Unidad del Adulto Mayor",
+                fontSize: 8.5,
+                bold: true,
+              },
+            ],
+            alignment: "left",
+            rowSpan: 3,
+            margin: [5, 8, 0, 0],
           },
-          "",
-        ],
-        [
-          "",
           {
-            text: "Dirección de Atención Social Integral",
-            fontSize: 9,
-            bold: true,
+            stack: [
+              {
+                text: "FICHA INSCRIPCION UMAM",
+                fontSize: 10,
+                bold: true,
+                alignment: "right",
+                margin: [0, 8, 0, 2],
+              },
+              {
+                text: "GESTIÓN - 2026",
+                fontSize: 9,
+                bold: true,
+                alignment: "right",
+              },
+            ],
+            margin: [0, 0, 5, 0],
           },
-          { text: "FICHA INSCRIPCION UMAM", fontSize: 11, bold: true },
         ],
-        [
-          "",
-          {
-            text: "Unidad del Adulto Mayor",
-            fontSize: 9,
-            bold: true,
-          },
-          "",
-        ],
+        ["", "", ""],
+        ["", "", ""],
       ],
     },
     layout: {
-      paddingTop: () => 1,
-      paddingBottom: () => 0.5,
+      paddingTop: () => 2,
+      paddingBottom: () => 2,
+      paddingLeft: () => 2,
+      paddingRight: () => 2,
       hLineWidth: (i, node) =>
-        i === 0 || i === node.table.body.length ? 1 : 0, // Solo líneas horizontales arriba y abajo
+        i === 0 || i === node.table.body.length ? 1 : 0,
       vLineWidth: (i, node) =>
-        i === 0 || i === node.table.widths.length ? 1 : 0, // Solo líneas verticales izquierda y derecha
+        i === 0 || i === node.table.widths.length ? 1 : 0,
       hLineColor: () => "black",
       vLineColor: () => "black",
     },
   };
 
   const docDefinition = {
+    pageMargins: [30, 30, 30, 30],
     content: [
       tablaTresColumnas,
       {
@@ -101,6 +134,8 @@ export const generarFichaEstudiante = async (estudiante) => {
                 fillColor: "#19aea0",
                 alignment: "center",
                 fontSize: 10,
+                bold: true,
+                margin: [0, 4, 0, 4],
               },
               {},
               {},
@@ -109,14 +144,35 @@ export const generarFichaEstudiante = async (estudiante) => {
               {},
             ],
             [
-              { text: "Nro. Registro:", bold: true },
-              estudiante.estudiante_id,
-              { text: "Fecha de registro:", bold: true },
-              fechaFormateada,
-              { text: "Como te enteraste del proyecto:", bold: true },
+              {
+                text: "Nro. Registro:",
+                bold: true,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
+              {
+                text: estudiante.estudiante_id,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
+              {
+                text: "Fecha de registro:",
+                bold: true,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
+              { text: fechaFormateada, fontSize: 9, margin: [2, 3, 2, 3] },
+              {
+                text: "Como te enteraste del proyecto:",
+                bold: true,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
               {
                 text: estudiante.como_se_entero?.toUpperCase() || "",
                 noWrap: false,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
               },
             ],
             [
@@ -127,6 +183,8 @@ export const generarFichaEstudiante = async (estudiante) => {
                 fillColor: "#19aea0",
                 alignment: "center",
                 fontSize: 10,
+                bold: true,
+                margin: [0, 4, 0, 4],
               },
               {},
               {},
@@ -135,52 +193,147 @@ export const generarFichaEstudiante = async (estudiante) => {
               {},
             ],
             [
-              { text: "Apellido Paterno:", bold: true },
-              estudiante.ap_paterno?.toUpperCase() || "",
-              { text: "Apellido Materno:", bold: true },
-              estudiante.ap_materno?.toUpperCase() || "",
-              { text: "Nombres:", bold: true },
-              estudiante.nombres?.toUpperCase() || "",
+              {
+                text: "Apellido Paterno:",
+                bold: true,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
+              {
+                text: estudiante.ap_paterno?.toUpperCase() || "",
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
+              {
+                text: "Apellido Materno:",
+                bold: true,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
+              {
+                text: estudiante.ap_materno?.toUpperCase() || "",
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
+              {
+                text: "Nombres:",
+                bold: true,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
+              {
+                text: estudiante.nombres?.toUpperCase() || "",
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
             ],
             [
-              { text: "Fecha de Nacimiento:", bold: true },
-              formatoDDMMYYYY(estudiante.fecha_nacimiento) || "",
-              { text: "Carnet de Identidad:", bold: true },
-              estudiante.ci,
-              { text: "Edad:", bold: true },
-              calcularEdad(estudiante.fecha_nacimiento),
+              {
+                text: "Fecha de Nacimiento:",
+                bold: true,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
+              {
+                text: formatoDDMMYYYY(estudiante.fecha_nacimiento) || "",
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
+              {
+                text: "Carnet de Identidad:",
+                bold: true,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
+              { text: estudiante.ci, fontSize: 9, margin: [2, 3, 2, 3] },
+              { text: "Edad:", bold: true, fontSize: 9, margin: [2, 3, 2, 3] },
+              {
+                text: calcularEdad(estudiante.fecha_nacimiento),
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
             ],
             [
-              { text: "Género:", bold: true },
-              estudiante.genero?.toUpperCase() || "",
-              { text: "Lugar de nacimiento:", bold: true },
-              estudiante.lugar_nacimiento?.toUpperCase() || "",
-              { text: "Estado Civil:", bold: true },
-              estudiante.estado_civil?.toUpperCase() || "",
+              {
+                text: "Género:",
+                bold: true,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
+              {
+                text: estudiante.genero?.toUpperCase() || "",
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
+              {
+                text: "Lugar de nacimiento:",
+                bold: true,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
+              {
+                text: estudiante.lugar_nacimiento?.toUpperCase() || "",
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
+              {
+                text: "Estado Civil:",
+                bold: true,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
+              {
+                text: estudiante.estado_civil?.toUpperCase() || "",
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
             ],
             [
+              {
+                text: "Macrodistrito:",
+                bold: true,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
+              {
+                text:
+                  extraerMacrodistrito(estudiante.direccion)?.toUpperCase() ||
+                  "",
+                colSpan: 2,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
+              {},
               {
                 text: "Dirección Actual (Avenida/Calle Nº de puerta):",
-                colSpan: 2,
                 bold: true,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
               },
-              {},
               {
-                text: estudiante.direccion?.toUpperCase() || "",
-                colSpan: 4,
+                text:
+                  extraerDireccion(estudiante.direccion)?.toUpperCase() || "",
+                colSpan: 2,
                 noWrap: false,
-                fontSize: 10,
-                margin: [0, 2, 0, 2],
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
               },
-
-              {},
-              {},
               {},
             ],
             [
-              { text: "Nro. P/Grupo Whatsapp:", colSpan: 2, bold: true },
+              {
+                text: "Nro. P/Grupo Whatsapp:",
+                colSpan: 2,
+                bold: true,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
               {},
-              estudiante.telefono || "",
+              {
+                text: estudiante.telefono || "",
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
               {},
               {},
               {},
@@ -193,6 +346,8 @@ export const generarFichaEstudiante = async (estudiante) => {
                 fillColor: "#19aea0",
                 alignment: "center",
                 fontSize: 10,
+                bold: true,
+                margin: [0, 4, 0, 4],
               },
               {},
               {},
@@ -201,32 +356,94 @@ export const generarFichaEstudiante = async (estudiante) => {
               {},
             ],
             [
-              { text: "Con quien vive?:", bold: true },
-              estudiante.datos_familiares?.[0]?.tipo?.toUpperCase() || "",
-              { text: "Parentesco o afinidad:", bold: true },
-              estudiante.datos_familiares?.[0]?.parentesco?.toUpperCase() || "",
-              { text: "Relación:", bold: true },
-              estudiante.datos_familiares?.[0]?.relacion?.toUpperCase() || "",
+              {
+                text: "Apellido Paterno:",
+                bold: true,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
+              {
+                text:
+                  estudiante.datos_familiares?.[0]?.ap_paterno?.toUpperCase() ||
+                  "",
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
+              {
+                text: "Apellido Materno:",
+                bold: true,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
+              {
+                text:
+                  estudiante.datos_familiares?.[0]?.ap_materno?.toUpperCase() ||
+                  "",
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
+              {
+                text: "Nombres:",
+                bold: true,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
+              {
+                text:
+                  estudiante.datos_familiares?.[0]?.nombres?.toUpperCase() ||
+                  "",
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
             ],
             [
-              { text: "Apellido Paterno:", bold: true },
-              estudiante.datos_familiares?.[0]?.ap_paterno?.toUpperCase() || "",
-              { text: "Apellido Materno:", bold: true },
-              estudiante.datos_familiares?.[0]?.ap_materno?.toUpperCase() || "",
-              { text: "Nombres:", bold: true },
-              estudiante.datos_familiares?.[0]?.nombres?.toUpperCase() || "",
+              {
+                text: "Parentesco o afinidad:",
+                bold: true,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
+              {
+                text:
+                  estudiante.datos_familiares?.[0]?.parentesco?.toUpperCase() ||
+                  "",
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
+              {
+                text: "Número de celular:",
+                bold: true,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
+              {
+                text: estudiante.datos_familiares?.[0]?.telefono || "",
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
+              {},
+              {},
             ],
             [
               {
                 text: "Dirección Actual (Avenida/Calle Nº de puerta):",
                 colSpan: 2,
                 bold: true,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
               },
               {},
-              estudiante.datos_familiares?.[0]?.direccion?.toUpperCase() || "",
+              {
+                text:
+                  estudiante.datos_familiares?.[0]?.direccion?.toUpperCase() ||
+                  "",
+                colSpan: 4,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
               {},
-              { text: "Número de celular:", bold: true },
-              estudiante.datos_familiares?.[0]?.telefono || "",
+              {},
+              {},
             ],
             [
               {
@@ -236,6 +453,8 @@ export const generarFichaEstudiante = async (estudiante) => {
                 fillColor: "#19aea0",
                 alignment: "center",
                 fontSize: 10,
+                bold: true,
+                margin: [0, 4, 0, 4],
               },
               {},
               {},
@@ -244,23 +463,43 @@ export const generarFichaEstudiante = async (estudiante) => {
               {},
             ],
             [
-              { text: "Grado de Instrucción:", bold: true },
-              estudiante.datos_academicos?.[0]?.grado_institucion?.toUpperCase() ||
-                "",
-              { text: "Años de servicio:", bold: true },
-              estudiante.datos_academicos?.[0]?.anios_servicio || "",
-              "",
-              "",
-            ],
-            [
-              { text: "Último Cargo:", bold: true },
-              estudiante.datos_academicos?.[0]?.ultimo_cargo?.toUpperCase() ||
-                "",
-              { text: "Otras habilidades:", bold: true },
-              estudiante.datos_academicos?.[0]?.otras_habilidades?.toUpperCase() ||
-                "",
-              "",
-              "",
+              {
+                text: "Grado de Instrucción:",
+                bold: true,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
+              {
+                text:
+                  estudiante.datos_academicos?.[0]?.grado_institucion?.toUpperCase() ||
+                  "",
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
+              {
+                text: "Años de servicio:",
+                bold: true,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
+              {
+                text: estudiante.datos_academicos?.[0]?.anios_servicio || "",
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
+              {
+                text: "Último Cargo:",
+                bold: true,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
+              {
+                text:
+                  estudiante.datos_academicos?.[0]?.ultimo_cargo?.toUpperCase() ||
+                  "",
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
             ],
             [
               {
@@ -270,6 +509,8 @@ export const generarFichaEstudiante = async (estudiante) => {
                 fillColor: "#19aea0",
                 alignment: "center",
                 fontSize: 10,
+                bold: true,
+                margin: [0, 4, 0, 4],
               },
               {},
               {},
@@ -278,31 +519,63 @@ export const generarFichaEstudiante = async (estudiante) => {
               {},
             ],
             [
-              { text: "Sistema de Salud:", bold: true },
-              estudiante.datos_medicos?.[0]?.sistema_salud?.toUpperCase() || "",
-              { text: "Frecuencia que acude al médico:", bold: true },
-              estudiante.datos_medicos?.[0]?.frecuencia_medico?.toUpperCase() ||
-                "",
-              { text: "Tuvo COVID?:", bold: true },
-              estudiante.datos_medicos?.[0]?.tuvo_covid === true ? "SI" : "NO",
+              {
+                text: "Sistema de Salud:",
+                bold: true,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
+              {
+                text:
+                  estudiante.datos_medicos?.[0]?.sistema_salud?.toUpperCase() ||
+                  "",
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
+              {
+                text: "Enfermedad de base:",
+                bold: true,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
+              {
+                text:
+                  estudiante.datos_medicos?.[0]?.enfermedad_base?.toUpperCase() ||
+                  "",
+                colSpan: 3,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
+              {},
+              {},
             ],
             [
-              { text: "Enfermedad de base:", bold: true },
-              estudiante.datos_medicos?.[0]?.enfermedad_base?.toUpperCase() ||
-                "",
-              { text: "Alergias:", bold: true },
-              estudiante.datos_medicos?.[0]?.alergias?.toUpperCase() || "",
-              { text: "Tratamiento Específico:", bold: true },
-              estudiante.datos_medicos?.[0]?.tratamiento_especifico?.toUpperCase() ||
-                "",
+              {
+                text: "Tratamiento Específico:",
+                bold: true,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
+              {
+                text:
+                  estudiante.datos_medicos?.[0]?.tratamiento_especifico?.toUpperCase() ||
+                  "",
+                colSpan: 5,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
+              {},
+              {},
+              {},
+              {},
             ],
             [
-              { text: "", margin: [0, 40] },
-              { text: "", margin: [0, 40] },
-              { text: "", margin: [0, 40] },
-              { text: "", margin: [0, 40] },
-              { text: "", margin: [0, 40] },
-              { text: "", margin: [0, 40] },
+              { text: "", margin: [0, 30] },
+              { text: "", margin: [0, 30] },
+              { text: "", margin: [0, 30] },
+              { text: "", margin: [0, 30] },
+              { text: "", margin: [0, 30] },
+              { text: "", margin: [0, 30] },
             ],
 
             [
@@ -311,6 +584,7 @@ export const generarFichaEstudiante = async (estudiante) => {
                 colSpan: 3,
                 alignment: "center",
                 bold: true,
+                fontSize: 9,
               },
               {},
               {},
@@ -319,6 +593,7 @@ export const generarFichaEstudiante = async (estudiante) => {
                 colSpan: 3,
                 alignment: "center",
                 bold: true,
+                fontSize: 9,
               },
               {},
               {},
@@ -330,12 +605,12 @@ export const generarFichaEstudiante = async (estudiante) => {
     ],
     styles: {
       tableExample: {
-        margin: [0, 5, 0, 15],
-        fontSize: 10,
+        margin: [0, 5, 0, 12],
+        fontSize: 9,
       },
       tableHeader: {
         bold: true,
-        fontSize: 12,
+        fontSize: 10,
         color: "black",
       },
     },

@@ -6,9 +6,15 @@ export default function DeleteConfirmationModal({
 }) {
   return (
     <>
-      <div className="fixed inset-0 bg-black/25 flex items-center justify-center z-50"></div>
+      <div
+        className="fixed inset-0 bg-black/25 flex items-center justify-center z-50"
+        onClick={onCancel}
+      ></div>
       <div className="fixed inset-0 flex items-center justify-center z-50">
-        <div className="bg-white p-6 rounded shadow w-full max-w-md z-50">
+        <div
+          className="bg-white p-6 rounded shadow w-full max-w-md z-50"
+          onClick={(e) => e.stopPropagation()}
+        >
           <h2 className="text-xl font-bold mb-4">Confirmar Eliminación</h2>
           <p>
             ¿Está seguro de que desea eliminar a{" "}

@@ -32,11 +32,17 @@ export default function ArraySection({
             &#10005;
           </button>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {fields.map((field, fieldIndex) => (
               <div
                 key={fieldIndex}
-                className={field.colSpan === 2 ? "md:col-span-2" : ""}
+                className={
+                  field.colSpan === 3
+                    ? "md:col-span-3"
+                    : field.colSpan === 2
+                      ? "md:col-span-2"
+                      : ""
+                }
               >
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   {field.label}

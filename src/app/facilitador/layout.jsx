@@ -60,7 +60,6 @@ export default async function AdministradorLayout({ children }) {
       };
       redirect(roleRoutes[parsedUserData.rol_id] || "/login");
     }
-    console.log("User Data:", parsedUserData);
     nombreCompleto = `${parsedUserData.nombres} ${parsedUserData.apellido}`;
     cargo = parsedUserData.cargo || "facilitador";
   } catch (error) {

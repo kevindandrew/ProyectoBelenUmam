@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { X, Plus } from "lucide-react";
+import { X, Plus, Edit } from "lucide-react";
 
 const ScheduleTable = ({
   courses,
@@ -9,6 +9,7 @@ const ScheduleTable = ({
   availableClassrooms,
   onCellClick,
   onDeleteCourse,
+  onEditCourse,
 }) => {
   const getCourseForSlot = (classroom, time, dayId) => {
     return (
@@ -16,11 +17,10 @@ const ScheduleTable = ({
         (course) =>
           course.classroom.value === classroom.value &&
           course.time === time &&
-          course.day === dayId
+          course.day === dayId,
       ) || null
     );
   };
-  console.log();
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
       <div className="overflow-x-auto">
@@ -82,14 +82,25 @@ const ScheduleTable = ({
                         >
                           {course ? (
                             <div
+                              onClick={() => onEditCourse?.(course)}
                               className={`${course.color} rounded-lg p-3 border-2 cursor-pointer hover:shadow-md transition-shadow relative group`}
                             >
                               <button
-                                onClick={() => onDeleteCourse(course.id)}
-                                className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white rounded-full p-1 hover:bg-gray-100"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onDeleteCourse(course.id);
+                                }}
+                                className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white rounded-full p-1 hover:bg-red-100"
+                                title="Eliminar"
                               >
-                                <X size={12} />
+                                <X size={12} className="text-red-600" />
                               </button>
+                              <div
+                                className="absolute top-1 right-7 opacity-0 group-hover:opacity-100 transition-opacity bg-white rounded-full p-1 hover:bg-blue-100"
+                                title="Editar horario"
+                              >
+                                <Edit size={12} className="text-blue-600" />
+                              </div>
                               <div className="text-xs font-semibold mb-1">
                                 {course.subject}
                               </div>

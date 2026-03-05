@@ -10,8 +10,8 @@ const CourseForm = ({
   availableClassrooms,
   availableSubjects = [],
   availableProfessors = [],
+  isEditMode = false,
 }) => {
-  // Estado del formulario
   const [formData, setFormData] = useState({
     curso_id: "",
     profesor_id: "",
@@ -20,7 +20,6 @@ const CourseForm = ({
     day: "",
   });
 
-  // Obtener el label del aula seleccionada
   const getClassroomLabel = () => {
     if (!formData.classroom) return "Seleccionar aula";
     const aula = availableClassrooms.find(
@@ -29,7 +28,6 @@ const CourseForm = ({
     return aula ? aula.label : `Aula ${formData.classroom}`;
   };
 
-  // Efecto para actualizar con initialData
   useEffect(() => {
     if (initialData) {
       setFormData({
@@ -61,7 +59,7 @@ const CourseForm = ({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <h3 className="text-lg font-medium text-gray-900 mb-4">
-        {initialData ? "Editar Curso" : "Agregar Nuevo Curso"}
+        {isEditMode ? "Editar Horario" : "Agregar Nuevo Curso"}
       </h3>
 
       {/* Materia */}
@@ -110,37 +108,57 @@ const CourseForm = ({
         </select>
       </div>
 
-      {/* Aula (solo lectura) */}
+      {/* Aula */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Aula *
         </label>
-        <input
-          type="text"
-          name="classroom"
-          value={getClassroomLabel()}
-          readOnly
-          className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100"
-        />
-        {/* Campo oculto para mantener el valor en el formulario */}
-        <input
-          type="hidden"
-          name="classroom_value"
-          value={formData.classroom}
-        />
+        {isEditMode ? (
+          <select
+            name="classroom"
+            value={formData.classroom}
+            onChange={handleChange}
+            required
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">Seleccionar aula</option>
+            {availableClassrooms.map((aula) => (
+              <option key={aula.value} value={aula.value}>
+                {aula.label}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <>
+            <input
+              type="text"
+              name="classroom"
+              value={getClassroomLabel()}
+              readOnly
+              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100"
+            />
+            {/* Campo oculto para mantener el valor en el formulario */}
+            <input
+              type="hidden"
+              name="classroom_value"
+              value={formData.classroom}
+            />
+          </>
+        )}
       </div>
 
       {/* Horario y Día */}
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Horario
+            Horario {isEditMode && "*"}
           </label>
           <select
             name="time"
             value={formData.time}
-            disabled
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            onChange={handleChange}
+            disabled={!isEditMode}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
           >
             {timeSlots.map((time) => (
               <option key={time.id} value={time.label}>
@@ -152,13 +170,14 @@ const CourseForm = ({
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Día
+            Día {isEditMode && "*"}
           </label>
           <select
             name="day"
             value={formData.day}
-            disabled
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            onChange={handleChange}
+            disabled={!isEditMode}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
           >
             {days.map((day) => (
               <option key={day.id} value={day.id}>
@@ -182,7 +201,7 @@ const CourseForm = ({
           type="submit"
           className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
         >
-          {"Guardar Curso"}
+          {isEditMode ? "Actualizar Horario" : "Guardar Curso"}
         </button>
       </div>
     </form>

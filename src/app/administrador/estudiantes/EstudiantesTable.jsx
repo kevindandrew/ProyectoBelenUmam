@@ -25,10 +25,7 @@ export default function EstudiantesTable({
       .map((e) => e?.estudiante_id || e?.id)
       .filter(Boolean);
     if (new Set(ids).size !== ids.length) {
-      console.log(
-        "Advertencia: IDs duplicados encontrados",
-        ids.filter((id, i) => ids.indexOf(id) !== i)
-      );
+      // Advertencia: IDs duplicados encontrados
     }
   }
   // Handler seguro para acciones
@@ -42,10 +39,14 @@ export default function EstudiantesTable({
     }
   };
 
-  // Filtrar estudiantes inválidos
-  const estudiantesValidos = estudiantes.filter(
-    (est) => est && (est.id || est.estudiante_id || est.ci)
-  );
+  // Filtrar y ordenar estudiantes por ID descendente (del último al primero)
+  const estudiantesValidos = estudiantes
+    .filter((est) => est && (est.id || est.estudiante_id || est.ci))
+    .sort((a, b) => {
+      const idA = a.estudiante_id || a.id || 0;
+      const idB = b.estudiante_id || b.id || 0;
+      return idB - idA; // Orden descendente
+    });
 
   // Handler seguro para acciones
   const createActionHandler = (action, estudiante) => (e) => {
@@ -85,7 +86,7 @@ export default function EstudiantesTable({
               </td>
             </tr>
           ) : (
-            estudiantesValidos.map((estudiante) => {
+            estudiantesValidos.map((estudiante, index) => {
               const uniqueKey = generateUniqueKey(estudiante);
               const nombreCompleto = `${estudiante.nombres || ""} ${
                 estudiante.ap_paterno || ""
@@ -94,7 +95,7 @@ export default function EstudiantesTable({
               return (
                 <tr key={uniqueKey} className="hover:bg-gray-50">
                   <td className="px-4 py-2 border-b">
-                    {estudiante.estudiante_id}
+                    {estudiantesValidos.length - index}
                   </td>
                   <td className="px-4 py-2 border-b">
                     {[estudiante.ap_paterno, estudiante.ap_materno]

@@ -37,7 +37,7 @@ export default function SucursalesPage() {
               Accept: "application/json",
               Authorization: `bearer ${Cookies.get("access_token")}`,
             },
-          }
+          },
         );
 
         if (!response.ok) {
@@ -68,7 +68,7 @@ export default function SucursalesPage() {
             Authorization: `bearer ${Cookies.get("access_token")}`,
           },
           body: JSON.stringify(sucursalData),
-        }
+        },
       );
 
       if (!response.ok) throw new Error("Error al crear sucursal");
@@ -90,7 +90,7 @@ export default function SucursalesPage() {
             Authorization: `bearer ${Cookies.get("access_token")}`,
           },
           body: JSON.stringify(sucursalData),
-        }
+        },
       );
 
       if (!response.ok) throw new Error("Error al actualizar sucursal");
@@ -110,7 +110,7 @@ export default function SucursalesPage() {
           headers: {
             Authorization: `bearer ${Cookies.get("access_token")}`,
           },
-        }
+        },
       );
 
       if (!response.ok) throw new Error("Error al eliminar sucursal");
@@ -132,7 +132,7 @@ export default function SucursalesPage() {
             Accept: "application/json",
             Authorization: `bearer ${Cookies.get("access_token")}`,
           },
-        }
+        },
       );
       if (!response.ok) throw new Error("Error al cargar las aulas");
       const data = await response.json();
@@ -162,7 +162,7 @@ export default function SucursalesPage() {
             Authorization: `bearer ${Cookies.get("access_token")}`,
           },
           body: JSON.stringify(dataToSend),
-        }
+        },
       );
 
       if (!response.ok) {
@@ -170,7 +170,7 @@ export default function SucursalesPage() {
         throw new Error(
           `Error al actualizar aula: ${
             errorData.detail || errorData.message || "Sin detalles"
-          }`
+          }`,
         );
       }
 
@@ -182,8 +182,8 @@ export default function SucursalesPage() {
                 ...updatedAula,
                 nombre: updatedAula.nombre || updatedAula.nombre_aula,
               }
-            : a
-        )
+            : a,
+        ),
       );
       setEditingAula(null);
     } catch (error) {
@@ -200,7 +200,7 @@ export default function SucursalesPage() {
           headers: {
             Authorization: `bearer ${Cookies.get("access_token")}`,
           },
-        }
+        },
       );
 
       if (!response.ok) {
@@ -208,7 +208,7 @@ export default function SucursalesPage() {
         throw new Error(
           `Error al eliminar aula: ${
             errorData.detail || errorData.message || "Sin detalles"
-          }`
+          }`,
         );
       }
 
@@ -222,7 +222,7 @@ export default function SucursalesPage() {
   // Modifica el filtrado para incluir ordenamiento
   const sucursalesFiltradas = sucursales
     .filter((sucursal) =>
-      sucursal.nombre.toLowerCase().includes(searchTerm.toLowerCase())
+      sucursal.nombre.toLowerCase().includes(searchTerm.toLowerCase()),
     )
     .sort((a, b) => a.sucursal_id - b.sucursal_id); // Orden ascendente por ID
 
@@ -255,12 +255,12 @@ export default function SucursalesPage() {
         // Actualizar sucursal existente
         const updatedSucursal = await updateSucursal(
           editingSucursal.sucursal_id,
-          formData
+          formData,
         );
         setSucursales((prev) =>
           prev.map((s) =>
-            s.sucursal_id === editingSucursal.sucursal_id ? updatedSucursal : s
-          )
+            s.sucursal_id === editingSucursal.sucursal_id ? updatedSucursal : s,
+          ),
         );
       } else {
         // Crear nueva sucursal
@@ -289,13 +289,13 @@ export default function SucursalesPage() {
             capacidad: parseInt(aulaData.capacidad),
             sucursal_id: sucursalId,
           }),
-        }
+        },
       );
 
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(
-          `Error al crear aula: ${errorData.message || "Sin detalles"}`
+          `Error al crear aula: ${errorData.message || "Sin detalles"}`,
         );
       }
 
@@ -341,7 +341,7 @@ export default function SucursalesPage() {
       if (sucursalToDelete) {
         await deleteSucursal(sucursalToDelete.sucursal_id);
         setSucursales((prev) =>
-          prev.filter((s) => s.sucursal_id !== sucursalToDelete.sucursal_id)
+          prev.filter((s) => s.sucursal_id !== sucursalToDelete.sucursal_id),
         );
       }
       setDeleteModalOpen(false);
@@ -452,8 +452,18 @@ export default function SucursalesPage() {
       </div>
 
       {modalAulaOpen && (
-        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/25">
-          <div className="bg-white rounded-lg shadow-lg w-full max-w-3xl p-6">
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50 bg-black/25"
+          onClick={() => {
+            setModalAulaOpen(false);
+            setAulasSeleccionadas([]);
+            setSucursalSeleccionada(null);
+          }}
+        >
+          <div
+            className="bg-white rounded-lg shadow-lg w-full max-w-3xl p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h2 className="text-xl font-semibold mb-4">
               AULAS DE {sucursalSeleccionada?.nombre?.toUpperCase()}
             </h2>
@@ -503,7 +513,7 @@ export default function SucursalesPage() {
                           headers: {
                             "Content-Type": "application/json",
                             Authorization: `bearer ${Cookies.get(
-                              "access_token"
+                              "access_token",
                             )}`,
                           },
                           body: JSON.stringify({
@@ -511,7 +521,7 @@ export default function SucursalesPage() {
                             capacidad: parseInt(capacidadAula),
                             sucursal_id: sucursalSeleccionada.sucursal_id,
                           }),
-                        }
+                        },
                       );
 
                       if (!response.ok) throw new Error("Error al crear aula");
@@ -581,8 +591,8 @@ export default function SucursalesPage() {
                               await deleteAula(aula.aula_id);
                               setAulasSeleccionadas(
                                 aulasSeleccionadas.filter(
-                                  (a) => a.aula_id !== aula.aula_id
-                                )
+                                  (a) => a.aula_id !== aula.aula_id,
+                                ),
                               );
                             } catch (error) {
                               alert("Ocurrió un error al eliminar el aula");
@@ -618,8 +628,14 @@ export default function SucursalesPage() {
 
       {/* Modal NUEVA SUCURSAL */}
       {modalOpen && (
-        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/25">
-          <div className="bg-white p-6 rounded-lg w-full max-w-md shadow-lg relative">
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50 bg-black/25"
+          onClick={() => setModalOpen(false)}
+        >
+          <div
+            className="bg-white p-6 rounded-lg w-full max-w-md shadow-lg relative"
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
               onClick={() => setModalOpen(false)}
               className="absolute top-2 right-2 text-gray-500"
@@ -682,8 +698,14 @@ export default function SucursalesPage() {
 
       {/* Modal Confirmación Eliminar */}
       {deleteModalOpen && (
-        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/40">
-          <div className="bg-white p-6 rounded-lg w-full max-w-sm shadow-lg text-center">
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50 bg-black/40"
+          onClick={cancelDelete}
+        >
+          <div
+            className="bg-white p-6 rounded-lg w-full max-w-sm shadow-lg text-center"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h3 className="text-lg font-semibold mb-4 text-gray-900">
               Confirmar eliminación
             </h3>
@@ -815,7 +837,7 @@ export default function SucursalesPage() {
                       onClick={async () => {
                         setSucursalSeleccionada(sucursal);
                         const aulasData = await fetchAulasBySucursal(
-                          sucursal.sucursal_id
+                          sucursal.sucursal_id,
                         );
                         setAulasSeleccionadas(aulasData);
                         setModalAulaOpen(true);

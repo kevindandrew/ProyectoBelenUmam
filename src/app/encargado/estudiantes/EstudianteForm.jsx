@@ -155,31 +155,9 @@ export default function EstudianteForm({
                   onChange: onInputChange,
                 },
                 {
-                  type: "select",
-                  name: "estado_civil",
-                  label: "Estado Civil:",
-                  options: [
-                    "SOLTERO",
-                    "CASADO",
-                    "VIUDO",
-                    "DIVORCIADO",
-                    "CONVIVIENTE",
-                  ],
-                  value: estudiante.estado_civil,
-                  onChange: onInputChange,
-                },
-                {
-                  type: "text",
-                  name: "direccion",
-                  label: "Dirección:",
-                  value: estudiante.direccion,
-                  onChange: onInputChange,
-                  colSpan: 2,
-                },
-                {
                   type: "text",
                   name: "telefono",
-                  label: "Teléfono/Celular:",
+                  label: "Número de celular (WhatsApp):",
                   value: estudiante.telefono,
                   onChange: (e) => {
                     const numericValue = e.target.value.replace(/\D/g, "");
@@ -196,62 +174,106 @@ export default function EstudianteForm({
                   },
                   inputMode: "numeric",
                   pattern: "\\d*",
+                  maxLength: 15,
+                  title: "Solo números entre 6 y 15 dígitos",
+                },
+                {
+                  type: "select",
+                  name: "estado_civil",
+                  label: "Estado Civil:",
+                  options: [
+                    "SOLTERO",
+                    "CASADO",
+                    "VIUDO",
+                    "DIVORCIADO",
+                    "CONVIVIENTE",
+                  ],
+                  value: estudiante.estado_civil,
+                  onChange: onInputChange,
+                  required: true,
+                },
+                {
+                  type: "select",
+                  name: "macrodistrito",
+                  label: "Macrodistrito:",
+                  options: [
+                    "Cotahuma",
+                    "Max Paredes",
+                    "Periférica",
+                    "San Antonio",
+                    "Sur",
+                    "Mallasa",
+                    "Centro",
+                    "Zongo",
+                    "Hampaturi",
+                  ],
+                  value: estudiante.macrodistrito,
+                  onChange: onInputChange,
+                },
+                {
+                  type: "text",
+                  name: "direccion",
+                  label: "Dirección:",
+                  value: estudiante.direccion,
+                  onChange: onInputChange,
+                  maxLength: 100,
                 },
               ]}
             />
 
             <hr className="bg-primary border-2 border-top border-primary my-4" />
 
-            <ArraySection
+            <FormSection
               title="DATOS ACADÉMICOS"
-              arrayName="datos_academicos"
-              items={estudiante.datos_academicos}
-              onAdd={() => onAddArrayItem("datos_academicos")}
-              onRemove={(index) => onRemoveArrayItem("datos_academicos", index)}
               fields={[
                 {
-                  type: "text",
+                  type: "select",
                   name: "grado_institucion",
-                  label: "Grado/Institución:",
-                  placeholder: "Ej: Colegio Nacional",
-                },
-                {
-                  type: "text",
-                  name: "anios_servicio",
-                  label: "Años de servicio:",
-                  placeholder: "Ej: 5",
-                  onChange: (e, index) => {
-                    const numericValue = e.target.value.replace(/\D/g, "");
-                    const name = `datos_academicos.${index}.anios_servicio`;
-                    onInputChange({
-                      ...e,
-                      target: {
-                        ...e.target,
-                        name,
-                        value: numericValue,
-                      },
-                    });
-                  },
-                  inputMode: "numeric",
+                  label: "Grado de instrucción:",
+                  options: [
+                    "Ninguno",
+                    "Primaria",
+                    "Secundaria",
+                    "Bachiller",
+                    "Técnico",
+                    "Licenciatura",
+                    "Maestría",
+                    "Doctorado",
+                  ],
+                  value: estudiante.grado_institucion,
+                  onChange: onInputChange,
                 },
                 {
                   type: "text",
                   name: "ultimo_cargo",
                   label: "Último cargo:",
+                  value: estudiante.ultimo_cargo,
+                  onChange: onInputChange,
+                  maxLength: 100,
                   placeholder: "Ej: Delegado",
                 },
                 {
                   type: "text",
-                  name: "otras_habilidades",
-                  label: "Otras habilidades:",
-                  placeholder: "Ej: Inglés, informática",
-                  colSpan: 2,
+                  name: "anios_servicio",
+                  label: "Años de servicio:",
+                  value: estudiante.anios_servicio,
+                  onChange: (e) => {
+                    const numericValue = e.target.value.replace(/\D/g, "");
+                    if (numericValue.length <= 3) {
+                      onInputChange({
+                        ...e,
+                        target: {
+                          ...e.target,
+                          name: "anios_servicio",
+                          value: numericValue,
+                        },
+                      });
+                    }
+                  },
+                  inputMode: "numeric",
+                  placeholder: "Ej: 5",
                 },
               ]}
-              onInputChange={(e, index) => {
-                const name = `datos_academicos.${index}.${e.target.name}`;
-                onInputChange({ ...e, target: { ...e.target, name } });
-              }}
             />
 
             <hr className="bg-primary border-2 border-top border-primary my-4" />
@@ -293,12 +315,6 @@ export default function EstudianteForm({
                   ],
                 },
                 {
-                  type: "select",
-                  name: "tipo",
-                  label: "Tipo:",
-                  options: ["referencia", "emergencia"],
-                },
-                {
                   type: "text",
                   name: "telefono",
                   label: "Teléfono:",
@@ -320,18 +336,20 @@ export default function EstudianteForm({
                   type: "text",
                   name: "direccion",
                   label: "Dirección:",
-                  colSpan: 2,
-                },
-                {
-                  type: "select",
-                  name: "relacion",
-                  label: "Relación:",
-                  options: ["Buena", "Regular", "Mala"],
+                  colSpan: 3,
                 },
               ]}
               onInputChange={(e, index) => {
                 const name = `datos_familiares.${index}.${e.target.name}`;
-                onInputChange({ ...e, target: { ...e.target, name } });
+                const syntheticEvent = {
+                  target: {
+                    name: name,
+                    value: e.target.value,
+                    type: e.target.type,
+                    checked: e.target.checked,
+                  },
+                };
+                onInputChange(syntheticEvent);
               }}
             />
 
@@ -351,27 +369,10 @@ export default function EstudianteForm({
                   options: ["Público", "Privado", "Seguro", "Ninguno"],
                 },
                 {
-                  type: "select",
-                  name: "frecuencia_medico",
-                  label: "Frecuencia médico:",
-                  options: [
-                    "1 VEZ AL MES",
-                    "1 VEZ AL AÑO",
-                    "SOLO EMERGENCIAS",
-                    "NUNCA",
-                  ],
-                },
-                {
                   type: "text",
                   name: "enfermedad_base",
                   label: "Enfermedad de base:",
                   placeholder: "Ej: Diabetes, Hipertensión",
-                },
-                {
-                  type: "text",
-                  name: "alergias",
-                  label: "Alergias:",
-                  placeholder: "Ej: Polvo, Penicilina",
                 },
                 {
                   type: "text",
@@ -380,27 +381,18 @@ export default function EstudianteForm({
                   placeholder: "Ej: Antialérgicos",
                   colSpan: 2,
                 },
-                {
-                  type: "checkbox",
-                  name: "tuvo_covid",
-                  label: "¿Tuvo COVID-19?",
-                  colSpan: 2,
-                },
               ]}
               onInputChange={(e, index) => {
                 const name = `datos_medicos.${index}.${e.target.name}`;
-                const value =
-                  e.target.type === "checkbox"
-                    ? e.target.checked
-                    : e.target.value;
-                onInputChange({
-                  ...e,
+                const syntheticEvent = {
                   target: {
-                    ...e.target,
-                    name,
-                    value,
+                    name: name,
+                    value: e.target.value,
+                    type: e.target.type,
+                    checked: e.target.checked,
                   },
-                });
+                };
+                onInputChange(syntheticEvent);
               }}
             />
           </div>
