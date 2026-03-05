@@ -150,9 +150,23 @@ export const generarFichaEstudiante = async (estudiante) => {
               {},
             ],
             [
-              { text: "Nro. Registro:", bold: true, fontSize: 9, margin: [2, 3, 2, 3] },
-              { text: estudiante.estudiante_id, fontSize: 9, margin: [2, 3, 2, 3] },
-              { text: "Fecha de registro:", bold: true, fontSize: 9, margin: [2, 3, 2, 3] },
+              {
+                text: "Nro. Registro:",
+                bold: true,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
+              {
+                text: estudiante.estudiante_id,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
+              {
+                text: "Fecha de registro:",
+                bold: true,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
               { text: fechaFormateada, fontSize: 9, margin: [2, 3, 2, 3] },
               {
                 text: "Como te enteraste del proyecto:",
@@ -185,29 +199,58 @@ export const generarFichaEstudiante = async (estudiante) => {
               {},
             ],
             [
-              { text: "Apellido Paterno:", bold: true, fontSize: 9, margin: [2, 3, 2, 3] },
+              {
+                text: "Apellido Paterno:",
+                bold: true,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
               {
                 text: estudiante.ap_paterno?.toUpperCase() || "",
                 fontSize: 9,
                 margin: [2, 3, 2, 3],
               },
-              { text: "Apellido Materno:", bold: true, fontSize: 9, margin: [2, 3, 2, 3] },
+              {
+                text: "Apellido Materno:",
+                bold: true,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
               {
                 text: estudiante.ap_materno?.toUpperCase() || "",
                 fontSize: 9,
                 margin: [2, 3, 2, 3],
               },
-              { text: "Nombres:", bold: true, fontSize: 9, margin: [2, 3, 2, 3] },
-              { text: estudiante.nombres?.toUpperCase() || "", fontSize: 9, margin: [2, 3, 2, 3] },
+              {
+                text: "Nombres:",
+                bold: true,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
+              {
+                text: estudiante.nombres?.toUpperCase() || "",
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
             ],
             [
-              { text: "Fecha de Nacimiento:", bold: true, fontSize: 9, margin: [2, 3, 2, 3] },
+              {
+                text: "Fecha de Nacimiento:",
+                bold: true,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
               {
                 text: formatoDDMMYYYY(estudiante.fecha_nacimiento) || "",
                 fontSize: 9,
                 margin: [2, 3, 2, 3],
               },
-              { text: "Carnet de Identidad:", bold: true, fontSize: 9, margin: [2, 3, 2, 3] },
+              {
+                text: "Carnet de Identidad:",
+                bold: true,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
               { text: estudiante.ci, fontSize: 9, margin: [2, 3, 2, 3] },
               { text: "Edad:", bold: true, fontSize: 9, margin: [2, 3, 2, 3] },
               {
@@ -217,15 +260,34 @@ export const generarFichaEstudiante = async (estudiante) => {
               },
             ],
             [
-              { text: "Género:", bold: true, fontSize: 9, margin: [2, 3, 2, 3] },
-              { text: estudiante.genero?.toUpperCase() || "", fontSize: 9, margin: [2, 3, 2, 3] },
-              { text: "Lugar de nacimiento:", bold: true, fontSize: 9, margin: [2, 3, 2, 3] },
+              {
+                text: "Género:",
+                bold: true,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
+              {
+                text: estudiante.genero?.toUpperCase() || "",
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
+              {
+                text: "Lugar de nacimiento:",
+                bold: true,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
               {
                 text: estudiante.lugar_nacimiento?.toUpperCase() || "",
                 fontSize: 9,
                 margin: [2, 3, 2, 3],
               },
-              { text: "Estado Civil:", bold: true, fontSize: 9, margin: [2, 3, 2, 3] },
+              {
+                text: "Estado Civil:",
+                bold: true,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
               {
                 text: estudiante.estado_civil?.toUpperCase() || "",
                 fontSize: 9,
@@ -240,7 +302,9 @@ export const generarFichaEstudiante = async (estudiante) => {
                 margin: [2, 3, 2, 3],
               },
               {
-                text: extraerMacrodistrito(estudiante.direccion)?.toUpperCase() || "",
+                text:
+                  extraerMacrodistrito(estudiante.direccion)?.toUpperCase() ||
+                  "",
                 colSpan: 2,
                 fontSize: 9,
                 margin: [2, 3, 2, 3],
@@ -253,7 +317,8 @@ export const generarFichaEstudiante = async (estudiante) => {
                 margin: [2, 3, 2, 3],
               },
               {
-                text: extraerDireccion(estudiante.direccion)?.toUpperCase() || "",
+                text:
+                  extraerDireccion(estudiante.direccion)?.toUpperCase() || "",
                 colSpan: 2,
                 noWrap: false,
                 fontSize: 9,
@@ -274,8 +339,6 @@ export const generarFichaEstudiante = async (estudiante) => {
                 text: estudiante.telefono || "",
                 fontSize: 9,
                 margin: [2, 3, 2, 3],
-              },
-                fontSize: 8.5,
               },
               {},
               {},
@@ -299,7 +362,12 @@ export const generarFichaEstudiante = async (estudiante) => {
               {},
             ],
             [
-              { text: "Apellido Paterno:", bold: true, fontSize: 9, margin: [2, 3, 2, 3] },
+              {
+                text: "Apellido Paterno:",
+                bold: true,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
               {
                 text:
                   estudiante.datos_familiares?.[0]?.ap_paterno?.toUpperCase() ||
@@ -307,7 +375,12 @@ export const generarFichaEstudiante = async (estudiante) => {
                 fontSize: 9,
                 margin: [2, 3, 2, 3],
               },
-              { text: "Apellido Materno:", bold: true, fontSize: 9, margin: [2, 3, 2, 3] },
+              {
+                text: "Apellido Materno:",
+                bold: true,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
               {
                 text:
                   estudiante.datos_familiares?.[0]?.ap_materno?.toUpperCase() ||
@@ -315,7 +388,12 @@ export const generarFichaEstudiante = async (estudiante) => {
                 fontSize: 9,
                 margin: [2, 3, 2, 3],
               },
-              { text: "Nombres:", bold: true, fontSize: 9, margin: [2, 3, 2, 3] },
+              {
+                text: "Nombres:",
+                bold: true,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
               {
                 text:
                   estudiante.datos_familiares?.[0]?.nombres?.toUpperCase() ||
@@ -325,7 +403,12 @@ export const generarFichaEstudiante = async (estudiante) => {
               },
             ],
             [
-              { text: "Parentesco o afinidad:", bold: true, fontSize: 9, margin: [2, 3, 2, 3] },
+              {
+                text: "Parentesco o afinidad:",
+                bold: true,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
               {
                 text:
                   estudiante.datos_familiares?.[0]?.parentesco?.toUpperCase() ||
@@ -333,7 +416,12 @@ export const generarFichaEstudiante = async (estudiante) => {
                 fontSize: 9,
                 margin: [2, 3, 2, 3],
               },
-              { text: "Número de celular:", bold: true, fontSize: 9, margin: [2, 3, 2, 3] },
+              {
+                text: "Número de celular:",
+                bold: true,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
               {
                 text: estudiante.datos_familiares?.[0]?.telefono || "",
                 fontSize: 9,
@@ -381,7 +469,12 @@ export const generarFichaEstudiante = async (estudiante) => {
               {},
             ],
             [
-              { text: "Grado de Instrucción:", bold: true, fontSize: 9, margin: [2, 3, 2, 3] },
+              {
+                text: "Grado de Instrucción:",
+                bold: true,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
               {
                 text:
                   estudiante.datos_academicos?.[0]?.grado_institucion?.toUpperCase() ||
@@ -389,13 +482,23 @@ export const generarFichaEstudiante = async (estudiante) => {
                 fontSize: 9,
                 margin: [2, 3, 2, 3],
               },
-              { text: "Años de servicio:", bold: true, fontSize: 9, margin: [2, 3, 2, 3] },
+              {
+                text: "Años de servicio:",
+                bold: true,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
               {
                 text: estudiante.datos_academicos?.[0]?.anios_servicio || "",
                 fontSize: 9,
                 margin: [2, 3, 2, 3],
               },
-              { text: "Último Cargo:", bold: true, fontSize: 9, margin: [2, 3, 2, 3] },
+              {
+                text: "Último Cargo:",
+                bold: true,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
               {
                 text:
                   estudiante.datos_academicos?.[0]?.ultimo_cargo?.toUpperCase() ||
@@ -422,7 +525,12 @@ export const generarFichaEstudiante = async (estudiante) => {
               {},
             ],
             [
-              { text: "Sistema de Salud:", bold: true, fontSize: 9, margin: [2, 3, 2, 3] },
+              {
+                text: "Sistema de Salud:",
+                bold: true,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
               {
                 text:
                   estudiante.datos_medicos?.[0]?.sistema_salud?.toUpperCase() ||
@@ -430,7 +538,12 @@ export const generarFichaEstudiante = async (estudiante) => {
                 fontSize: 9,
                 margin: [2, 3, 2, 3],
               },
-              { text: "Enfermedad de base:", bold: true, fontSize: 9, margin: [2, 3, 2, 3] },
+              {
+                text: "Enfermedad de base:",
+                bold: true,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
               {
                 text:
                   estudiante.datos_medicos?.[0]?.enfermedad_base?.toUpperCase() ||
@@ -443,7 +556,12 @@ export const generarFichaEstudiante = async (estudiante) => {
               {},
             ],
             [
-              { text: "Tratamiento Específico:", bold: true, fontSize: 9, margin: [2, 3, 2, 3] },
+              {
+                text: "Tratamiento Específico:",
+                bold: true,
+                fontSize: 9,
+                margin: [2, 3, 2, 3],
+              },
               {
                 text:
                   estudiante.datos_medicos?.[0]?.tratamiento_especifico?.toUpperCase() ||
