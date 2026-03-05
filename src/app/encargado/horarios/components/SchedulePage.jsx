@@ -51,6 +51,11 @@ const SchedulePage = () => {
   // Nuevos estados para manejar horas
   const [selectedHourToRender, setSelectedHourToRender] = useState(null);
   const [isHourModalOpen, setIsHourModalOpen] = useState(false);
+  const [hourToDelete, setHourToDelete] = useState(null);
+  const [isDeleteHourModalOpen, setIsDeleteHourModalOpen] = useState(false);
+  const [isDeletingHour, setIsDeletingHour] = useState(false);
+  const [isEditingCourse, setIsEditingCourse] = useState(false);
+  const [courseToEdit, setCourseToEdit] = useState(null);
 
   const formatTimeSlot = (hora) =>
     `${hora.hora_inicio.slice(0, 5)} - ${hora.hora_fin.slice(0, 5)}`;
@@ -67,8 +72,20 @@ const SchedulePage = () => {
               rawData: g,
             }));
             setGestiones(gestionesFormatted);
+
+            // Buscar la gestión más reciente (2026 Gestión I)
+            const currentYear = new Date().getFullYear();
+            const gestionActual =
+              gestionesFormatted.find((g) =>
+                g.label.includes(`Gestión I - ${currentYear}`),
+              ) ||
+              gestionesFormatted.find((g) =>
+                g.label.includes(currentYear.toString()),
+              ) ||
+              gestionesFormatted[gestionesFormatted.length - 1];
+
             setSelectedGestion(
-              gestionesFormatted[0] || {
+              gestionActual || {
                 value: "",
                 label: "No hay gestiones disponibles",
               },
@@ -110,7 +127,13 @@ const SchedulePage = () => {
       const data = await fetchWithAuth(
         "https://api-umam-1.onrender.com/horarios/horas",
       );
-      const formattedSlots = data.map((h) => ({
+
+      // Ordenar horas por hora_inicio
+      const sortedData = data.sort((a, b) => {
+        return a.hora_inicio.localeCompare(b.hora_inicio);
+      });
+
+      const formattedSlots = sortedData.map((h) => ({
         id: h.hora_id,
         label: formatTimeSlot(h),
         rawData: h,
@@ -152,6 +175,8 @@ const SchedulePage = () => {
           color: getCourseColor(curso?.nombre || `Curso ${horario.curso_id}`),
           gestion: horario.gestion_id.toString(),
           sucursal: selectedSucursal.value,
+          curso_id: horario.curso_id,
+          profesor_id: horario.profesor_id,
         }));
       });
 
@@ -228,6 +253,22 @@ const SchedulePage = () => {
   // Función para crear nueva hora
   const submitNewHour = async ({ hora_inicio, hora_fin }) => {
     try {
+      // Verificar si ya existe una hora con el mismo rango
+      const horaExistente = timeSlots.find((slot) => {
+        const inicio = slot.rawData.hora_inicio.slice(0, 5);
+        const fin = slot.rawData.hora_fin.slice(0, 5);
+        return (
+          inicio === hora_inicio.slice(0, 5) && fin === hora_fin.slice(0, 5)
+        );
+      });
+
+      if (horaExistente) {
+        alert(
+          `La hora ${hora_inicio.slice(0, 5)} - ${hora_fin.slice(0, 5)} ya existe`,
+        );
+        return;
+      }
+
       await fetchWithAuth("https://api-umam-1.onrender.com/horarios/horas", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -236,9 +277,56 @@ const SchedulePage = () => {
       // Recargar las horas disponibles
       await fetchTimeSlots();
       setIsHourModalOpen(false);
+      alert(
+        `Hora ${hora_inicio.slice(0, 5)} - ${hora_fin.slice(0, 5)} creada exitosamente`,
+      );
     } catch (error) {
       console.error("Error creando hora:", error);
-      alert("Error al crear la hora");
+      alert(`Error al crear la hora: ${error.message || "Intente nuevamente"}`);
+    }
+  };
+
+  // Función para eliminar hora
+  const handleDeleteHour = (hour) => {
+    setHourToDelete(hour);
+    setIsDeleteHourModalOpen(true);
+  };
+
+  const confirmDeleteHour = async () => {
+    if (!hourToDelete) return;
+
+    setIsDeletingHour(true);
+    try {
+      // Verificar si la hora está siendo usada en algún horario
+      const horaEnUso = courses.some(
+        (course) => course.time === hourToDelete.label,
+      );
+
+      if (horaEnUso) {
+        alert(
+          "No se puede eliminar esta hora porque está siendo usada en uno o más horarios",
+        );
+        setIsDeleteHourModalOpen(false);
+        setHourToDelete(null);
+        setIsDeletingHour(false);
+        return;
+      }
+
+      await fetchWithAuthDelete(
+        `https://api-umam-1.onrender.com/horarios/horas/${hourToDelete.id}`,
+      );
+
+      await fetchTimeSlots();
+      setIsDeleteHourModalOpen(false);
+      setHourToDelete(null);
+      alert("Hora eliminada exitosamente");
+    } catch (error) {
+      console.error("Error eliminando hora:", error);
+      alert(
+        `Error al eliminar la hora: ${error.message || "Intente nuevamente"}`,
+      );
+    } finally {
+      setIsDeletingHour(false);
     }
   };
 
@@ -287,7 +375,8 @@ const SchedulePage = () => {
   };
 
   const submitNewCourse = async (formData) => {
-    const { curso_id, profesor_id, classroom, day, time } = formData;
+    const { curso_id, profesor_id, classroom, day, time, horario_id } =
+      formData;
     const dia = days.find((d) => d.id === parseInt(day));
     const hora = timeSlots.find((h) => h.label === time);
 
@@ -297,24 +386,49 @@ const SchedulePage = () => {
     }
 
     try {
-      await fetchWithAuth("https://api-umam-1.onrender.com/horarios/", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          curso_id: parseInt(curso_id),
-          aula_id: parseInt(classroom),
-          profesor_id: parseInt(profesor_id),
-          gestion_id: parseInt(selectedGestion.value),
-          activo: true,
-          dias_clase: [{ dia_semana_id: dia.id, hora_id: hora.id }],
-        }),
-      });
+      if (isEditingCourse && horario_id) {
+        // Editar horario existente
+        await fetchWithAuth(
+          `https://api-umam-1.onrender.com/horarios/${horario_id}`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              curso_id: parseInt(curso_id),
+              aula_id: parseInt(classroom),
+              profesor_id: parseInt(profesor_id),
+              gestion_id: parseInt(selectedGestion.value),
+              activo: true,
+              dias_clase: [{ dia_semana_id: dia.id, hora_id: hora.id }],
+            }),
+          },
+        );
+        alert("Horario actualizado exitosamente");
+      } else {
+        // Crear nuevo horario
+        await fetchWithAuth("https://api-umam-1.onrender.com/horarios/", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            curso_id: parseInt(curso_id),
+            aula_id: parseInt(classroom),
+            profesor_id: parseInt(profesor_id),
+            gestion_id: parseInt(selectedGestion.value),
+            activo: true,
+            dias_clase: [{ dia_semana_id: dia.id, hora_id: hora.id }],
+          }),
+        });
+      }
       setIsModalOpen(false);
       setCourseFormData(null);
+      setIsEditingCourse(false);
+      setCourseToEdit(null);
       fetchHorarios();
     } catch (err) {
       console.error("Error en submitNewCourse:", err);
-      alert(`Error al crear horario: ${err.message || err}`);
+      alert(
+        `Error al ${isEditingCourse ? "actualizar" : "crear"} horario: ${err.message || err}`,
+      );
     }
   };
 
@@ -369,6 +483,22 @@ const SchedulePage = () => {
   const handleDeleteGestion = (gestion) => {
     setGestionToDelete(gestion);
     setIsDeleteGestionModalOpen(true);
+  };
+
+  // Función para manejar la edición de cursos
+  const handleEditCourse = (course) => {
+    setCourseToEdit(course);
+    setIsEditingCourse(true);
+    setCourseFormData({
+      curso_id: course.curso_id || "",
+      profesor_id: course.profesor_id || "",
+      classroom: course.classroom.value,
+      classroomObject: course.classroom,
+      time: course.time,
+      day: course.day,
+      horario_id: course.id.split("-")[0], // Extract horario_id from composite id
+    });
+    setIsModalOpen(true);
   };
 
   // Función para confirmar la eliminación de gestión
@@ -516,7 +646,6 @@ const SchedulePage = () => {
     }
   };
 
-  console.log("Courses:", courses);
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
@@ -573,6 +702,10 @@ const SchedulePage = () => {
                 timeSlots.find((h) => h.id === selected.value),
               );
             }}
+            onDelete={(hour) => {
+              const hourToDelete = timeSlots.find((h) => h.id === hour.value);
+              handleDeleteHour(hourToDelete);
+            }}
             placeholder="Seleccionar hora"
             className="min-w-48"
             icon={<Clock size={16} className="mr-2" />}
@@ -588,9 +721,22 @@ const SchedulePage = () => {
 
           {/* Botón de descarga */}
           <button
-            onClick={() =>
-              alert("Funcionalidad de descarga aún no implementada")
-            }
+            onClick={async () => {
+              // Importar dinámicamente la función para evitar problemas SSR
+              const { generateSchedulePDF } = await import("./pdfSchedule");
+              generateSchedulePDF({
+                timeSlots: filteredTimeSlots.map((t) => t.label),
+                availableClassrooms: selectedSucursal?.value
+                  ? classroomsBySucursal[selectedSucursal.value] || []
+                  : [],
+                days,
+                courses,
+                sucursal:
+                  selectedSucursal?.label || selectedSucursal?.nombre || "",
+                gestion:
+                  selectedGestion?.label || selectedGestion?.gestion || "",
+              });
+            }}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
           >
             <Download size={16} /> Descargar Horario PDF
@@ -630,6 +776,7 @@ const SchedulePage = () => {
             }
             onCellClick={handleCellClick}
             onDeleteCourse={handleDeleteCourse}
+            onEditCourse={handleEditCourse}
           />
         ) : (
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-8 text-center">
@@ -645,6 +792,8 @@ const SchedulePage = () => {
           onClose={() => {
             setIsModalOpen(false);
             setCourseFormData(null);
+            setIsEditingCourse(false);
+            setCourseToEdit(null);
           }}
         >
           <CourseForm
@@ -652,6 +801,8 @@ const SchedulePage = () => {
             onCancel={() => {
               setIsModalOpen(false);
               setCourseFormData(null);
+              setIsEditingCourse(false);
+              setCourseToEdit(null);
             }}
             initialData={courseFormData}
             timeSlots={timeSlots}
@@ -663,6 +814,7 @@ const SchedulePage = () => {
             }
             availableSubjects={availableSubjects}
             availableProfessors={availableProfessors}
+            isEditMode={isEditingCourse}
           />
         </Modal>
 
@@ -689,9 +841,23 @@ const SchedulePage = () => {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
+                const horaInicio = e.target.hora_inicio.value;
+                const horaFin = e.target.hora_fin.value;
+
+                // Validación
+                if (!horaInicio || !horaFin) {
+                  alert("Por favor, complete ambos campos");
+                  return;
+                }
+
+                if (horaInicio >= horaFin) {
+                  alert("La hora de inicio debe ser menor que la hora de fin");
+                  return;
+                }
+
                 submitNewHour({
-                  hora_inicio: e.target.hora_inicio.value + ":00",
-                  hora_fin: e.target.hora_fin.value + ":00",
+                  hora_inicio: horaInicio + ":00",
+                  hora_fin: horaFin + ":00",
                 });
               }}
             >
@@ -892,6 +1058,80 @@ const SchedulePage = () => {
                   </>
                 ) : (
                   "Eliminar Gestión"
+                )}
+              </button>
+            </div>
+          </div>
+        </Modal>
+
+        {/* Modal de confirmación para eliminar hora */}
+        <Modal
+          isOpen={isDeleteHourModalOpen}
+          onClose={() => !isDeletingHour && setIsDeleteHourModalOpen(false)}
+        >
+          <div className="p-6">
+            <h2 className="text-xl font-bold mb-4 text-red-600">
+              Eliminar Hora
+            </h2>
+
+            {hourToDelete && (
+              <div className="mb-6">
+                <p className="mb-2">
+                  ¿Estás seguro que deseas eliminar esta hora?
+                </p>
+                <div className="bg-gray-100 rounded-lg p-3 border-2 border-gray-300">
+                  <div className="text-lg font-semibold text-center">
+                    {hourToDelete.label}
+                  </div>
+                </div>
+                <p className="text-sm text-red-600 mt-3">
+                  Nota: Solo se pueden eliminar horas que no estén siendo usadas
+                  en ningún horario.
+                </p>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() =>
+                  !isDeletingHour && setIsDeleteHourModalOpen(false)
+                }
+                disabled={isDeletingHour}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmDeleteHour}
+                disabled={isDeletingHour}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-50 flex items-center gap-2"
+              >
+                {isDeletingHour ? (
+                  <>
+                    <svg
+                      className="animate-spin h-4 w-4"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                    Eliminando...
+                  </>
+                ) : (
+                  "Eliminar Hora"
                 )}
               </button>
             </div>

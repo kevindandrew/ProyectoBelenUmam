@@ -69,7 +69,7 @@ export default function DashboardUMAM() {
           Cookies.remove("access_token");
           Cookies.remove("token");
           setErrorGeneral(
-            "Sesión expirada. Por favor vuelve a iniciar sesión."
+            "Sesión expirada. Por favor vuelve a iniciar sesión.",
           );
           setLoadingGeneral(false);
           return { error: true };
@@ -81,7 +81,7 @@ export default function DashboardUMAM() {
         setSucursales(
           Array.isArray(data)
             ? data.map((s) => ({ nombre: s.nombre, id: s.sucursal_id }))
-            : []
+            : [],
         );
       });
 
@@ -94,7 +94,7 @@ export default function DashboardUMAM() {
           Cookies.remove("access_token");
           Cookies.remove("token");
           setErrorGeneral(
-            "Sesión expirada. Por favor vuelve a iniciar sesión."
+            "Sesión expirada. Por favor vuelve a iniciar sesión.",
           );
           setLoadingGeneral(false);
           return { error: true };
@@ -106,7 +106,7 @@ export default function DashboardUMAM() {
         setGestiones(
           Array.isArray(data)
             ? data.map((g) => ({ nombre: g.gestion, id: g.gestion_id }))
-            : []
+            : [],
         );
       });
 
@@ -119,7 +119,7 @@ export default function DashboardUMAM() {
           Cookies.remove("access_token");
           Cookies.remove("token");
           setErrorGeneral(
-            "Sesión expirada. Por favor vuelve a iniciar sesión."
+            "Sesión expirada. Por favor vuelve a iniciar sesión.",
           );
           setLoadingGeneral(false);
           return { error: true };
@@ -140,7 +140,7 @@ export default function DashboardUMAM() {
           Cookies.remove("access_token");
           Cookies.remove("token");
           setErrorGeneral(
-            "Sesión expirada. Por favor vuelve a iniciar sesión."
+            "Sesión expirada. Por favor vuelve a iniciar sesión.",
           );
           setLoadingGeneral(false);
           return { error: true };
@@ -154,12 +154,12 @@ export default function DashboardUMAM() {
           setTalleres(
             data
               .filter((c) => !c.gestoria)
-              .map((c) => ({ nombre: c.nombre, id: c.curso_id }))
+              .map((c) => ({ nombre: c.nombre, id: c.curso_id })),
           );
           setGestorias(
             data
               .filter((c) => c.gestoria)
-              .map((c) => ({ nombre: c.nombre, id: c.curso_id }))
+              .map((c) => ({ nombre: c.nombre, id: c.curso_id })),
           );
         } else {
           setCursos([]);
@@ -177,7 +177,7 @@ export default function DashboardUMAM() {
           Cookies.remove("access_token");
           Cookies.remove("token");
           setErrorGeneral(
-            "Sesión expirada. Por favor vuelve a iniciar sesión."
+            "Sesión expirada. Por favor vuelve a iniciar sesión.",
           );
           setLoadingGeneral(false);
           return { error: true };
@@ -207,7 +207,7 @@ export default function DashboardUMAM() {
                 value: s.total_estudiantes,
                 color: colores[idx % colores.length],
               }))
-            : []
+            : [],
         );
       });
 
@@ -219,7 +219,7 @@ export default function DashboardUMAM() {
           Cookies.remove("access_token");
           Cookies.remove("token");
           setErrorGeneral(
-            "Sesión expirada. Por favor vuelve a iniciar sesión."
+            "Sesión expirada. Por favor vuelve a iniciar sesión.",
           );
           setLoadingGeneral(false);
           return { error: true };
@@ -234,7 +234,7 @@ export default function DashboardUMAM() {
                 gestion: g.nombre,
                 estudiantes: g.total_estudiantes,
               }))
-            : []
+            : [],
         );
       });
 
@@ -246,7 +246,7 @@ export default function DashboardUMAM() {
           Cookies.remove("access_token");
           Cookies.remove("token");
           setErrorGeneral(
-            "Sesión expirada. Por favor vuelve a iniciar sesión."
+            "Sesión expirada. Por favor vuelve a iniciar sesión.",
           );
           setLoadingGeneral(false);
           return { error: true };
@@ -289,7 +289,7 @@ export default function DashboardUMAM() {
                   .filter(
                     (c) =>
                       cursosMap[c.nombre] === true ||
-                      cursosMap[c.nombre] === false
+                      cursosMap[c.nombre] === false,
                   )
                   .map((c) => {
                     const esGestoria = cursosMap[c.nombre];
@@ -319,7 +319,7 @@ export default function DashboardUMAM() {
           Cookies.remove("access_token");
           Cookies.remove("token");
           setErrorGeneral(
-            "Sesión expirada. Por favor vuelve a iniciar sesión."
+            "Sesión expirada. Por favor vuelve a iniciar sesión.",
           );
           setLoadingGeneral(false);
           return { error: true };
@@ -333,7 +333,7 @@ export default function DashboardUMAM() {
               .filter(
                 (f) =>
                   typeof f.gestion_id === "string" ||
-                  typeof f.gestion_id === "number"
+                  typeof f.gestion_id === "number",
               )
               .sort((a, b) => {
                 if (a.fecha && b.fecha) {
@@ -387,7 +387,6 @@ export default function DashboardUMAM() {
         if (filtros.sucursal) params.append("sucursal_id", filtros.sucursal);
         if (filtros.gestion) params.append("gestion_id", filtros.gestion);
         if (filtros.curso) params.append("curso_id", filtros.curso);
-        console.log("Filtros aplicados:", filtros);
 
         // Petición para el detalle
         const urlDetalle = `https://api-umam-1.onrender.com/reportes/por-sucursal?${params.toString()}`;
@@ -411,10 +410,10 @@ export default function DashboardUMAM() {
           Cookies.remove("access_token");
           Cookies.remove("token");
           setErrorDetalle(
-            "Sesión expirada. Por favor vuelve a iniciar sesión."
+            "Sesión expirada. Por favor vuelve a iniciar sesión.",
           );
           setErrorReporte(
-            "Sesión expirada. Por favor vuelve a iniciar sesión."
+            "Sesión expirada. Por favor vuelve a iniciar sesión.",
           );
           setLoadingDetalle(false);
           setLoadingReporte(false);
@@ -452,7 +451,7 @@ export default function DashboardUMAM() {
     const total = data.reduce(
       (sum, i) =>
         sum + (typeof i.value === "number" && !isNaN(i.value) ? i.value : 0),
-      0
+      0,
     );
     if (!total || total <= 0) return null;
     let currentAngle = 0;
@@ -508,7 +507,7 @@ export default function DashboardUMAM() {
       "Sucursal,Curso,Aprobados,Porcentaje",
       ...aprobados.map(
         (item) =>
-          `${item.Sucursal},${item.Curso},${item.Aprobados},${item.Porcentaje}`
+          `${item.Sucursal},${item.Curso},${item.Aprobados},${item.Porcentaje}`,
       ),
     ].join("\n");
 
@@ -518,13 +517,12 @@ export default function DashboardUMAM() {
     link.href = url;
     link.setAttribute(
       "download",
-      `aprobados_umam_${new Date().toISOString().split("T")[0]}.csv`
+      `aprobados_umam_${new Date().toISOString().split("T")[0]}.csv`,
     );
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
-  console.log(gestorias);
   return (
     <div className="space-y-8 max-w-6xl mx-auto">
       <h1 className="text-3xl font-bold text-[#13678A] border-b pb-2">
@@ -585,9 +583,9 @@ export default function DashboardUMAM() {
                         (item.value /
                           estudiantesPorSucursal.reduce(
                             (sum, i) => sum + i.value,
-                            0
+                            0,
                           )) *
-                          100
+                          100,
                       )}
                       %)
                     </span>
@@ -662,7 +660,7 @@ export default function DashboardUMAM() {
                       color: "#FF8042",
                     },
                   ],
-                  30
+                  30,
                 )}
                 <circle cx="50" cy="50" r="15" fill="white" />
               </svg>
@@ -678,7 +676,7 @@ export default function DashboardUMAM() {
                         c.color === "#00C49F" ||
                         c.color === "#FFBB28" ||
                         c.color === "#A28CFF" ||
-                        c.color === "#FF6F91"
+                        c.color === "#FF6F91",
                     )
                     .reduce((sum, c) => sum + c.value, 0),
                   color: "#0088FE",

@@ -29,11 +29,10 @@ const LoginForm = () => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({ username, password }),
-        }
+        },
       );
 
       const data = await response.json();
-      console.log("Respuesta del servidor:", data);
       if (!response.ok) {
         throw new Error(data.detail || "Credenciales incorrectas");
       }
@@ -61,7 +60,7 @@ const LoginForm = () => {
           secure: process.env.NODE_ENV === "production",
           sameSite: "strict",
           path: "/",
-        }
+        },
       );
 
       // Redirigir según el rol

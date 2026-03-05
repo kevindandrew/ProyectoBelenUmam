@@ -21,7 +21,7 @@ export default function HistorialAcademicoModal({
               headers: {
                 Authorization: `bearer ${Cookies.get("access_token")}`,
               },
-            }
+            },
           );
           const data = await response.json();
           setHistorial(data);
@@ -39,7 +39,6 @@ export default function HistorialAcademicoModal({
 
   const handleExportPDF = () => {
     // Implementar lógica para exportar a PDF
-    console.log("Exportar historial a PDF");
   };
 
   if (!isOpen) return null;
@@ -51,7 +50,10 @@ export default function HistorialAcademicoModal({
         onClick={onClose}
       ></div>
       <div className="fixed inset-0 flex justify-center items-center z-50 p-4">
-        <div className="bg-white rounded-lg shadow-lg p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto relative">
+        <div
+          className="bg-white rounded-lg shadow-lg p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto relative"
+          onClick={(e) => e.stopPropagation()}
+        >
           <button
             type="button"
             className="absolute top-2 right-2 text-gray-600 hover:text-gray-900"
@@ -94,7 +96,7 @@ export default function HistorialAcademicoModal({
                           <td className="px-4 py-2 border-b">{item.estado}</td>
                           <td className="px-4 py-2 border-b">
                             {new Date(
-                              item.fecha_matricula
+                              item.fecha_matricula,
                             ).toLocaleDateString()}
                           </td>
                         </tr>

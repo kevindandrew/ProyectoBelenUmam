@@ -117,9 +117,7 @@ export default function CarnetOCR() {
     setLoadingAnverso(true);
     setAnversoResult("Procesando OCR del anverso...");
 
-    Tesseract.recognize(anversoImage, "eng", {
-      logger: (m) => console.log(m),
-    })
+    Tesseract.recognize(anversoImage, "eng", {})
       .then(({ data: { text } }) => {
         const textoLimpio = text
           .replace(/[^\w\sÁÉÍÓÚÑáéíóú°\/\.\-\n]/g, "")
@@ -135,7 +133,7 @@ Nombres: ${datos.nombres}
 Apellido Paterno: ${datos.apellido_paterno}
 Apellido Materno: ${datos.apellido_materno}
 Fecha de Nacimiento: ${datos.fecha_nacimiento}
-        `.trim()
+        `.trim(),
         );
       })
       .catch((err) => {
@@ -156,9 +154,7 @@ Fecha de Nacimiento: ${datos.fecha_nacimiento}
     setLoadingReverso(true);
     setReversoResult("Procesando OCR...");
 
-    Tesseract.recognize(reversoImage, "eng", {
-      logger: (m) => console.log(m),
-    })
+    Tesseract.recognize(reversoImage, "eng", {})
       .then(({ data: { text } }) => {
         const textoLimpio = text
           .replace(/[^\w\sÁÉÍÓÚÑáéíóú°\/\.\-\n]/g, "")
@@ -171,7 +167,7 @@ Fecha de Nacimiento: ${datos.fecha_nacimiento}
 Domicilio: ${datos.domicilio}
 Estado Civil: ${datos.estado_civil}
 Ocupacion: ${datos.ocupacion}
-        `.trim()
+        `.trim(),
         );
       })
       .catch((err) => {

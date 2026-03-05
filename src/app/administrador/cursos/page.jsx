@@ -125,8 +125,8 @@ export default function CursosPage() {
       if (editingCurso) {
         setCursos(
           cursos.map((c) =>
-            c.curso_id === editingCurso.curso_id ? cursoActualizado : c
-          )
+            c.curso_id === editingCurso.curso_id ? cursoActualizado : c,
+          ),
         );
       } else {
         setCursos([...cursos, cursoActualizado]);
@@ -193,7 +193,7 @@ export default function CursosPage() {
   const inicio = (paginaActual - 1) * registrosPorPagina;
   const cursosPaginados = cursosFiltrados.slice(
     inicio,
-    inicio + registrosPorPagina
+    inicio + registrosPorPagina,
   );
 
   return (
@@ -342,8 +342,14 @@ export default function CursosPage() {
 
       {/* Modal para crear/editar curso */}
       {modalAbierto && (
-        <div className="fixed inset-0 bg-black/25 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded shadow-lg w-full max-w-md mx-4 sm:mx-0">
+        <div
+          className="fixed inset-0 bg-black/25 flex items-center justify-center z-50"
+          onClick={cerrarModal}
+        >
+          <div
+            className="bg-white p-6 rounded shadow-lg w-full max-w-md mx-4 sm:mx-0"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h2 className="text-xl font-bold mb-4">
               {editingCurso ? "EDITAR CURSO" : "NUEVO CURSO"}
             </h2>
@@ -405,8 +411,14 @@ export default function CursosPage() {
         </div>
       )}
       {cursoAEliminar && (
-        <div className="fixed inset-0 bg-black/25 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded shadow-lg w-full max-w-sm mx-4 sm:mx-0">
+        <div
+          className="fixed inset-0 bg-black/25 flex items-center justify-center z-50"
+          onClick={() => setCursoAEliminar(null)}
+        >
+          <div
+            className="bg-white p-6 rounded shadow-lg w-full max-w-sm mx-4 sm:mx-0"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h2 className="text-lg font-semibold mb-4 text-red-600">
               Confirmar Eliminación
             </h2>
