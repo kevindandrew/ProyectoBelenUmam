@@ -2,6 +2,16 @@
 import { useState, useEffect } from "react";
 import Cookies from "js-cookie";
 
+const handleFetchResponse = async (response) => {
+  if (response.status === 401) {
+    window.dispatchEvent(new CustomEvent("sessionExpired"));
+    Cookies.remove("access_token");
+    Cookies.remove("user_data");
+    throw new Error("Sesión expirada...");
+  }
+  return response;
+};
+
 // Componentes de iconos
 const EditIcon = () => (
   <svg
@@ -65,9 +75,10 @@ export default function CursosPage() {
         setLoading(true);
         const response = await fetch(API_URL, {
           headers: {
-            Authorization: `bearer ${Cookies.get("access_token")}`,
+            Authorization: `Bearer ${Cookies.get("access_token")}`,
           },
         });
+        await handleFetchResponse(response);
 
         if (!response.ok) throw new Error("Error al cargar cursos");
         const data = await response.json();
@@ -103,19 +114,21 @@ export default function CursosPage() {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `bearer ${Cookies.get("access_token")}`,
+            Authorization: `Bearer ${Cookies.get("access_token")}`,
           },
           body: JSON.stringify({ ...formData, nombre: nombreValido }),
         });
+        await handleFetchResponse(response);
       } else {
         response = await fetch(API_URL, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `bearer ${Cookies.get("access_token")}`,
+            Authorization: `Bearer ${Cookies.get("access_token")}`,
           },
           body: JSON.stringify({ ...formData, nombre: nombreValido }),
         });
+        await handleFetchResponse(response);
       }
 
       if (!response.ok) throw new Error("Error al guardar el curso");
@@ -146,9 +159,10 @@ export default function CursosPage() {
       const response = await fetch(`${API_URL}/${id}`, {
         method: "DELETE",
         headers: {
-          Authorization: `bearer ${Cookies.get("access_token")}`,
+          Authorization: `Bearer ${Cookies.get("access_token")}`,
         },
       });
+      await handleFetchResponse(response);
 
       if (!response.ok) throw new Error("Error al eliminar curso");
 

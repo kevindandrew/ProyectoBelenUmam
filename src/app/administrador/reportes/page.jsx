@@ -3,6 +3,18 @@
 import { useState, useEffect } from "react";
 import Cookies from "js-cookie";
 
+const API_URL = "https://api-umam-1.onrender.com";
+
+const handleFetchResponse = async (response) => {
+  if (response.status === 401) {
+    window.dispatchEvent(new CustomEvent("sessionExpired"));
+    Cookies.remove("access_token");
+    Cookies.remove("user_data");
+    throw new Error("Sesión expirada...");
+  }
+  return response;
+};
+
 export default function DashboardUMAM() {
   // Filtros dinámicos
   const [sucursales, setSucursales] = useState([]);
@@ -389,36 +401,24 @@ export default function DashboardUMAM() {
         if (filtros.curso) params.append("curso_id", filtros.curso);
 
         // Petición para el detalle
-        const urlDetalle = `https://api-umam-1.onrender.com/reportes/por-sucursal?${params.toString()}`;
+        const urlDetalle = `${API_URL}/reportes/por-sucursal?${params.toString()}`;
         const resDetalle = await fetch(urlDetalle, {
           headers: {
             Authorization: `Bearer ${token}`,
             Accept: "application/json",
           },
         });
+        await handleFetchResponse(resDetalle);
 
         // Petición para el reporte general filtrado
-        const urlReporte = `https://api-umam-1.onrender.com/reportes/general?${params.toString()}`;
+        const urlReporte = `${API_URL}/reportes/general?${params.toString()}`;
         const resReporte = await fetch(urlReporte, {
           headers: {
             Authorization: `Bearer ${token}`,
             Accept: "application/json",
           },
         });
-
-        if (resDetalle.status === 401 || resReporte.status === 401) {
-          Cookies.remove("access_token");
-          Cookies.remove("token");
-          setErrorDetalle(
-            "Sesión expirada. Por favor vuelve a iniciar sesión.",
-          );
-          setErrorReporte(
-            "Sesión expirada. Por favor vuelve a iniciar sesión.",
-          );
-          setLoadingDetalle(false);
-          setLoadingReporte(false);
-          return;
-        }
+        await handleFetchResponse(resReporte);
 
         if (!resDetalle.ok) throw new Error("Error al obtener detalle");
         if (!resReporte.ok) throw new Error("Error al obtener reporte general");

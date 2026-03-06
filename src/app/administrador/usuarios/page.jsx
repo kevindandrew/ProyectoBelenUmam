@@ -22,10 +22,25 @@ const initialUserState = {
 
 const API_URL = "https://api-umam-1.onrender.com";
 
+// Función helper para detectar sesiones expiradas
+const handleFetchResponse = async (response) => {
+  if (response.status === 401) {
+    // Disparar evento de sesión expirada
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("sessionExpired"));
+    }
+    Cookies.remove("access_token");
+    Cookies.remove("user_data");
+    throw new Error("Sesión expirada. Por favor, vuelve a iniciar sesión.");
+  }
+  return response;
+};
+
 export default function UsuariosPage() {
   // Estados agrupados por categoría
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState(null);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [recordsPerPage, setRecordsPerPage] = useState(10);
@@ -61,7 +76,7 @@ export default function UsuariosPage() {
       if (ci.length > 0) usernameBase += ci;
       return usernameBase;
     },
-    []
+    [],
   );
 
   // Manejador de cambios en inputs (memoizado)
@@ -84,7 +99,7 @@ export default function UsuariosPage() {
             nombres,
             ap_paterno,
             ap_materno,
-            ci
+            ci,
           );
         }
 
@@ -96,7 +111,7 @@ export default function UsuariosPage() {
         return updatedUser;
       });
     },
-    [generateUsername]
+    [generateUsername],
   );
 
   // Función para obtener un usuario por ID (memoizada)
@@ -109,11 +124,13 @@ export default function UsuariosPage() {
         },
       });
 
+      await handleFetchResponse(response);
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(
           errorData.message ||
-            `Error ${response.status}: ${response.statusText}`
+            `Error ${response.status}: ${response.statusText}`,
         );
       }
 
@@ -170,7 +187,7 @@ export default function UsuariosPage() {
         setLoading(false);
       }
     },
-    [fetchUsuarioById]
+    [fetchUsuarioById],
   );
 
   // Función para manejar el envío del formulario (memoizada)
@@ -214,13 +231,14 @@ export default function UsuariosPage() {
               Authorization: `Bearer ${Cookies.get("access_token")}`,
             },
             body: JSON.stringify(userData),
-          }
+          },
         );
+        await handleFetchResponse(response);
 
         if (!response.ok) {
           const errorData = await response.json();
           throw new Error(
-            errorData.detail || errorData.message || `Error ${response.status}`
+            errorData.detail || errorData.message || `Error ${response.status}`,
           );
         }
 
@@ -228,19 +246,25 @@ export default function UsuariosPage() {
 
         if (editingUser) {
           setUsuarios((prev) =>
-            prev.map((u) => (u.id === editingUser.id ? { ...u, ...result } : u))
+            prev.map((u) =>
+              u.id === editingUser.id ? { ...u, ...result } : u,
+            ),
           );
+          setSuccessMessage("Usuario actualizado exitosamente");
         } else {
           setUsuarios((prev) => [...prev, result]);
+          setSuccessMessage("Usuario creado exitosamente");
         }
 
+        setTimeout(() => setSuccessMessage(null), 5000); // Ocultar después de 5 segundos
         setShowForm(false);
         resetForm();
+        setError(null);
       } catch (err) {
         setError(err.message);
       }
     },
-    [newUser, editingUser, resetForm]
+    [newUser, editingUser, resetForm],
   );
 
   // Funciones para manejar modales (memoizadas)
@@ -255,17 +279,35 @@ export default function UsuariosPage() {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `bearer ${Cookies.get("access_token")}`,
+          Authorization: `Bearer ${Cookies.get("access_token")}`,
         },
       });
+      await handleFetchResponse(response);
 
-      if (!response.ok) throw new Error("Error al eliminar usuario");
+      if (!response.ok) {
+        // Intentar obtener el mensaje de error del backend
+        let errorMessage = "No se puede eliminar este usuario";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.detail || errorData.message || errorMessage;
+        } catch (e) {
+          // Si no se puede parsear el JSON, usar mensaje genérico
+          errorMessage =
+            "Este usuario tiene datos relacionados (horarios, cursos, etc.) y no puede ser eliminado. Debe eliminar primero todas sus asignaciones.";
+        }
+        throw new Error(errorMessage);
+      }
 
       setUsuarios((prev) => prev.filter((u) => u.id !== userToDelete.id));
       setShowDeleteModal(false);
       setUserToDelete(null);
+      setError(null); // Limpiar cualquier error previo
+      setSuccessMessage("Usuario eliminado exitosamente");
+      setTimeout(() => setSuccessMessage(null), 5000); // Ocultar después de 5 segundos
     } catch (err) {
       setError(err.message);
+      setShowDeleteModal(false); // Cerrar modal para que el usuario vea el mensaje de error
+      setUserToDelete(null);
     }
   }, [userToDelete]);
 
@@ -279,7 +321,7 @@ export default function UsuariosPage() {
         setError(err.message);
       }
     },
-    [fetchUsuarioById]
+    [fetchUsuarioById],
   );
 
   // Efecto para cargar datos iniciales
@@ -292,15 +334,17 @@ export default function UsuariosPage() {
         const [usuariosRes, sucursalesRes] = await Promise.all([
           fetch(`${API_URL}/usuarios/`, {
             headers: {
-              Authorization: `bearer ${Cookies.get("access_token")}`,
+              Authorization: `Bearer ${Cookies.get("access_token")}`,
             },
           }),
           fetch(`${API_URL}/sucursales/`, {
             headers: {
-              Authorization: `bearer ${Cookies.get("access_token")}`,
+              Authorization: `Bearer ${Cookies.get("access_token")}`,
             },
           }),
         ]);
+        await handleFetchResponse(usuariosRes);
+        await handleFetchResponse(sucursalesRes);
 
         if (!usuariosRes.ok) throw new Error("Error al obtener usuarios");
         if (!sucursalesRes.ok) throw new Error("Error al obtener sucursales");
@@ -340,23 +384,23 @@ export default function UsuariosPage() {
       usuarios.filter((usuario) =>
         `${usuario.nombres} ${usuario.apellidoPaterno} ${usuario.apellidoMaterno} ${usuario.ci}`
           .toLowerCase()
-          .includes(searchTerm.toLowerCase())
+          .includes(searchTerm.toLowerCase()),
       ),
-    [usuarios, searchTerm]
+    [usuarios, searchTerm],
   );
 
   const paginatedUsuarios = useMemo(
     () =>
       filteredUsuarios.slice(
         (currentPage - 1) * recordsPerPage,
-        currentPage * recordsPerPage
+        currentPage * recordsPerPage,
       ),
-    [filteredUsuarios, currentPage, recordsPerPage]
+    [filteredUsuarios, currentPage, recordsPerPage],
   );
 
   const totalPages = useMemo(
     () => Math.ceil(filteredUsuarios.length / recordsPerPage),
-    [filteredUsuarios.length, recordsPerPage]
+    [filteredUsuarios.length, recordsPerPage],
   );
 
   // Manejador de búsqueda memoizado
@@ -389,6 +433,37 @@ export default function UsuariosPage() {
       />
 
       {error && <ErrorAlert error={error} onClose={() => setError(null)} />}
+
+      {successMessage && (
+        <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center justify-between">
+          <div className="flex items-center">
+            <svg
+              className="w-5 h-5 text-green-600 mr-3"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+            >
+              <path
+                fillRule="evenodd"
+                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                clipRule="evenodd"
+              />
+            </svg>
+            <span className="text-green-800 font-medium">{successMessage}</span>
+          </div>
+          <button
+            onClick={() => setSuccessMessage(null)}
+            className="text-green-600 hover:text-green-800"
+          >
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+              <path
+                fillRule="evenodd"
+                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </button>
+        </div>
+      )}
 
       <UsuariosTable
         usuarios={paginatedUsuarios}

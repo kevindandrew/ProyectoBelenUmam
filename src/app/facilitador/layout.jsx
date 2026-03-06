@@ -30,7 +30,6 @@ async function getUserData() {
 
     return await response.json();
   } catch (error) {
-    console.error("Error fetching user data:", error);
     return null;
   }
 }

@@ -57,55 +57,137 @@ const SchedulePage = () => {
   const [isEditingCourse, setIsEditingCourse] = useState(false);
   const [courseToEdit, setCourseToEdit] = useState(null);
 
+  // Estado para celdas bloqueadas (NO DISPONIBLES - solo visual)
+  const [blockedCells, setBlockedCells] = useState([]);
+
+  // Cargar celdas bloqueadas desde localStorage al iniciar
+  useEffect(() => {
+    const saved = localStorage.getItem("blockedCells");
+    if (saved) {
+      try {
+        setBlockedCells(JSON.parse(saved));
+      } catch (e) {
+        // Ignorar errores de parsing
+      }
+    }
+  }, []);
+
+  // Guardar celdas bloqueadas en localStorage cuando cambien
+  useEffect(() => {
+    if (blockedCells.length > 0 || localStorage.getItem("blockedCells")) {
+      localStorage.setItem("blockedCells", JSON.stringify(blockedCells));
+    }
+  }, [blockedCells]);
+
   const formatTimeSlot = (hora) =>
     `${hora.hora_inicio.slice(0, 5)} - ${hora.hora_fin.slice(0, 5)}`;
 
   // Fetch inicial de datos
   const fetchInitialData = async () => {
     try {
-      await Promise.all([
-        fetchWithAuth("https://api-umam-1.onrender.com/cursos/gestiones").then(
-          (data) => {
-            const gestionesFormatted = data.map((g) => ({
-              value: g.gestion_id.toString(),
-              label: g.gestion,
-              rawData: g,
-            }));
-            setGestiones(gestionesFormatted);
-
-            // Buscar la gestión más reciente (2026 Gestión I)
-            const currentYear = new Date().getFullYear();
-            const gestionActual =
-              gestionesFormatted.find((g) =>
-                g.label.includes(`Gestión I - ${currentYear}`),
-              ) ||
-              gestionesFormatted.find((g) =>
-                g.label.includes(currentYear.toString()),
-              ) ||
-              gestionesFormatted[gestionesFormatted.length - 1];
-
-            setSelectedGestion(
-              gestionActual || {
-                value: "",
-                label: "No hay gestiones disponibles",
-              },
-            );
-          },
-        ),
-        fetchWithAuth("https://api-umam-1.onrender.com/cursos/years").then(
-          setAvailableYears,
-        ),
-        fetchSucursales(),
-        fetchDays(),
-        fetchTimeSlots(),
-        fetchSubjects(),
-        fetchProfessors(),
+      // Cargar TODOS los datos necesarios primero
+      const [
+        gestionesData,
+        yearsData,
+        sucursalesData,
+        diasData,
+        timeSlotsData,
+        subjectsData,
+        professorsData,
+      ] = await Promise.all([
+        fetchWithAuth("https://api-umam-1.onrender.com/cursos/gestiones"),
+        fetchWithAuth("https://api-umam-1.onrender.com/cursos/years"),
+        fetchWithAuth("https://api-umam-1.onrender.com/sucursales/"),
+        fetchWithAuth("https://api-umam-1.onrender.com/horarios/dias-semana"),
+        fetchWithAuth("https://api-umam-1.onrender.com/horarios/horas"),
+        fetchWithAuth("https://api-umam-1.onrender.com/cursos/"),
+        fetchWithAuth("https://api-umam-1.onrender.com/usuarios/?rol_id=3"),
       ]);
+
+      // Procesar gestiones
+      const gestionesFormatted = gestionesData.map((g) => ({
+        value: g.gestion_id.toString(),
+        label: g.gestion,
+        rawData: g,
+      }));
+      setGestiones(gestionesFormatted);
+
+      // Buscar la gestión más reciente
+      const currentYear = new Date().getFullYear();
+      const gestionActual =
+        gestionesFormatted.find((g) =>
+          g.label.includes(`Gestión I - ${currentYear}`),
+        ) ||
+        gestionesFormatted.find((g) =>
+          g.label.includes(currentYear.toString()),
+        ) ||
+        gestionesFormatted[gestionesFormatted.length - 1];
+
+      // Establecer años disponibles
+      setAvailableYears(yearsData);
+
+      // Procesar días (FILTRAR SÁBADO Y DOMINGO)
+      const filteredDays = diasData.filter(
+        (dia) => dia.dias_semana_id !== 6 && dia.dias_semana_id !== 7,
+      );
+      setDays(
+        filteredDays.map((dia) => ({
+          id: dia.dias_semana_id,
+          name: dia.dia_semana,
+        })),
+      );
+
+      // Procesar time slots
+      const sortedTimeSlots = timeSlotsData.sort((a, b) =>
+        a.hora_inicio.localeCompare(b.hora_inicio),
+      );
+      const formattedSlots = sortedTimeSlots.map((h) => ({
+        id: h.hora_id,
+        label: formatTimeSlot(h),
+        rawData: h,
+      }));
+      setTimeSlots(formattedSlots);
+
+      // Procesar subjects y professors
+      setAvailableSubjects(subjectsData);
+      setAvailableProfessors(professorsData);
+
+      // Procesar sucursales
+      const formattedSucursales = sucursalesData.map((sucursal) => ({
+        value: sucursal.sucursal_id.toString(),
+        label: sucursal.nombre,
+        rawData: sucursal,
+      }));
+      setSucursales(formattedSucursales);
+
+      // AHORA SÍ establecer las selecciones iniciales (después de cargar TODO)
+      setSelectedGestion(
+        gestionActual || {
+          value: "",
+          label: "No hay gestiones disponibles",
+        },
+      );
+
+      if (formattedSucursales.length > 0) {
+        const firstSucursal = formattedSucursales[0];
+        // Cargar aulas para la primera sucursal
+        const aulasData = await fetchWithAuth(
+          `https://api-umam-1.onrender.com/sucursales/${firstSucursal.value}/aulas`,
+        );
+        setClassroomsBySucursal({
+          [firstSucursal.value]: aulasData.map((aula) => ({
+            value: aula.aula_id.toString(),
+            label: aula.nombre_aula,
+          })),
+        });
+        setSelectedSucursal(firstSucursal);
+      }
     } catch (error) {
       console.error("Error cargando datos iniciales:", error);
       setErrorGestiones(error.message);
     } finally {
       setLoadingGestiones(false);
+      setLoadingSucursales(false);
     }
   };
 
@@ -114,8 +196,15 @@ const SchedulePage = () => {
       const data = await fetchWithAuth(
         "https://api-umam-1.onrender.com/horarios/dias-semana",
       );
+      // Filtrar sábado (dias_semana_id: 6 o 7)
+      const filteredDays = data.filter(
+        (dia) => dia.dias_semana_id !== 6 && dia.dias_semana_id !== 7,
+      );
       setDays(
-        data.map((dia) => ({ id: dia.dias_semana_id, name: dia.dia_semana })),
+        filteredDays.map((dia) => ({
+          id: dia.dias_semana_id,
+          name: dia.dia_semana,
+        })),
       );
     } catch (error) {
       console.error("Error cargando días:", error);
@@ -146,10 +235,16 @@ const SchedulePage = () => {
 
   const fetchHorarios = async () => {
     if (!selectedGestion?.value || !selectedSucursal?.value) return;
+    // Esperar a que los datos necesarios estén cargados
+    if (availableSubjects.length === 0 || availableProfessors.length === 0) {
+      return;
+    }
+
     try {
       const data = await fetchWithAuth(
         `https://api-umam-1.onrender.com/horarios/?gestion_id=${selectedGestion.value}&sucursal_id=${selectedSucursal.value}`,
       );
+
       const formattedCourses = data.flatMap((horario) => {
         const curso = availableSubjects.find(
           (c) => c.curso_id === horario.curso_id,
@@ -158,26 +253,42 @@ const SchedulePage = () => {
           (p) => p.usuario_id === horario.profesor_id,
         );
 
-        return horario.dias_clase.map((dia) => ({
-          id: `${horario.horario_id}-${dia.dia_clase_id}`,
-          subject: curso?.nombre || `Curso ${horario.curso_id}`,
-          professor: profesor
-            ? `${profesor.nombres} ${profesor.ap_paterno || ""} ${
-                profesor.ap_materno || ""
-              }`.trim()
-            : `Profesor ${horario.profesor_id}`,
-          classroom: {
-            value: horario.aula_id.toString(),
-            label: `Aula ${horario.aula_id}`,
-          },
-          time: formatTimeSlot(dia.hora),
-          day: dia.dia_semana.dias_semana_id,
-          color: getCourseColor(curso?.nombre || `Curso ${horario.curso_id}`),
-          gestion: horario.gestion_id.toString(),
-          sucursal: selectedSucursal.value,
-          curso_id: horario.curso_id,
-          profesor_id: horario.profesor_id,
-        }));
+        // Detectar si es "No disponible" (cuando curso_id o profesor_id son null)
+        const isUnavailable = !horario.curso_id || !horario.profesor_id;
+
+        return horario.dias_clase
+          .filter(
+            (dia) =>
+              dia.dia_semana.dias_semana_id !== 6 &&
+              dia.dia_semana.dias_semana_id !== 7,
+          ) // Filtrar sábado y domingo
+          .map((dia) => ({
+            id: `${horario.horario_id}-${dia.dia_clase_id}`,
+            subject: isUnavailable
+              ? "NO DISPONIBLE"
+              : curso?.nombre || `Curso ${horario.curso_id}`,
+            professor: isUnavailable
+              ? "ENCARGADO CAPS CAPS"
+              : profesor
+                ? `${profesor.nombres} ${profesor.ap_paterno || ""} ${
+                    profesor.ap_materno || ""
+                  }`.trim()
+                : `Profesor ${horario.profesor_id}`,
+            classroom: {
+              value: horario.aula_id.toString(),
+              label: `Aula ${horario.aula_id}`,
+            },
+            time: formatTimeSlot(dia.hora),
+            day: dia.dia_semana.dias_semana_id,
+            color: isUnavailable
+              ? "bg-gray-300 border-gray-400 text-gray-800" // Color especial para no disponible
+              : getCourseColor(curso?.nombre || `Curso ${horario.curso_id}`),
+            gestion: horario.gestion_id.toString(),
+            sucursal: selectedSucursal.value,
+            curso_id: horario.curso_id,
+            profesor_id: horario.profesor_id,
+            is_unavailable: isUnavailable,
+          }));
       });
 
       setCourses(formattedCourses);
@@ -359,33 +470,122 @@ const SchedulePage = () => {
   const handleCellClick = (time, day, classroom) => {
     // Verifica que classroom tenga el formato correcto
     if (!classroom || !classroom.value) {
-      console.error("Classroom inválido:", classroom);
+      return;
+    }
+
+    // Verificar si la celda está bloqueada
+    const isBlocked = blockedCells.some(
+      (cell) =>
+        cell.time === time &&
+        cell.day === day &&
+        cell.classroom === classroom.value &&
+        cell.sucursal_id === selectedSucursal?.value,
+    );
+
+    if (isBlocked) {
+      alert(
+        "Esta celda está marcada como NO DISPONIBLE. Desbloqúeala primero para agregar un curso.",
+      );
       return;
     }
 
     setCourseFormData({
       time,
-      day,
-      classroom: classroom.value, // Pasamos solo el value para el formulario
-      classroomObject: classroom, // Guardamos el objeto completo para referencia
+      days: [day], // Pre-marcar el día para que el formulario lo use
+      classroom: classroom.value,
+      classroomObject: classroom,
       curso_id: "",
       profesor_id: "",
     });
     setIsModalOpen(true);
   };
 
-  const submitNewCourse = async (formData) => {
-    const { curso_id, profesor_id, classroom, day, time, horario_id } =
-      formData;
-    const dia = days.find((d) => d.id === parseInt(day));
-    const hora = timeSlots.find((h) => h.label === time);
+  // Función para bloquear/desbloquear una celda
+  const toggleBlockCell = (time, day, classroom) => {
+    const cellKey = {
+      time,
+      day,
+      classroom: classroom.value,
+      sucursal_id: selectedSucursal?.value,
+    };
 
-    if (!dia || !hora) {
-      alert("Datos inválidos para día u hora");
+    setBlockedCells((prev) => {
+      const exists = prev.some(
+        (cell) =>
+          cell.time === time &&
+          cell.day === day &&
+          cell.classroom === classroom.value &&
+          cell.sucursal_id === selectedSucursal?.value,
+      );
+
+      if (exists) {
+        // Desbloquear
+        return prev.filter(
+          (cell) =>
+            !(
+              cell.time === time &&
+              cell.day === day &&
+              cell.classroom === classroom.value &&
+              cell.sucursal_id === selectedSucursal?.value
+            ),
+        );
+      } else {
+        // Bloquear
+        return [...prev, cellKey];
+      }
+    });
+  };
+
+  // Verificar si una celda está bloqueada
+  const isCellBlocked = (time, day, classroom) => {
+    return blockedCells.some(
+      (cell) =>
+        cell.time === time &&
+        cell.day === day &&
+        cell.classroom === classroom.value &&
+        cell.sucursal_id === selectedSucursal?.value,
+    );
+  };
+
+  const submitNewCourse = async (formData) => {
+    const {
+      curso_id,
+      profesor_id,
+      classroom,
+      schedules, // Array de {day, time}
+      horario_id,
+      is_unavailable,
+    } = formData;
+
+    if (!schedules || schedules.length === 0) {
+      alert("Debe agregar al menos un horario (día + hora)");
       return;
     }
 
     try {
+      // Crear array de dias_clase con todos los horarios (día + hora)
+      const dias_clase = schedules.map((schedule) => {
+        const hora = timeSlots.find((h) => h.label === schedule.time);
+        if (!hora) {
+          throw new Error(`Hora inválida: ${schedule.time}`);
+        }
+        return {
+          dia_semana_id: parseInt(schedule.day),
+          hora_id: hora.id,
+        };
+      });
+
+      const payload = {
+        curso_id: is_unavailable ? null : parseInt(curso_id),
+        aula_id: parseInt(classroom),
+        profesor_id: is_unavailable ? null : parseInt(profesor_id),
+        gestion_id: parseInt(selectedGestion.value),
+        activo: true,
+        dias_clase: dias_clase,
+      };
+
+      console.log("Payload a enviar:", payload);
+
       if (isEditingCourse && horario_id) {
         // Editar horario existente
         await fetchWithAuth(
@@ -393,14 +593,7 @@ const SchedulePage = () => {
           {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              curso_id: parseInt(curso_id),
-              aula_id: parseInt(classroom),
-              profesor_id: parseInt(profesor_id),
-              gestion_id: parseInt(selectedGestion.value),
-              activo: true,
-              dias_clase: [{ dia_semana_id: dia.id, hora_id: hora.id }],
-            }),
+            body: JSON.stringify(payload),
           },
         );
         alert("Horario actualizado exitosamente");
@@ -409,15 +602,17 @@ const SchedulePage = () => {
         await fetchWithAuth("https://api-umam-1.onrender.com/horarios/", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            curso_id: parseInt(curso_id),
-            aula_id: parseInt(classroom),
-            profesor_id: parseInt(profesor_id),
-            gestion_id: parseInt(selectedGestion.value),
-            activo: true,
-            dias_clase: [{ dia_semana_id: dia.id, hora_id: hora.id }],
-          }),
+          body: JSON.stringify(payload),
         });
+
+        // Mostrar mensaje con los horarios creados
+        const horariosStr = schedules
+          .map((s) => {
+            const dayName = days.find((d) => d.id === parseInt(s.day))?.name;
+            return `${dayName} ${s.time}`;
+          })
+          .join(", ");
+        alert(`Horario creado exitosamente: ${horariosStr}`);
       }
       setIsModalOpen(false);
       setCourseFormData(null);
@@ -495,8 +690,9 @@ const SchedulePage = () => {
       classroom: course.classroom.value,
       classroomObject: course.classroom,
       time: course.time,
-      day: course.day,
-      horario_id: course.id.split("-")[0], // Extract horario_id from composite id
+      days: [course.day], // Mantener para compatibilidad
+      horario_id: course.id.split("-")[0],
+      is_unavailable: course.is_unavailable || false,
     });
     setIsModalOpen(true);
   };
@@ -599,8 +795,21 @@ const SchedulePage = () => {
   }, []);
 
   useEffect(() => {
-    fetchHorarios();
-  }, [selectedGestion, selectedSucursal]);
+    // Solo ejecutar fetchHorarios si todos los datos están listos
+    if (
+      selectedGestion?.value &&
+      selectedSucursal?.value &&
+      availableSubjects.length > 0 &&
+      availableProfessors.length > 0
+    ) {
+      fetchHorarios();
+    }
+  }, [
+    selectedGestion,
+    selectedSucursal,
+    availableSubjects,
+    availableProfessors,
+  ]);
 
   // Función para manejar la eliminación (igual que antes)
   const handleDeleteCourse = (courseId) => {
@@ -777,6 +986,8 @@ const SchedulePage = () => {
             onCellClick={handleCellClick}
             onDeleteCourse={handleDeleteCourse}
             onEditCourse={handleEditCourse}
+            onToggleBlockCell={toggleBlockCell}
+            isCellBlocked={isCellBlocked}
           />
         ) : (
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-8 text-center">
