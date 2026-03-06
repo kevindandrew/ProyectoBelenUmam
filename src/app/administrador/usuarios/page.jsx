@@ -39,6 +39,7 @@ const handleFetchResponse = async (response) => {
 export default function UsuariosPage() {
   // Estados agrupados por categoría
   const [loading, setLoading] = useState(true);
+  const [loadingForm, setLoadingForm] = useState(false);
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
 
@@ -117,6 +118,7 @@ export default function UsuariosPage() {
   // Función para obtener un usuario por ID (memoizada)
   const fetchUsuarioById = useCallback(async (id) => {
     try {
+      console.log(`🔄 Obteniendo datos del usuario ${id} desde el backend...`);
       const response = await fetch(`${API_URL}/usuarios/${id}`, {
         headers: {
           Authorization: `Bearer ${Cookies.get("access_token")}`,
@@ -135,6 +137,7 @@ export default function UsuariosPage() {
       }
 
       const usuario = await response.json();
+      console.log("✅ Datos del usuario obtenidos del backend:", usuario);
 
       return {
         id: usuario.usuario_id,
@@ -155,7 +158,7 @@ export default function UsuariosPage() {
         password: usuario.password || "******",
       };
     } catch (err) {
-      console.error("Error al obtener usuario por ID:", err);
+      console.error("❌ Error al obtener usuario por ID:", err);
       throw err;
     }
   }, []);
@@ -164,11 +167,13 @@ export default function UsuariosPage() {
   const openEditForm = useCallback(
     async (usuario) => {
       try {
+        setLoadingForm(true);
+        setError(null);
+
+        // Obtener los datos completos del usuario desde el backend
         const usuarioCompleto = await fetchUsuarioById(usuario.id);
 
-        setEditingUser(usuarioCompleto);
-        setNewUser((prev) => ({
-          ...prev,
+        console.log("📝 Cargando datos en el formulario:", {
           nombres: usuarioCompleto.nombres,
           ap_paterno: usuarioCompleto.ap_paterno,
           ap_materno: usuarioCompleto.ap_materno,
@@ -177,14 +182,27 @@ export default function UsuariosPage() {
           rol_id: usuarioCompleto.rol_id,
           sucursal_id: usuarioCompleto.sucursal_id,
           username: usuarioCompleto.username,
+        });
+
+        setEditingUser(usuarioCompleto);
+        setNewUser({
+          nombres: usuarioCompleto.nombres || "",
+          ap_paterno: usuarioCompleto.ap_paterno || "",
+          ap_materno: usuarioCompleto.ap_materno || "",
+          ci: usuarioCompleto.ci || "",
+          telefono: usuarioCompleto.telefono || "",
+          rol_id: usuarioCompleto.rol_id || 1,
+          sucursal_id: usuarioCompleto.sucursal_id || null,
+          username: usuarioCompleto.username || "",
           password: "********", // No mostrar la contraseña real
-        }));
+        });
 
         setShowForm(true);
       } catch (err) {
         setError(err.message);
+        console.error("❌ Error al abrir formulario de edición:", err);
       } finally {
-        setLoading(false);
+        setLoadingForm(false);
       }
     },
     [fetchUsuarioById],
@@ -209,15 +227,39 @@ export default function UsuariosPage() {
           nombres: newUser.nombres.trim(),
           ap_paterno: newUser.ap_paterno.trim(),
           ap_materno: newUser.ap_materno?.trim() || null,
-          ci: newUser.ci.trim(),
           telefono: newUser.telefono?.trim() || null,
           rol_id: newUser.rol_id,
           sucursal_id: newUser.rol_id === 2 ? newUser.sucursal_id : null,
-          password: newUser.password || newUser.ci,
         };
 
+        // Solo incluir password si es un nuevo usuario o si se modificó
         if (!editingUser) {
+          // Nuevo usuario: username = primera letra nombre + primera letra apellido + ci
+          userData.ci = newUser.ci.trim(); // CI solo al crear
           userData.username = newUser.username;
+          // Contraseña = CI
+          userData.password = newUser.ci;
+        } else {
+          // Usuario existente: verificar si cambió nombre o apellidos (el CI NO se puede cambiar)
+          const nombresChanged = editingUser.nombres !== newUser.nombres.trim();
+          const apellidoPaternoChanged =
+            editingUser.ap_paterno !== newUser.ap_paterno.trim();
+          const apellidoMaternoChanged =
+            editingUser.ap_materno !== (newUser.ap_materno?.trim() || null);
+
+          if (
+            nombresChanged ||
+            apellidoPaternoChanged ||
+            apellidoMaternoChanged
+          ) {
+            // Si cambió algún dato que afecta el username, actualizarlo
+            userData.username = newUser.username;
+          }
+
+          // Si la contraseña fue modificada manualmente (no es ********)
+          if (newUser.password && newUser.password !== "********") {
+            userData.password = newUser.password;
+          }
         }
 
         const response = await fetch(
@@ -245,15 +287,42 @@ export default function UsuariosPage() {
         const result = await response.json();
 
         if (editingUser) {
+          // Actualizar el usuario existente
           setUsuarios((prev) =>
             prev.map((u) =>
-              u.id === editingUser.id ? { ...u, ...result } : u,
+              u.id === editingUser.id
+                ? {
+                    ...u,
+                    nombres: result.nombres,
+                    apellidoPaterno: result.ap_paterno,
+                    apellidoMaterno: result.ap_materno,
+                    ci: result.ci,
+                    celular: result.telefono,
+                    rol: result.rol?.nombre || "Sin rol",
+                    sucursal: result.sucursal?.nombre || "",
+                    username: result.username,
+                  }
+                : u,
             ),
           );
           setSuccessMessage("Usuario actualizado exitosamente");
         } else {
-          setUsuarios((prev) => [...prev, result]);
+          // Agregar el nuevo usuario AL INICIO de la lista
+          const nuevoUsuarioMapeado = {
+            id: result.usuario_id,
+            usuario_id: result.usuario_id,
+            nombres: result.nombres,
+            apellidoPaterno: result.ap_paterno,
+            apellidoMaterno: result.ap_materno,
+            ci: result.ci,
+            celular: result.telefono,
+            rol: result.rol?.nombre || "Sin rol",
+            sucursal: result.sucursal?.nombre || "",
+            username: result.username,
+          };
+          setUsuarios((prev) => [nuevoUsuarioMapeado, ...prev]);
           setSuccessMessage("Usuario creado exitosamente");
+          setCurrentPage(1); // Ir a la primera página para ver el nuevo usuario
         }
 
         setTimeout(() => setSuccessMessage(null), 5000); // Ocultar después de 5 segundos
@@ -364,6 +433,9 @@ export default function UsuariosPage() {
           sucursal: usuario.sucursal?.nombre || "",
           username: usuario.username,
         }));
+
+        // Ordenar por ID descendente para que los más recientes aparezcan primero
+        usuariosMapeados.sort((a, b) => b.id - a.id);
 
         setUsuarios(usuariosMapeados);
         setSucursales(sucursalesData);
@@ -510,6 +582,7 @@ export default function UsuariosPage() {
             setShowForm(false);
             resetForm();
           }}
+          loading={loadingForm}
         />
       )}
 

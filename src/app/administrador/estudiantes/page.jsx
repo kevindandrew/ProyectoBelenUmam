@@ -813,22 +813,45 @@ export default function EstudiantesPage() {
         );
       }
 
+      console.log(
+        `🗑️ Intentando eliminar estudiante ID: ${estudianteToDelete.estudiante_id}`,
+      );
+      console.log(
+        `📡 URL: ${API_URL}/estudiantes/${estudianteToDelete.estudiante_id}`,
+      );
+      console.log(
+        `🔑 Token: ${token ? "Sí (" + token.substring(0, 20) + "...)" : "No"}`,
+      );
+
       const response = await fetch(
         `${API_URL}/estudiantes/${estudianteToDelete.estudiante_id}`,
         {
           method: "DELETE",
           headers: {
             Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
           },
         },
       );
+
+      console.log(
+        `📥 Respuesta recibida: ${response.status} ${response.statusText}`,
+      );
+
       await handleFetchResponse(response);
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `Error HTTP: ${response.status}`);
+        let errorMessage = `Error HTTP: ${response.status}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.detail || errorData.message || errorMessage;
+          console.error("❌ Error del servidor:", errorData);
+        } catch (parseError) {
+          console.warn("⚠️ No se pudo parsear la respuesta de error");
+        }
+        throw new Error(errorMessage);
       }
+
+      console.log("✅ Estudiante eliminado exitosamente");
 
       // Actualizar estado optimizado
       setEstudiantes((prev) =>
@@ -838,10 +861,23 @@ export default function EstudiantesPage() {
       );
       setShowDeleteModal(false);
       setEstudianteToDelete(null);
+      alert("✅ Estudiante eliminado exitosamente");
     } catch (error) {
-      console.error("Error al eliminar:", error);
+      console.error("❌ Error al eliminar:", error);
+      console.error("❌ Tipo de error:", error.name);
+      console.error("❌ Mensaje:", error.message);
 
-      if (error.message.includes("401")) {
+      // Manejar errores de red (TypeError con "fetch")
+      if (error.name === "TypeError" && error.message.includes("fetch")) {
+        alert(
+          "❌ No se pudo conectar con el servidor.\n\n" +
+            "Posibles causas:\n" +
+            "• El servidor está en modo sleep (Render.com) - espera 30 segundos\n" +
+            "• Problema de CORS con el método DELETE\n" +
+            "• Sin conexión a internet\n\n" +
+            "💡 Intenta nuevamente en 30 segundos.",
+        );
+      } else if (error.message.includes("401")) {
         alert("Sesión expirada. Por favor, inicia sesión nuevamente.");
       } else if (error.message.includes("403")) {
         alert("No tienes permisos para eliminar estudiantes.");

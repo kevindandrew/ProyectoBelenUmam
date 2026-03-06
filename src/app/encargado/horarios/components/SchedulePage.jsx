@@ -62,7 +62,7 @@ const SchedulePage = () => {
 
   // Cargar celdas bloqueadas desde localStorage al iniciar
   useEffect(() => {
-    const saved = localStorage.getItem('blockedCells');
+    const saved = localStorage.getItem("blockedCells");
     if (saved) {
       try {
         setBlockedCells(JSON.parse(saved));
@@ -74,8 +74,8 @@ const SchedulePage = () => {
 
   // Guardar celdas bloqueadas en localStorage cuando cambien
   useEffect(() => {
-    if (blockedCells.length > 0 || localStorage.getItem('blockedCells')) {
-      localStorage.setItem('blockedCells', JSON.stringify(blockedCells));
+    if (blockedCells.length > 0 || localStorage.getItem("blockedCells")) {
+      localStorage.setItem("blockedCells", JSON.stringify(blockedCells));
     }
   }, [blockedCells]);
 
@@ -479,11 +479,13 @@ const SchedulePage = () => {
         cell.time === time &&
         cell.day === day &&
         cell.classroom === classroom.value &&
-        cell.sucursal_id === selectedSucursal?.value
+        cell.sucursal_id === selectedSucursal?.value,
     );
 
     if (isBlocked) {
-      alert("Esta celda está marcada como NO DISPONIBLE. Desbloquéala primero para agregar un curso.");
+      alert(
+        "Esta celda está marcada como NO DISPONIBLE. Desbloquéala primero para agregar un curso.",
+      );
       return;
     }
 
@@ -513,17 +515,19 @@ const SchedulePage = () => {
           cell.time === time &&
           cell.day === day &&
           cell.classroom === classroom.value &&
-          cell.sucursal_id === selectedSucursal?.value
+          cell.sucursal_id === selectedSucursal?.value,
       );
 
       if (exists) {
         // Desbloquear
         return prev.filter(
           (cell) =>
-            !(cell.time === time &&
+            !(
+              cell.time === time &&
               cell.day === day &&
               cell.classroom === classroom.value &&
-              cell.sucursal_id === selectedSucursal?.value)
+              cell.sucursal_id === selectedSucursal?.value
+            ),
         );
       } else {
         // Bloquear
@@ -539,7 +543,7 @@ const SchedulePage = () => {
         cell.time === time &&
         cell.day === day &&
         cell.classroom === classroom.value &&
-        cell.sucursal_id === selectedSucursal?.value
+        cell.sucursal_id === selectedSucursal?.value,
     );
   };
 

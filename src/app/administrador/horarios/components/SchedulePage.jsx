@@ -57,27 +57,22 @@ const SchedulePage = () => {
   const [isEditingCourse, setIsEditingCourse] = useState(false);
   const [courseToEdit, setCourseToEdit] = useState(null);
 
-  // Estado para celdas bloqueadas (NO DISPONIBLES - solo visual)
-  const [blockedCells, setBlockedCells] = useState([]);
+  // Eliminar los estados y useEffects relacionados con blockedCells y localStorage
+  // Ya no necesitamos manejar esto localmente
 
-  // Cargar celdas bloqueadas desde localStorage al iniciar
+  // Limpiar localStorage de datos antiguos (una sola vez)
   useEffect(() => {
-    const saved = localStorage.getItem("blockedCells");
-    if (saved) {
-      try {
-        setBlockedCells(JSON.parse(saved));
-      } catch (e) {
-        // Ignorar errores de parsing
-      }
+    const oldBlockedCells = localStorage.getItem("blockedCells");
+    if (oldBlockedCells) {
+      console.log(
+        "🧹 Limpiando datos antiguos de celdas bloqueadas del localStorage...",
+      );
+      localStorage.removeItem("blockedCells");
+      console.log(
+        "✅ Datos antiguos eliminados. Ahora se guardan en el backend.",
+      );
     }
   }, []);
-
-  // Guardar celdas bloqueadas en localStorage cuando cambien
-  useEffect(() => {
-    if (blockedCells.length > 0 || localStorage.getItem("blockedCells")) {
-      localStorage.setItem("blockedCells", JSON.stringify(blockedCells));
-    }
-  }, [blockedCells]);
 
   const formatTimeSlot = (hora) =>
     `${hora.hora_inicio.slice(0, 5)} - ${hora.hora_fin.slice(0, 5)}`;
@@ -253,8 +248,16 @@ const SchedulePage = () => {
           (p) => p.usuario_id === horario.profesor_id,
         );
 
-        // Detectar si es "No disponible" (cuando curso_id o profesor_id son null)
-        const isUnavailable = !horario.curso_id || !horario.profesor_id;
+        // Detectar si es "No disponible"
+        // 1. Cuando curso_id o profesor_id son null (formato antiguo)
+        // 2. Cuando el nombre del curso contiene "NO DISPONIBLE", "BLOQUEADO", etc.
+        const isUnavailable =
+          !horario.curso_id ||
+          !horario.profesor_id ||
+          (curso?.nombre &&
+            (curso.nombre.toUpperCase().includes("NO DISPONIBLE") ||
+              curso.nombre.toUpperCase().includes("BLOQUEADO") ||
+              curso.nombre.toUpperCase().includes("OCUPADO")));
 
         return horario.dias_clase
           .filter(
@@ -268,7 +271,7 @@ const SchedulePage = () => {
               ? "NO DISPONIBLE"
               : curso?.nombre || `Curso ${horario.curso_id}`,
             professor: isUnavailable
-              ? "ENCARGADO CAPS CAPS"
+              ? "ENCARGADO CAPS"
               : profesor
                 ? `${profesor.nombres} ${profesor.ap_paterno || ""} ${
                     profesor.ap_materno || ""
@@ -467,20 +470,25 @@ const SchedulePage = () => {
     }
   };
 
+  // Verificar si una celda está bloqueada - REVISA EN LOS DATOS DEL BACKEND
+  const isCellBlocked = (time, day, classroom) => {
+    return courses.some(
+      (c) =>
+        c.time === time &&
+        c.day === day &&
+        c.classroom.value === classroom.value &&
+        c.is_unavailable === true,
+    );
+  };
+
   const handleCellClick = (time, day, classroom) => {
     // Verifica que classroom tenga el formato correcto
     if (!classroom || !classroom.value) {
       return;
     }
 
-    // Verificar si la celda está bloqueada
-    const isBlocked = blockedCells.some(
-      (cell) =>
-        cell.time === time &&
-        cell.day === day &&
-        cell.classroom === classroom.value &&
-        cell.sucursal_id === selectedSucursal?.value,
-    );
+    // Verificar si la celda está bloqueada usando la función que revisa en el backend
+    const isBlocked = isCellBlocked(time, day, classroom);
 
     if (isBlocked) {
       alert(
@@ -500,51 +508,120 @@ const SchedulePage = () => {
     setIsModalOpen(true);
   };
 
-  // Función para bloquear/desbloquear una celda
-  const toggleBlockCell = (time, day, classroom) => {
-    const cellKey = {
-      time,
-      day,
-      classroom: classroom.value,
-      sucursal_id: selectedSucursal?.value,
-    };
+  // Función para bloquear/desbloquear una celda - AHORA GUARDA EN EL BACKEND
+  const toggleBlockCell = async (time, day, classroom) => {
+    if (!selectedGestion?.value || !selectedSucursal?.value) {
+      alert("Seleccione una gestión y sucursal primero");
+      return;
+    }
 
-    setBlockedCells((prev) => {
-      const exists = prev.some(
-        (cell) =>
-          cell.time === time &&
-          cell.day === day &&
-          cell.classroom === classroom.value &&
-          cell.sucursal_id === selectedSucursal?.value,
+    try {
+      // Buscar si ya existe un horario "NO DISPONIBLE" en esta celda
+      const existingCourse = courses.find(
+        (c) =>
+          c.time === time &&
+          c.day === day &&
+          c.classroom.value === classroom.value &&
+          c.is_unavailable === true,
       );
 
-      if (exists) {
-        // Desbloquear
-        return prev.filter(
-          (cell) =>
-            !(
-              cell.time === time &&
-              cell.day === day &&
-              cell.classroom === classroom.value &&
-              cell.sucursal_id === selectedSucursal?.value
-            ),
-        );
-      } else {
-        // Bloquear
-        return [...prev, cellKey];
-      }
-    });
-  };
+      if (existingCourse) {
+        // Desbloquear: eliminar el horario del backend
+        const horarioId = existingCourse.id.split("-")[0]; // Extraer horario_id
 
-  // Verificar si una celda está bloqueada
-  const isCellBlocked = (time, day, classroom) => {
-    return blockedCells.some(
-      (cell) =>
-        cell.time === time &&
-        cell.day === day &&
-        cell.classroom === classroom.value &&
-        cell.sucursal_id === selectedSucursal?.value,
-    );
+        if (confirm("¿Desea desbloquear este horario?")) {
+          await fetchWithAuthDelete(
+            `https://api-umam-1.onrender.com/horarios/${horarioId}`,
+          );
+
+          // Recargar horarios
+          await fetchHorarios();
+          alert("Horario desbloqueado exitosamente");
+        }
+      } else {
+        // Bloquear: crear un nuevo horario "NO DISPONIBLE" en el backend
+        const hora = timeSlots.find((h) => h.label === time);
+        if (!hora) {
+          throw new Error(`Hora inválida: ${time}`);
+        }
+
+        // Buscar un curso especial llamado "NO DISPONIBLE" o similar
+        let cursNoDisponible = availableSubjects.find(
+          (c) =>
+            c.nombre &&
+            (c.nombre.toUpperCase().includes("NO DISPONIBLE") ||
+              c.nombre.toUpperCase().includes("BLOQUEADO") ||
+              c.nombre.toUpperCase().includes("OCUPADO")),
+        );
+
+        // Si no existe, usar el primer curso disponible (temporal)
+        if (!cursNoDisponible && availableSubjects.length > 0) {
+          cursNoDisponible = availableSubjects[0];
+          console.warn(
+            "⚠️ No se encontró un curso 'NO DISPONIBLE'. Usando curso temporal. Se recomienda crear un curso llamado 'NO DISPONIBLE' en la gestión de cursos.",
+          );
+        }
+
+        // Buscar un profesor "Sistema" o "No Disponible"
+        let profesorNoDisponible = availableProfessors.find((p) => {
+          const nombreCompleto =
+            `${p.nombres} ${p.ap_paterno || ""} ${p.ap_materno || ""}`.toUpperCase();
+          return (
+            nombreCompleto.includes("SISTEMA") ||
+            nombreCompleto.includes("NO DISPONIBLE") ||
+            nombreCompleto.includes("BLOQUEADO")
+          );
+        });
+
+        // Si no existe, usar el primer profesor disponible (temporal)
+        if (!profesorNoDisponible && availableProfessors.length > 0) {
+          profesorNoDisponible = availableProfessors[0];
+          console.warn(
+            "⚠️ No se encontró un profesor 'Sistema'. Usando profesor temporal. Se recomienda crear un usuario llamado 'Sistema NO DISPONIBLE'.",
+          );
+        }
+
+        if (!cursNoDisponible || !profesorNoDisponible) {
+          alert(
+            "⚠️ Necesita tener al menos un curso y un profesor registrado.\n\nRecomendación: Cree un curso llamado 'NO DISPONIBLE' y un usuario facilitador llamado 'Sistema' para marcar horarios bloqueados.",
+          );
+          return;
+        }
+
+        const payload = {
+          curso_id: cursNoDisponible.curso_id,
+          aula_id: parseInt(classroom.value),
+          profesor_id: profesorNoDisponible.usuario_id,
+          gestion_id: parseInt(selectedGestion.value),
+          activo: true,
+          dias_clase: [
+            {
+              dia_semana_id: parseInt(day),
+              hora_id: hora.id,
+            },
+          ],
+        };
+
+        console.log("📤 Marcando horario como NO DISPONIBLE:", {
+          curso: cursNoDisponible.nombre,
+          profesor: `${profesorNoDisponible.nombres} ${profesorNoDisponible.ap_paterno || ""}`,
+          payload,
+        });
+
+        await fetchWithAuth("https://api-umam-1.onrender.com/horarios/", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        // Recargar horarios
+        await fetchHorarios();
+        alert("✅ Horario marcado como NO DISPONIBLE");
+      }
+    } catch (err) {
+      console.error("Error al bloquear/desbloquear celda:", err);
+      alert(`Error: ${err.message || err}`);
+    }
   };
 
   const submitNewCourse = async (formData) => {
