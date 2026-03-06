@@ -22,8 +22,19 @@ export const fetchWithAuth = async (url, options = {}) => {
     const response = await fetch(url, fetchOptions);
 
     if (!response.ok) {
+      // Si es 401, disparar evento de sesión expirada
+      if (response.status === 401) {
+        // Disparar evento personalizado para que SessionProvider lo capture
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("sessionExpired"));
+        }
+        // Limpiar token
+        Cookies.remove("access_token");
+        Cookies.remove("user_data");
+        throw new Error("Sesión expirada. Por favor, vuelve a iniciar sesión.");
+      }
+
       const errorText = await response.text();
-      console.error("[Error Response]", errorText);
       throw new Error(
         `HTTP ${response.status}: ${errorText || response.statusText}`,
       );
@@ -46,12 +57,6 @@ export const fetchWithAuth = async (url, options = {}) => {
 
     return { success: true };
   } catch (error) {
-    console.error("[Fetch Error]", {
-      message: error.message,
-      name: error.name,
-      stack: error.stack,
-    });
-
     // Verificar si es un error de red/CORS
     if (error instanceof TypeError && error.message === "Failed to fetch") {
       throw new Error(
@@ -77,6 +82,15 @@ export const fetchWithAuthDelete = async (url, options = {}) => {
   });
 
   if (!response.ok) {
+    // Si es 401, disparar evento de sesión expirada
+    if (response.status === 401) {
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("sessionExpired"));
+      }
+      Cookies.remove("access_token");
+      Cookies.remove("user_data");
+      throw new Error("Sesión expirada. Por favor, vuelve a iniciar sesión.");
+    }
     throw new Error(`HTTP error! status: ${response.status}`);
   }
 

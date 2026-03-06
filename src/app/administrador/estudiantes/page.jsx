@@ -9,6 +9,18 @@ import EstudianteForm from "./EstudianteForm";
 import DeleteConfirmationModal from "./DeleteConfirmationModal";
 import Tesseract from "tesseract.js"; // si usas OCR local
 
+const API_URL = "https://api-umam-1.onrender.com";
+
+const handleFetchResponse = async (response) => {
+  if (response.status === 401) {
+    window.dispatchEvent(new CustomEvent("sessionExpired"));
+    Cookies.remove("access_token");
+    Cookies.remove("user_data");
+    throw new Error("Sesión expirada...");
+  }
+  return response;
+};
+
 export default function EstudiantesPage() {
   // Dentro de tu componente EstudiantesPage (arriba de los demás estados)
   const [showOCRModal, setShowOCRModal] = useState(false);
@@ -452,14 +464,12 @@ export default function EstudiantesPage() {
     const fetchEstudiantes = async () => {
       setLoading(true);
       try {
-        const response = await fetch(
-          "https://api-umam-1.onrender.com/estudiantes/",
-          {
-            headers: {
-              Authorization: `bearer ${Cookies.get("access_token")}`,
-            },
+        const response = await fetch(`${API_URL}/estudiantes/`, {
+          headers: {
+            Authorization: `Bearer ${Cookies.get("access_token")}`,
           },
-        );
+        });
+        await handleFetchResponse(response);
 
         if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
 
@@ -742,10 +752,11 @@ export default function EstudiantesPage() {
         method,
         headers: {
           "Content-Type": "application/json",
-          Authorization: `bearer ${Cookies.get("access_token")}`,
+          Authorization: `Bearer ${Cookies.get("access_token")}`,
         },
         body: JSON.stringify(dataToSend),
       });
+      await handleFetchResponse(response);
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         console.error("Error del backend:", errorData);
@@ -754,12 +765,10 @@ export default function EstudiantesPage() {
       }
 
       // Actualizar lista de estudiantes después de guardar
-      const fetchResponse = await fetch(
-        "https://api-umam-1.onrender.com/estudiantes/",
-        {
-          headers: { Authorization: `bearer ${Cookies.get("access_token")}` },
-        },
-      );
+      const fetchResponse = await fetch(`${API_URL}/estudiantes/`, {
+        headers: { Authorization: `Bearer ${Cookies.get("access_token")}` },
+      });
+      await handleFetchResponse(fetchResponse);
       const data = await fetchResponse.json();
       setEstudiantes(data);
 
@@ -805,15 +814,16 @@ export default function EstudiantesPage() {
       }
 
       const response = await fetch(
-        `https://api-umam-1.onrender.com/estudiantes/${estudianteToDelete.estudiante_id}`,
+        `${API_URL}/estudiantes/${estudianteToDelete.estudiante_id}`,
         {
           method: "DELETE",
           headers: {
-            Authorization: `bearer ${token}`,
+            Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
         },
       );
+      await handleFetchResponse(response);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));

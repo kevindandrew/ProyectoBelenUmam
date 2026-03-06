@@ -4,6 +4,18 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { jsPDF } from "jspdf";
 import Cookies from "js-cookie";
 
+const API_URL = "https://api-umam-1.onrender.com";
+
+const handleFetchResponse = async (response) => {
+  if (response.status === 401) {
+    window.dispatchEvent(new CustomEvent("sessionExpired"));
+    Cookies.remove("access_token");
+    Cookies.remove("user_data");
+    throw new Error("Sesión expirada...");
+  }
+  return response;
+};
+
 export default function GeneradorCertificados() {
   // Estado principal
   const [formData, setFormData] = useState({
@@ -34,7 +46,7 @@ export default function GeneradorCertificados() {
 
   // Previsualización de imágenes
   const [previewFondo, setPreviewFondo] = useState(
-    fondosPredeterminados.TALLER
+    fondosPredeterminados.TALLER,
   );
   const fileInputRef = useRef(null);
 
@@ -129,12 +141,10 @@ export default function GeneradorCertificados() {
 
       try {
         // Cargar cursos
-        const cursosResponse = await fetch(
-          "https://api-umam-1.onrender.com/cursos/",
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
+        const cursosResponse = await fetch(`${API_URL}/cursos/`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        await handleFetchResponse(cursosResponse);
         const cursosData = await cursosResponse.json();
 
         if (!Array.isArray(cursosData)) {
@@ -148,12 +158,10 @@ export default function GeneradorCertificados() {
         });
 
         // Cargar gestiones
-        const gestionesResponse = await fetch(
-          "https://api-umam-1.onrender.com/cursos/gestiones",
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
+        const gestionesResponse = await fetch(`${API_URL}/cursos/gestiones`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        await handleFetchResponse(gestionesResponse);
         const gestionesData = await gestionesResponse.json();
 
         if (!Array.isArray(gestionesData)) {
@@ -183,7 +191,7 @@ export default function GeneradorCertificados() {
 
       try {
         const gestionObj = gestiones.find(
-          (g) => String(g.gestion) === String(gestionSeleccionada)
+          (g) => String(g.gestion) === String(gestionSeleccionada),
         );
         if (!gestionObj?.gestion_id) {
           setEstudiantesApi([]);
@@ -192,9 +200,10 @@ export default function GeneradorCertificados() {
 
         setIsLoading(true);
         const response = await fetch(
-          `https://api-umam-1.onrender.com/listas/estudiantes?gestion_id=${gestionObj.gestion_id}&curso_id=${formData.curso}`,
-          { headers: { Authorization: `Bearer ${token}` } }
+          `${API_URL}/listas/estudiantes?gestion_id=${gestionObj.gestion_id}&curso_id=${formData.curso}`,
+          { headers: { Authorization: `Bearer ${token}` } },
         );
+        await handleFetchResponse(response);
 
         const data = await response.json();
         setEstudiantesApi(Array.isArray(data) ? data : []);
@@ -228,7 +237,7 @@ export default function GeneradorCertificados() {
         }));
       }
     },
-    [formData.tipo]
+    [formData.tipo],
   );
 
   const handleChange = useCallback((e) => {
@@ -252,12 +261,12 @@ export default function GeneradorCertificados() {
       }
 
       const estudiantesAprobados = estudiantesApi.filter(
-        (e) => e.estado === "APROBADO" || e.nota_final >= 51
+        (e) => e.estado === "APROBADO" || e.nota_final >= 51,
       );
 
       if (estudiantesAprobados.length === 0) {
         throw new Error(
-          `No hay estudiantes aprobados para el curso ${formData.curso}`
+          `No hay estudiantes aprobados para el curso ${formData.curso}`,
         );
       }
 
@@ -359,7 +368,7 @@ export default function GeneradorCertificados() {
           firmaY + 5,
           {
             align: "center",
-          }
+          },
         );
 
         // Secretario (derecha)
@@ -395,7 +404,7 @@ export default function GeneradorCertificados() {
   // Obtener nombre del curso
   const getCursoNombre = useCallback(() => {
     const curso = cursosApiRaw.find(
-      (c) => String(c.curso_id) === String(formData.curso)
+      (c) => String(c.curso_id) === String(formData.curso),
     );
     return curso ? curso.nombre : formData.curso;
   }, [formData.curso, cursosApiRaw]);
@@ -684,7 +693,7 @@ export default function GeneradorCertificados() {
               >
                 Generar Certificados (
                 {estudiantesApi.filter(
-                  (e) => e.estado === "APROBADO" || e.nota_final >= 51
+                  (e) => e.estado === "APROBADO" || e.nota_final >= 51,
                 ).length || 0}
                 )
               </button>
@@ -698,7 +707,7 @@ export default function GeneradorCertificados() {
                 <ul className="max-h-40 overflow-y-auto border rounded-md p-2">
                   {estudiantesApi
                     .filter(
-                      (e) => e.estado === "APROBADO" || e.nota_final >= 51
+                      (e) => e.estado === "APROBADO" || e.nota_final >= 51,
                     )
                     .map((estudiante, index) => (
                       <li

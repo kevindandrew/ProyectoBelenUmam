@@ -3,6 +3,18 @@
 import { useState, useEffect } from "react";
 import Cookies from "js-cookie";
 
+const API_URL = "https://api-umam-1.onrender.com";
+
+const handleFetchResponse = async (response) => {
+  if (response.status === 401) {
+    window.dispatchEvent(new CustomEvent("sessionExpired"));
+    Cookies.remove("access_token");
+    Cookies.remove("user_data");
+    throw new Error("Sesión expirada...");
+  }
+  return response;
+};
+
 export default function SucursalesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [sucursales, setSucursales] = useState([]);
@@ -29,16 +41,14 @@ export default function SucursalesPage() {
     const fetchSucursales = async () => {
       try {
         setLoading(true);
-        const response = await fetch(
-          "https://api-umam-1.onrender.com/sucursales/",
-          {
-            method: "GET",
-            headers: {
-              Accept: "application/json",
-              Authorization: `bearer ${Cookies.get("access_token")}`,
-            },
+        const response = await fetch(`${API_URL}/sucursales/`, {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${Cookies.get("access_token")}`,
           },
-        );
+        });
+        await handleFetchResponse(response);
 
         if (!response.ok) {
           throw new Error("Error al cargar las sucursales");
@@ -59,17 +69,15 @@ export default function SucursalesPage() {
   // Funciones para manejar sucursales
   const createSucursal = async (sucursalData) => {
     try {
-      const response = await fetch(
-        "https://api-umam-1.onrender.com/sucursales/",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `bearer ${Cookies.get("access_token")}`,
-          },
-          body: JSON.stringify(sucursalData),
+      const response = await fetch(`${API_URL}/sucursales/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${Cookies.get("access_token")}`,
         },
-      );
+        body: JSON.stringify(sucursalData),
+      });
+      await handleFetchResponse(response);
 
       if (!response.ok) throw new Error("Error al crear sucursal");
       return await response.json();
@@ -81,17 +89,15 @@ export default function SucursalesPage() {
 
   const updateSucursal = async (sucursalId, sucursalData) => {
     try {
-      const response = await fetch(
-        `https://api-umam-1.onrender.com/sucursales/${sucursalId}`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `bearer ${Cookies.get("access_token")}`,
-          },
-          body: JSON.stringify(sucursalData),
+      const response = await fetch(`${API_URL}/sucursales/${sucursalId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${Cookies.get("access_token")}`,
         },
-      );
+        body: JSON.stringify(sucursalData),
+      });
+      await handleFetchResponse(response);
 
       if (!response.ok) throw new Error("Error al actualizar sucursal");
       return await response.json();
@@ -103,15 +109,13 @@ export default function SucursalesPage() {
 
   const deleteSucursal = async (sucursalId) => {
     try {
-      const response = await fetch(
-        `https://api-umam-1.onrender.com/sucursales/${sucursalId}`,
-        {
-          method: "DELETE",
-          headers: {
-            Authorization: `bearer ${Cookies.get("access_token")}`,
-          },
+      const response = await fetch(`${API_URL}/sucursales/${sucursalId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${Cookies.get("access_token")}`,
         },
-      );
+      });
+      await handleFetchResponse(response);
 
       if (!response.ok) throw new Error("Error al eliminar sucursal");
       return true;
@@ -125,15 +129,16 @@ export default function SucursalesPage() {
     try {
       setLoadingAulas(true);
       const response = await fetch(
-        `https://api-umam-1.onrender.com/sucursales/${sucursalId}/aulas`,
+        `${API_URL}/sucursales/${sucursalId}/aulas`,
         {
           method: "GET",
           headers: {
             Accept: "application/json",
-            Authorization: `bearer ${Cookies.get("access_token")}`,
+            Authorization: `Bearer ${Cookies.get("access_token")}`,
           },
         },
       );
+      await handleFetchResponse(response);
       if (!response.ok) throw new Error("Error al cargar las aulas");
       const data = await response.json();
       return Array.isArray(data) ? data.map(normalizeAula) : [];
@@ -153,17 +158,15 @@ export default function SucursalesPage() {
         capacidad: parseInt(aulaData.capacidad),
       };
 
-      const response = await fetch(
-        `https://api-umam-1.onrender.com/sucursales/aulas/${aulaId}`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `bearer ${Cookies.get("access_token")}`,
-          },
-          body: JSON.stringify(dataToSend),
+      const response = await fetch(`${API_URL}/sucursales/aulas/${aulaId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${Cookies.get("access_token")}`,
         },
-      );
+        body: JSON.stringify(dataToSend),
+      });
+      await handleFetchResponse(response);
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -193,15 +196,13 @@ export default function SucursalesPage() {
   };
   const deleteAula = async (aulaId) => {
     try {
-      const response = await fetch(
-        `https://api-umam-1.onrender.com/sucursales/aulas/${aulaId}`,
-        {
-          method: "DELETE",
-          headers: {
-            Authorization: `bearer ${Cookies.get("access_token")}`,
-          },
+      const response = await fetch(`${API_URL}/sucursales/aulas/${aulaId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${Cookies.get("access_token")}`,
         },
-      );
+      });
+      await handleFetchResponse(response);
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -507,12 +508,12 @@ export default function SucursalesPage() {
                   if (nombreAula.trim() && capacidadAula.trim()) {
                     try {
                       const response = await fetch(
-                        `https://api-umam-1.onrender.com/sucursales/${sucursalSeleccionada.sucursal_id}/aulas`,
+                        `${API_URL}/sucursales/${sucursalSeleccionada.sucursal_id}/aulas`,
                         {
                           method: "POST",
                           headers: {
                             "Content-Type": "application/json",
-                            Authorization: `bearer ${Cookies.get(
+                            Authorization: `Bearer ${Cookies.get(
                               "access_token",
                             )}`,
                           },
@@ -523,6 +524,7 @@ export default function SucursalesPage() {
                           }),
                         },
                       );
+                      await handleFetchResponse(response);
 
                       if (!response.ok) throw new Error("Error al crear aula");
 

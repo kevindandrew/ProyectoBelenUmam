@@ -20,11 +20,15 @@ export function generateSchedulePDF({
     alert("La generación de PDF solo está disponible en el navegador.");
     return;
   }
+
+  // Filtrar sábado y domingo (día con id 6 o 7) si es que están en la lista
+  const filteredDays = days.filter((d) => d.id !== 6 && d.id !== 7);
+
   // Construir cabecera de la tabla
   const tableHeader = [
     { text: "Hora", style: "tableHeader" },
     { text: "Aula", style: "tableHeader" },
-    ...days.map((d) => ({ text: d.name, style: "tableHeader" })),
+    ...filteredDays.map((d) => ({ text: d.name, style: "tableHeader" })),
   ];
   // Construir filas de la tabla
   const tableBody = [tableHeader];
@@ -51,7 +55,7 @@ export function generateSchedulePDF({
         fillColor: "#f5f5f5",
       });
       // Celdas de días
-      days.forEach((day) => {
+      filteredDays.forEach((day) => {
         const course = courses.find(
           (c) =>
             c.classroom.value === classroom.value &&

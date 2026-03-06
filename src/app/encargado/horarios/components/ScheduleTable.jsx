@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { X, Plus, Edit } from "lucide-react";
+import { X, Plus, Edit, Ban, Unlock } from "lucide-react";
 
 const ScheduleTable = ({
   courses,
@@ -10,6 +10,8 @@ const ScheduleTable = ({
   onCellClick,
   onDeleteCourse,
   onEditCourse,
+  onToggleBlockCell,
+  isCellBlocked,
 }) => {
   const getCourseForSlot = (classroom, time, dayId) => {
     return (
@@ -74,6 +76,11 @@ const ScheduleTable = ({
                     {days.map((day) => {
                       const course = getCourseForSlot(classroom, time, day.id);
                       const cellKey = `${time}-${classroom.value}-${day.id}`;
+                      const isBlocked = isCellBlocked?.(
+                        time,
+                        day.id,
+                        classroom,
+                      );
 
                       return (
                         <td
@@ -106,12 +113,35 @@ const ScheduleTable = ({
                               </div>
                               <div className="text-xs">{course.professor}</div>
                             </div>
+                          ) : isBlocked ? (
+                            <div
+                              onContextMenu={(e) => {
+                                e.preventDefault();
+                                onToggleBlockCell?.(time, day.id, classroom);
+                              }}
+                              className="h-16 border-2 border-red-300 bg-red-50 rounded-lg cursor-context-menu flex flex-col items-center justify-center group relative"
+                              title="Clic derecho para desbloquear"
+                            >
+                              <Ban size={20} className="text-red-400 mb-1" />
+                              <span className="text-xs text-red-600 font-medium">
+                                NO DISPONIBLE
+                              </span>
+                              <div className="absolute inset-0 bg-red-100 opacity-0 group-hover:opacity-50 transition-opacity rounded-lg"></div>
+                              <div className="absolute bottom-1 text-xs text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                                Clic derecho para desbloquear
+                              </div>
+                            </div>
                           ) : (
                             <div
                               onClick={() =>
                                 onCellClick(time, day.id, classroom)
                               }
-                              className="h-16 border-2 border-dashed border-gray-200 rounded-lg cursor-pointer hover:border-green-300 hover:bg-green-50 transition-colors flex items-center justify-center group"
+                              onContextMenu={(e) => {
+                                e.preventDefault();
+                                onToggleBlockCell?.(time, day.id, classroom);
+                              }}
+                              className="h-16 border-2 border-dashed border-gray-200 rounded-lg cursor-pointer hover:border-green-300 hover:bg-green-50 transition-colors flex items-center justify-center group relative"
+                              title="Clic para agregar curso · Clic derecho para bloquear"
                             >
                               <div className="flex items-center gap-1 text-gray-400 text-sm opacity-0 group-hover:opacity-100 transition-opacity">
                                 <Plus size={14} />

@@ -1,8 +1,10 @@
 "use client";
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
 
 const LoginForm = () => {
+  const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -70,9 +72,8 @@ const LoginForm = () => {
         3: "/facilitador",
       };
 
-      window.location.href = roleRoutes[data.user.rol.rol_id] || "/login";
+      router.push(roleRoutes[data.user.rol.rol_id] || "/login");
     } catch (error) {
-      console.error("Error en login:", error);
       setError(error.message || "Error al iniciar sesión");
       Cookies.remove("access_token");
       Cookies.remove("user_data");
@@ -101,7 +102,7 @@ const LoginForm = () => {
             </div>
           )}
 
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} autoComplete="off">
             <div className="mb-6">
               <label
                 htmlFor="username"
@@ -111,9 +112,9 @@ const LoginForm = () => {
               </label>
               <input
                 type="text"
+                autoComplete="username"
                 id="username"
                 name="username"
-                autoComplete="username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
