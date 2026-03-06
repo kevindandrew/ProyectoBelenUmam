@@ -607,7 +607,8 @@ const SchedulePage = () => {
           })
           .join(", ");
         alert(`Horario creado exitosamente: ${horariosStr}`);
-      fetchHorarios();
+        fetchHorarios();
+      }
     } catch (err) {
       console.error("Error en submitNewCourse:", err);
       alert(
