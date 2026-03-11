@@ -30,7 +30,6 @@ async function getUserData() {
 
     return await response.json();
   } catch (error) {
-    console.error("Error fetching user data:", error);
     return null;
   }
 }
@@ -60,7 +59,6 @@ export default async function AdministradorLayout({ children }) {
       };
       redirect(roleRoutes[parsedUserData.rol_id] || "/login");
     }
-    console.log("User Data:", parsedUserData);
     nombreCompleto = `${parsedUserData.nombres} ${parsedUserData.apellido}`;
     cargo = parsedUserData.cargo || "facilitador";
   } catch (error) {

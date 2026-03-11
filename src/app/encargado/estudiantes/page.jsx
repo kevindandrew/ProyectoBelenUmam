@@ -9,6 +9,18 @@ import EstudianteForm from "./EstudianteForm";
 import DeleteConfirmationModal from "./DeleteConfirmationModal";
 import Tesseract from "tesseract.js"; // si usas OCR local
 
+const API_URL = "https://api-umam-1.onrender.com";
+
+const handleFetchResponse = async (response) => {
+  if (response.status === 401) {
+    window.dispatchEvent(new CustomEvent("sessionExpired"));
+    Cookies.remove("access_token");
+    Cookies.remove("user_data");
+    throw new Error("Sesión expirada...");
+  }
+  return response;
+};
+
 export default function EstudiantesPage() {
   // Dentro de tu componente EstudiantesPage (arriba de los demás estados)
   const [showOCRModal, setShowOCRModal] = useState(false);
@@ -38,11 +50,16 @@ export default function EstudiantesPage() {
     ci: "",
     como_se_entero: "Facebook",
     direccion: "",
+    macrodistrito: "Cotahuma",
+    whatsapp: "",
     estado_civil: "SOLTERO",
     fecha_nacimiento: "",
     genero: "MASCULINO",
     lugar_nacimiento: "Cochabamba",
     telefono: "",
+    grado_institucion: "Ninguno",
+    ultimo_cargo: "",
+    anios_servicio: "",
     datos_academicos: [
       {
         anios_servicio: 0,
@@ -120,7 +137,6 @@ export default function EstudiantesPage() {
 
     // Apellidos mejorados (como en el código original)
     const apellidosMatch = texto.match(/APELLIDOS\s*[\n:\-]*\s*([A-Z\s]+)/i);
-    console.log(apellidosMatch);
 
     if (apellidosMatch) {
       let apellidosLimpios = apellidosMatch[1]
@@ -128,8 +144,6 @@ export default function EstudiantesPage() {
         .split(/\s+/) // divide por espacios reales
         .filter((p) => p.length > 1)
         .slice(0, 2);
-
-      console.log(apellidosLimpios);
 
       resultado.apellido_paterno = apellidosLimpios[0] || "No encontrado";
       resultado.apellido_materno = apellidosLimpios[1] || "No encontrado";
@@ -150,7 +164,6 @@ export default function EstudiantesPage() {
     // Fecha de nacimiento
     const fechas = texto.match(/\d{2}\/\d{2}\/\d{4}/g);
     resultado.fecha_nacimiento = fechas?.[0] || "No encontrada";
-    console.log("Fecha de nacimiento:", resultado.fecha_nacimiento);
     return {
       ci: ciMatch?.[1] || "",
       nombres: resultado.nombres,
@@ -165,7 +178,7 @@ export default function EstudiantesPage() {
     texto = texto.replace(/[^\w\sÁÉÍÓÚÑáéíóú°\/\.\-\n]/g, "");
     // Ocupación como en el código original
     const ocupacionMatch = texto.match(
-      /OCUPACION[\s\S]*?\n?([A-ZÁÉÍÓÚÑ\s]{4,})\n?/i
+      /OCUPACION[\s\S]*?\n?([A-ZÁÉÍÓÚÑ\s]{4,})\n?/i,
     );
     const ocupacionBruta = ocupacionMatch ? ocupacionMatch[1].trim() : "";
     const ocupacionesPosibles = ["ESTUDIANTE", "MÉDICO", "ABOGADO" /* ... */];
@@ -192,13 +205,13 @@ export default function EstudiantesPage() {
       .trim();
 
     const ciMatch = cleanedText.match(
-      /(No\.|N°|Numero|Número)\s*([0-9]{6,8})/i
+      /(No\.|N°|Numero|Número)\s*([0-9]{6,8})/i,
     );
 
     const fallbackMatch = cleanedText.match(/\b\d{6,8}\b/g);
     const probableCi = fallbackMatch?.reduce(
       (a, b) => (b.length > a.length ? b : a),
-      ""
+      "",
     );
 
     return {
@@ -209,7 +222,6 @@ export default function EstudiantesPage() {
   const procesarReversoTipo2 = (texto) => {
     const resultado = {};
     texto = texto.replace(/\s{2,}/g, " ").replace(/\n+/g, "\n");
-    console.log("Texto reverso para domicilio:", texto);
     // 🔍 Extraer nombre completo robusto
     const nombreMatch = texto.match(/A\s+([A-ZÁÉÍÓÚÑ\s]{10,})/);
     const nombreCompleto = nombreMatch
@@ -225,7 +237,7 @@ export default function EstudiantesPage() {
     // 📅 Fecha de nacimiento (variante robusta con fallback)
     const fechaMatch =
       texto.match(
-        /(Nacido el|Nacido|Nac\.)\s*(\d{1,2}\s+de\s+[A-Za-z]+\s+de\s+\d{4})/i
+        /(Nacido el|Nacido|Nac\.)\s*(\d{1,2}\s+de\s+[A-Za-z]+\s+de\s+\d{4})/i,
       ) || texto.match(/\d{2}\/\d{2}\/\d{4}/);
 
     resultado.fecha_nacimiento =
@@ -233,7 +245,7 @@ export default function EstudiantesPage() {
 
     // ❤️ Estado civil más robusto
     const estadoCivilMatch = texto.match(
-      /ESTADO\s*CIVIL[:\-\n\s]*([A-ZÁÉÍÓÚÑ]+)/i
+      /ESTADO\s*CIVIL[:\-\n\s]*([A-ZÁÉÍÓÚÑ]+)/i,
     );
     let estadoCivilRaw = estadoCivilMatch
       ? estadoCivilMatch[1].trim().toUpperCase()
@@ -250,7 +262,7 @@ export default function EstudiantesPage() {
     resultado.estado_civil = estadoCivilMap[estadoCivilRaw] || estadoCivilRaw;
     // 🏠 Dirección (más tolerante con OCR)
     const domicilioLineMatch = texto.match(
-      /DOMICILI[A-Z]?\s*[:\-]?\s*([^\n]+)/i
+      /DOMICILI[A-Z]?\s*[:\-]?\s*([^\n]+)/i,
     );
     const direccion = domicilioLineMatch
       ? domicilioLineMatch[1].trim()
@@ -258,7 +270,6 @@ export default function EstudiantesPage() {
 
     resultado.direccion = direccion;
     resultado.domicilio = direccion; // Añadirlo también como "domicilio"
-    console.log(resultado);
     return resultado;
   };
 
@@ -392,7 +403,7 @@ export default function EstudiantesPage() {
           const [day, month, year] = fechaNacimiento.split("/");
           fechaFormateada = `${year}-${month.padStart(2, "0")}-${day.padStart(
             2,
-            "0"
+            "0",
           )}`;
         }
       }
@@ -439,8 +450,6 @@ export default function EstudiantesPage() {
       ]
         .filter(Boolean)
         .join(", ");
-
-      console.log("Campos extraídos:", camposExtraidos);
       setShowOCRModal(false);
     } catch (error) {
       console.error("Error en OCR:", error);
@@ -455,14 +464,12 @@ export default function EstudiantesPage() {
     const fetchEstudiantes = async () => {
       setLoading(true);
       try {
-        const response = await fetch(
-          "https://api-umam-1.onrender.com/estudiantes/",
-          {
-            headers: {
-              Authorization: `bearer ${Cookies.get("access_token")}`,
-            },
-          }
-        );
+        const response = await fetch(`${API_URL}/estudiantes/`, {
+          headers: {
+            Authorization: `Bearer ${Cookies.get("access_token")}`,
+          },
+        });
+        await handleFetchResponse(response);
 
         if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
 
@@ -502,11 +509,16 @@ export default function EstudiantesPage() {
       ci: "",
       como_se_entero: "",
       direccion: "",
+      macrodistrito: "Cotahuma",
+      whatsapp: "",
       estado_civil: "",
       fecha_nacimiento: "",
       genero: "",
       lugar_nacimiento: "",
       telefono: "",
+      grado_institucion: "Ninguno",
+      ultimo_cargo: "",
+      anios_servicio: "",
       datos_academicos: [
         {
           anios_servicio: 0,
@@ -544,9 +556,27 @@ export default function EstudiantesPage() {
   // Abrir formulario de edición
   const openEditForm = (estudiante) => {
     setEditingEstudiante(estudiante);
+
+    // Separar macrodistrito de la dirección si existe
+    let macrodistrito = "Cotahuma";
+    let direccionSola = estudiante.direccion || "";
+
+    if (estudiante.direccion && estudiante.direccion.includes(",")) {
+      const partes = estudiante.direccion.split(",");
+      macrodistrito = partes[0].trim();
+      direccionSola = partes.slice(1).join(",").trim();
+    }
+
     setNewEstudiante({
       ...estudiante,
       fecha_nacimiento: estudiante.fecha_nacimiento?.split("T")[0] || "",
+      macrodistrito: macrodistrito,
+      direccion: direccionSola,
+      whatsapp: estudiante.whatsapp || "",
+      grado_institucion:
+        estudiante.datos_academicos?.[0]?.grado_institucion || "Ninguno",
+      ultimo_cargo: estudiante.datos_academicos?.[0]?.ultimo_cargo || "",
+      anios_servicio: estudiante.datos_academicos?.[0]?.anios_servicio || "",
     });
     setShowForm(true);
   };
@@ -633,7 +663,7 @@ export default function EstudiantesPage() {
       "fecha_nacimiento",
     ];
     const missingFields = requiredFields.filter(
-      (field) => !newEstudiante[field]
+      (field) => !newEstudiante[field],
     );
 
     if (missingFields.length > 0) {
@@ -650,11 +680,6 @@ export default function EstudiantesPage() {
       alert("El teléfono debe tener entre 6 y 15 dígitos");
       return false;
     }
-
-    /* if (newEstudiante.datos_academicos.length === 0) {
-      alert("Debe agregar al menos un dato académico");
-      return false;
-    } */
 
     return true;
   };
@@ -676,48 +701,74 @@ export default function EstudiantesPage() {
 
       const method = editingEstudiante ? "PUT" : "POST";
 
+      // Combinar macrodistrito y dirección
+      const direccionCompleta =
+        newEstudiante.macrodistrito && newEstudiante.direccion
+          ? `${newEstudiante.macrodistrito}, ${newEstudiante.direccion}`
+          : newEstudiante.direccion || newEstudiante.macrodistrito || "";
+
       const dataToSend = {
         ...newEstudiante,
         ci: String(newEstudiante.ci),
+        direccion: direccionCompleta,
         telefono: newEstudiante.telefono
           ? String(newEstudiante.telefono)
           : null,
-        datos_academicos: newEstudiante.datos_academicos.map((da) => ({
-          ...da,
-          anios_servicio: Number(da.anios_servicio) || 0,
+        datos_academicos: [
+          {
+            grado_institucion: newEstudiante.grado_institucion || "",
+            ultimo_cargo: newEstudiante.ultimo_cargo || "",
+            anios_servicio: Number(newEstudiante.anios_servicio) || 0,
+            otras_habilidades: "",
+          },
+        ],
+        datos_familiares: (newEstudiante.datos_familiares || []).map((df) => ({
+          ap_paterno: df?.ap_paterno || "",
+          ap_materno: df?.ap_materno || "",
+          nombres: df?.nombres || "",
+          parentesco: df?.parentesco || "",
+          direccion: df?.direccion || "",
+          telefono: df?.telefono ? String(df.telefono) : null,
+          tipo: "referencia",
+          relacion: "BUENA",
         })),
-        datos_familiares: newEstudiante.datos_familiares.map((df) => ({
-          ...df,
-          telefono: df.telefono ? String(df.telefono) : null,
-        })),
-        datos_medicos: newEstudiante.datos_medicos.map((dm) => ({
-          ...dm,
-          tuvo_covid:
-            dm.tuvo_covid === true || dm.tuvo_covid === "true" ? true : false,
+        datos_medicos: (newEstudiante.datos_medicos || []).map((dm) => ({
+          sistema_salud: dm?.sistema_salud || "PUBLICO",
+          enfermedad_base: dm?.enfermedad_base || "",
+          tratamiento_especifico: dm?.tratamiento_especifico || "",
+          frecuencia_medico: "1 VEZ AL MES",
+          alergias: "",
+          tuvo_covid: false,
         })),
       };
-      console.log("Datos que se enviarán:", dataToSend);
+
+      // Eliminar campos temporales que no van al backend
+      delete dataToSend.macrodistrito;
+      delete dataToSend.whatsapp;
+      delete dataToSend.grado_institucion;
+      delete dataToSend.ultimo_cargo;
+      delete dataToSend.anios_servicio;
       const response = await fetch(url, {
         method,
         headers: {
           "Content-Type": "application/json",
-          Authorization: `bearer ${Cookies.get("access_token")}`,
+          Authorization: `Bearer ${Cookies.get("access_token")}`,
         },
         body: JSON.stringify(dataToSend),
       });
-      console.log(response);
+      await handleFetchResponse(response);
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        console.error("Error del backend:", errorData);
+        alert(`Error: ${JSON.stringify(errorData, null, 2)}`);
         throw new Error(errorData.message || "Error al guardar");
       }
 
       // Actualizar lista de estudiantes después de guardar
-      const fetchResponse = await fetch(
-        "https://api-umam-1.onrender.com/estudiantes/",
-        {
-          headers: { Authorization: `bearer ${Cookies.get("access_token")}` },
-        }
-      );
+      const fetchResponse = await fetch(`${API_URL}/estudiantes/`, {
+        headers: { Authorization: `Bearer ${Cookies.get("access_token")}` },
+      });
+      await handleFetchResponse(fetchResponse);
       const data = await fetchResponse.json();
       setEstudiantes(data);
 
@@ -733,7 +784,6 @@ export default function EstudiantesPage() {
 
   // Manejar eliminación de estudiantes
   const openDeleteModal = (estudiante) => {
-    console.log("Estudiante a eliminar:", estudiante); // Para debug
     if (!estudiante?.estudiante_id) {
       console.error("Estudiante sin ID recibido:", estudiante);
       return;
@@ -746,7 +796,7 @@ export default function EstudiantesPage() {
     if (!estudianteToDelete?.estudiante_id) {
       console.error(
         "Intento de eliminar estudiante inválido:",
-        estudianteToDelete
+        estudianteToDelete,
       );
       alert("Error: No se pudo identificar el estudiante a eliminar");
       setShowDeleteModal(false);
@@ -759,42 +809,81 @@ export default function EstudiantesPage() {
       const token = Cookies.get("access_token");
       if (!token) {
         throw new Error(
-          "No estás autenticado. Por favor, inicia sesión nuevamente."
+          "No estás autenticado. Por favor, inicia sesión nuevamente.",
         );
       }
 
+      console.log(
+        `🗑️ Intentando eliminar estudiante ID: ${estudianteToDelete.estudiante_id}`,
+      );
+      console.log(
+        `📡 URL: ${API_URL}/estudiantes/${estudianteToDelete.estudiante_id}`,
+      );
+      console.log(
+        `🔑 Token: ${token ? "Sí (" + token.substring(0, 20) + "...)" : "No"}`,
+      );
+
       const response = await fetch(
-        `https://api-umam-1.onrender.com/estudiantes/${estudianteToDelete.estudiante_id}`,
+        `${API_URL}/estudiantes/${estudianteToDelete.estudiante_id}`,
         {
           method: "DELETE",
           headers: {
-            Authorization: `bearer ${token}`,
-            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
 
+      console.log(
+        `📥 Respuesta recibida: ${response.status} ${response.statusText}`,
+      );
+
+      await handleFetchResponse(response);
+
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `Error HTTP: ${response.status}`);
+        let errorMessage = `Error HTTP: ${response.status}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.detail || errorData.message || errorMessage;
+          console.error("❌ Error del servidor:", errorData);
+        } catch (parseError) {
+          console.warn("⚠️ No se pudo parsear la respuesta de error");
+        }
+        throw new Error(errorMessage);
       }
+
+      console.log("✅ Estudiante eliminado exitosamente");
 
       // Actualizar estado optimizado
       setEstudiantes((prev) =>
-        prev.filter((e) => e.estudiante_id !== estudianteToDelete.estudiante_id)
+        prev.filter(
+          (e) => e.estudiante_id !== estudianteToDelete.estudiante_id,
+        ),
       );
       setShowDeleteModal(false);
       setEstudianteToDelete(null);
+      alert("✅ Estudiante eliminado exitosamente");
     } catch (error) {
-      console.error("Error al eliminar:", error);
+      console.error("❌ Error al eliminar:", error);
+      console.error("❌ Tipo de error:", error.name);
+      console.error("❌ Mensaje:", error.message);
 
-      if (error.message.includes("401")) {
+      // Manejar errores de red (TypeError con "fetch")
+      if (error.name === "TypeError" && error.message.includes("fetch")) {
+        alert(
+          "❌ No se pudo conectar con el servidor.\n\n" +
+            "Posibles causas:\n" +
+            "• El servidor está en modo sleep (Render.com) - espera 30 segundos\n" +
+            "• Problema de CORS con el método DELETE\n" +
+            "• Sin conexión a internet\n\n" +
+            "💡 Intenta nuevamente en 30 segundos.",
+        );
+      } else if (error.message.includes("401")) {
         alert("Sesión expirada. Por favor, inicia sesión nuevamente.");
       } else if (error.message.includes("403")) {
         alert("No tienes permisos para eliminar estudiantes.");
       } else if (error.message.includes("422")) {
         alert(
-          "No se puede eliminar el estudiante porque tiene registros relacionados."
+          "No se puede eliminar el estudiante porque tiene registros relacionados.",
         );
       } else {
         alert(`Error al eliminar: ${error.message}`);
@@ -809,7 +898,7 @@ export default function EstudiantesPage() {
     return estudiantes.filter((estudiante) =>
       `${estudiante.ap_paterno} ${estudiante.ap_materno} ${estudiante.nombres} ${estudiante.ci}`
         .toLowerCase()
-        .includes(searchTerm.toLowerCase())
+        .includes(searchTerm.toLowerCase()),
     );
   }, [estudiantes, searchTerm]);
 
@@ -958,8 +1047,14 @@ export default function EstudiantesPage() {
       {/* Nuevos modales - AÑADIR JUSTO AQUÍ */}
 
       {showOCRModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg max-w-md w-full">
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          onClick={() => setShowOCRModal(false)}
+        >
+          <div
+            className="bg-white p-6 rounded-lg max-w-md w-full"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h2 className="text-xl font-bold mb-4">Escanear Carnet</h2>
 
             <select

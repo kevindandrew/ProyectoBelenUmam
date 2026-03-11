@@ -57,7 +57,6 @@ export default function OcrPage() {
       const {
         data: { text },
       } = await Tesseract.recognize(anversoImage, "spa+eng", {
-        logger: (m) => console.log(m),
         tessedit_char_whitelist: "0123456789Emitidael deJunioExpira", // Mejora precisión
       });
 
@@ -75,7 +74,7 @@ export default function OcrPage() {
       const allNumbers = cleanedText.match(fallbackCiRegex) || [];
       const probableCi = allNumbers.reduce(
         (a, b) => (b.length > a.length ? b : a),
-        ""
+        "",
       );
 
       const ci = ciMatch ? ciMatch[2] : probableCi || "CI no encontrado";
@@ -102,7 +101,6 @@ export default function OcrPage() {
       const {
         data: { text },
       } = await Tesseract.recognize(reversoImage, "spa", {
-        logger: (m) => console.log(m),
         preserve_interword_spaces: "1",
         tessedit_pageseg_mode: "6", // Modo de segmentación para texto uniforme
       });
@@ -116,7 +114,7 @@ export default function OcrPage() {
 
       // 1. Extracción del nombre completo (solución definitiva)
       const nombreMatch = cleanedText.match(
-        /A\s+([A-ZÁÉÍÓÚÑ]+\s+[A-ZÁÉÍÓÚÑ]+\s+[A-ZÁÉÍÓÚÑ]+\s+[A-ZÁÉÍÓÚÑ]+)/
+        /A\s+([A-ZÁÉÍÓÚÑ]+\s+[A-ZÁÉÍÓÚÑ]+\s+[A-ZÁÉÍÓÚÑ]+\s+[A-ZÁÉÍÓÚÑ]+)/,
       );
       let nombreCompleto = nombreMatch
         ? nombreMatch[1].replace(/\s+/g, " ").trim()
@@ -124,7 +122,7 @@ export default function OcrPage() {
 
       // 2. Extracción de fecha de nacimiento (solución robusta)
       const fechaMatch = cleanedText.match(
-        /(Nacido el|Nacido|Nac\.)\s*(\d{1,2}\s+de\s+[A-Za-z]+\s+de\s+\d{4})/i
+        /(Nacido el|Nacido|Nac\.)\s*(\d{1,2}\s+de\s+[A-Za-z]+\s+de\s+\d{4})/i,
       );
       const fecha = fechaMatch ? fechaMatch[2].trim() : "No encontrada";
 
@@ -141,7 +139,7 @@ export default function OcrPage() {
 
         // ✅ Nuevo patrón: capturar desde C/ o Av. hasta el segundo "Z." o hasta que empiece algo raro
         const domicilioMatch = rawDomicilio.match(
-          /(C\/|Av\.?)\s?[A-Z0-9\s°\/\.\-]+Z\.\s?[A-Z\s]{2,}(?:Z\.\s?[A-Z\s]{2,})?/
+          /(C\/|Av\.?)\s?[A-Z0-9\s°\/\.\-]+Z\.\s?[A-Z\s]{2,}(?:Z\.\s?[A-Z\s]{2,})?/,
         );
 
         if (domicilioMatch) {

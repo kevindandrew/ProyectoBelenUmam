@@ -4,6 +4,16 @@ import Cookies from "js-cookie";
 
 const API_URL = "https://api-umam-1.onrender.com";
 
+const handleFetchResponse = async (response) => {
+  if (response.status === 401) {
+    window.dispatchEvent(new CustomEvent("sessionExpired"));
+    Cookies.remove("access_token");
+    Cookies.remove("user_data");
+    throw new Error("Sesión expirada...");
+  }
+  return response;
+};
+
 export default function InscripcionesPage() {
   const [filtros, setFiltros] = useState({
     gestion_id: "",
@@ -40,6 +50,7 @@ export default function InscripcionesPage() {
           "Content-Type": "application/json",
         },
       });
+      await handleFetchResponse(response);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -131,7 +142,7 @@ export default function InscripcionesPage() {
         });
 
         const estudiantesData = await fetchData(
-          `${API_URL}/listas/estudiantes?${params.toString()}`
+          `${API_URL}/listas/estudiantes?${params.toString()}`,
         );
 
         setEstudiantes(estudiantesData);
@@ -160,8 +171,8 @@ export default function InscripcionesPage() {
         prev.map((est) =>
           est.estudiante_id === estudiante_id
             ? { ...est, nota_final: nuevaNota }
-            : est
-        )
+            : est,
+        ),
       );
     } catch (error) {
       console.error("Error al actualizar nota:", error);
@@ -172,7 +183,7 @@ export default function InscripcionesPage() {
   // Funciones auxiliares para obtener nombres
   const getNombreGestion = (gestion_id) => {
     const gestion = gestiones.find(
-      (g) => g.gestion_id === parseInt(gestion_id)
+      (g) => g.gestion_id === parseInt(gestion_id),
     );
     return gestion
       ? `${gestion.gestion} ${gestion.year_id}`
@@ -186,7 +197,7 @@ export default function InscripcionesPage() {
 
   const getNombreProfesor = (profesor_id) => {
     const profesor = profesores.find(
-      (p) => p.usuario_id === parseInt(profesor_id)
+      (p) => p.usuario_id === parseInt(profesor_id),
     );
     return profesor
       ? `${profesor.nombres} ${profesor.ap_paterno} ${profesor.ap_materno}`
@@ -195,7 +206,7 @@ export default function InscripcionesPage() {
 
   const getNombreSucursal = (sucursal_id) => {
     const sucursal = sucursales.find(
-      (s) => s.sucursal_id === parseInt(sucursal_id)
+      (s) => s.sucursal_id === parseInt(sucursal_id),
     );
     return sucursal?.nombre || "Sucursal no encontrada";
   };
@@ -385,7 +396,7 @@ export default function InscripcionesPage() {
                           onChange={(e) =>
                             actualizarNota(
                               est.estudiante_id,
-                              Number(e.target.value)
+                              Number(e.target.value),
                             )
                           }
                           className="w-16 border rounded px-2 py-1 text-center"

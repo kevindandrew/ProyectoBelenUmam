@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { X, Plus } from "lucide-react";
+import { X, Plus, Edit, Ban, Unlock } from "lucide-react";
 
 const ScheduleTable = ({
   courses,
@@ -9,6 +9,9 @@ const ScheduleTable = ({
   availableClassrooms,
   onCellClick,
   onDeleteCourse,
+  onEditCourse,
+  onToggleBlockCell,
+  isCellBlocked,
 }) => {
   const getCourseForSlot = (classroom, time, dayId) => {
     return (
@@ -16,11 +19,10 @@ const ScheduleTable = ({
         (course) =>
           course.classroom.value === classroom.value &&
           course.time === time &&
-          course.day === dayId
+          course.day === dayId,
       ) || null
     );
   };
-  console.log();
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
       <div className="overflow-x-auto">
@@ -74,6 +76,11 @@ const ScheduleTable = ({
                     {days.map((day) => {
                       const course = getCourseForSlot(classroom, time, day.id);
                       const cellKey = `${time}-${classroom.value}-${day.id}`;
+                      const isBlocked = isCellBlocked?.(
+                        time,
+                        day.id,
+                        classroom,
+                      );
 
                       return (
                         <td
@@ -82,25 +89,59 @@ const ScheduleTable = ({
                         >
                           {course ? (
                             <div
+                              onClick={() => onEditCourse?.(course)}
                               className={`${course.color} rounded-lg p-3 border-2 cursor-pointer hover:shadow-md transition-shadow relative group`}
                             >
                               <button
-                                onClick={() => onDeleteCourse(course.id)}
-                                className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white rounded-full p-1 hover:bg-gray-100"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onDeleteCourse(course.id);
+                                }}
+                                className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white rounded-full p-1 hover:bg-red-100"
+                                title="Eliminar"
                               >
-                                <X size={12} />
+                                <X size={12} className="text-red-600" />
                               </button>
+                              <div
+                                className="absolute top-1 right-7 opacity-0 group-hover:opacity-100 transition-opacity bg-white rounded-full p-1 hover:bg-blue-100"
+                                title="Editar horario"
+                              >
+                                <Edit size={12} className="text-blue-600" />
+                              </div>
                               <div className="text-xs font-semibold mb-1">
                                 {course.subject}
                               </div>
                               <div className="text-xs">{course.professor}</div>
+                            </div>
+                          ) : isBlocked ? (
+                            <div
+                              onContextMenu={(e) => {
+                                e.preventDefault();
+                                onToggleBlockCell?.(time, day.id, classroom);
+                              }}
+                              className="h-16 border-2 border-red-300 bg-red-50 rounded-lg cursor-context-menu flex flex-col items-center justify-center group relative"
+                              title="Clic derecho para desbloquear"
+                            >
+                              <Ban size={20} className="text-red-400 mb-1" />
+                              <span className="text-xs text-red-600 font-medium">
+                                NO DISPONIBLE
+                              </span>
+                              <div className="absolute inset-0 bg-red-100 opacity-0 group-hover:opacity-50 transition-opacity rounded-lg"></div>
+                              <div className="absolute bottom-1 text-xs text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                                Clic derecho para desbloquear
+                              </div>
                             </div>
                           ) : (
                             <div
                               onClick={() =>
                                 onCellClick(time, day.id, classroom)
                               }
-                              className="h-16 border-2 border-dashed border-gray-200 rounded-lg cursor-pointer hover:border-green-300 hover:bg-green-50 transition-colors flex items-center justify-center group"
+                              onContextMenu={(e) => {
+                                e.preventDefault();
+                                onToggleBlockCell?.(time, day.id, classroom);
+                              }}
+                              className="h-16 border-2 border-dashed border-gray-200 rounded-lg cursor-pointer hover:border-green-300 hover:bg-green-50 transition-colors flex items-center justify-center group relative"
+                              title="Clic para agregar curso · Clic derecho para bloquear"
                             >
                               <div className="flex items-center gap-1 text-gray-400 text-sm opacity-0 group-hover:opacity-100 transition-opacity">
                                 <Plus size={14} />

@@ -22,10 +22,26 @@ const initialUserState = {
 
 const API_URL = "https://api-umam-1.onrender.com";
 
+// Función helper para detectar sesiones expiradas
+const handleFetchResponse = async (response) => {
+  if (response.status === 401) {
+    // Disparar evento de sesión expirada
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("sessionExpired"));
+    }
+    Cookies.remove("access_token");
+    Cookies.remove("user_data");
+    throw new Error("Sesión expirada. Por favor, vuelve a iniciar sesión.");
+  }
+  return response;
+};
+
 export default function UsuariosPage() {
   // Estados agrupados por categoría
   const [loading, setLoading] = useState(true);
+  const [loadingForm, setLoadingForm] = useState(false);
   const [error, setError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState(null);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [recordsPerPage, setRecordsPerPage] = useState(10);
@@ -61,7 +77,7 @@ export default function UsuariosPage() {
       if (ci.length > 0) usernameBase += ci;
       return usernameBase;
     },
-    []
+    [],
   );
 
   // Manejador de cambios en inputs (memoizado)
@@ -84,7 +100,7 @@ export default function UsuariosPage() {
             nombres,
             ap_paterno,
             ap_materno,
-            ci
+            ci,
           );
         }
 
@@ -96,12 +112,13 @@ export default function UsuariosPage() {
         return updatedUser;
       });
     },
-    [generateUsername]
+    [generateUsername],
   );
 
   // Función para obtener un usuario por ID (memoizada)
   const fetchUsuarioById = useCallback(async (id) => {
     try {
+      console.log(`🔄 Obteniendo datos del usuario ${id} desde el backend...`);
       const response = await fetch(`${API_URL}/usuarios/${id}`, {
         headers: {
           Authorization: `Bearer ${Cookies.get("access_token")}`,
@@ -109,15 +126,18 @@ export default function UsuariosPage() {
         },
       });
 
+      await handleFetchResponse(response);
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(
           errorData.message ||
-            `Error ${response.status}: ${response.statusText}`
+            `Error ${response.status}: ${response.statusText}`,
         );
       }
 
       const usuario = await response.json();
+      console.log("✅ Datos del usuario obtenidos del backend:", usuario);
 
       return {
         id: usuario.usuario_id,
@@ -138,7 +158,7 @@ export default function UsuariosPage() {
         password: usuario.password || "******",
       };
     } catch (err) {
-      console.error("Error al obtener usuario por ID:", err);
+      console.error("❌ Error al obtener usuario por ID:", err);
       throw err;
     }
   }, []);
@@ -147,11 +167,13 @@ export default function UsuariosPage() {
   const openEditForm = useCallback(
     async (usuario) => {
       try {
+        setLoadingForm(true);
+        setError(null);
+
+        // Obtener los datos completos del usuario desde el backend
         const usuarioCompleto = await fetchUsuarioById(usuario.id);
 
-        setEditingUser(usuarioCompleto);
-        setNewUser((prev) => ({
-          ...prev,
+        console.log("📝 Cargando datos en el formulario:", {
           nombres: usuarioCompleto.nombres,
           ap_paterno: usuarioCompleto.ap_paterno,
           ap_materno: usuarioCompleto.ap_materno,
@@ -160,17 +182,30 @@ export default function UsuariosPage() {
           rol_id: usuarioCompleto.rol_id,
           sucursal_id: usuarioCompleto.sucursal_id,
           username: usuarioCompleto.username,
+        });
+
+        setEditingUser(usuarioCompleto);
+        setNewUser({
+          nombres: usuarioCompleto.nombres || "",
+          ap_paterno: usuarioCompleto.ap_paterno || "",
+          ap_materno: usuarioCompleto.ap_materno || "",
+          ci: usuarioCompleto.ci || "",
+          telefono: usuarioCompleto.telefono || "",
+          rol_id: usuarioCompleto.rol_id || 1,
+          sucursal_id: usuarioCompleto.sucursal_id || null,
+          username: usuarioCompleto.username || "",
           password: "********", // No mostrar la contraseña real
-        }));
+        });
 
         setShowForm(true);
       } catch (err) {
         setError(err.message);
+        console.error("❌ Error al abrir formulario de edición:", err);
       } finally {
-        setLoading(false);
+        setLoadingForm(false);
       }
     },
-    [fetchUsuarioById]
+    [fetchUsuarioById],
   );
 
   // Función para manejar el envío del formulario (memoizada)
@@ -192,15 +227,39 @@ export default function UsuariosPage() {
           nombres: newUser.nombres.trim(),
           ap_paterno: newUser.ap_paterno.trim(),
           ap_materno: newUser.ap_materno?.trim() || null,
-          ci: newUser.ci.trim(),
           telefono: newUser.telefono?.trim() || null,
           rol_id: newUser.rol_id,
           sucursal_id: newUser.rol_id === 2 ? newUser.sucursal_id : null,
-          password: newUser.password || newUser.ci,
         };
 
+        // Solo incluir password si es un nuevo usuario o si se modificó
         if (!editingUser) {
+          // Nuevo usuario: username = primera letra nombre + primera letra apellido + ci
+          userData.ci = newUser.ci.trim(); // CI solo al crear
           userData.username = newUser.username;
+          // Contraseña = CI
+          userData.password = newUser.ci;
+        } else {
+          // Usuario existente: verificar si cambió nombre o apellidos (el CI NO se puede cambiar)
+          const nombresChanged = editingUser.nombres !== newUser.nombres.trim();
+          const apellidoPaternoChanged =
+            editingUser.ap_paterno !== newUser.ap_paterno.trim();
+          const apellidoMaternoChanged =
+            editingUser.ap_materno !== (newUser.ap_materno?.trim() || null);
+
+          if (
+            nombresChanged ||
+            apellidoPaternoChanged ||
+            apellidoMaternoChanged
+          ) {
+            // Si cambió algún dato que afecta el username, actualizarlo
+            userData.username = newUser.username;
+          }
+
+          // Si la contraseña fue modificada manualmente (no es ********)
+          if (newUser.password && newUser.password !== "********") {
+            userData.password = newUser.password;
+          }
         }
 
         const response = await fetch(
@@ -214,33 +273,67 @@ export default function UsuariosPage() {
               Authorization: `Bearer ${Cookies.get("access_token")}`,
             },
             body: JSON.stringify(userData),
-          }
+          },
         );
+        await handleFetchResponse(response);
 
         if (!response.ok) {
           const errorData = await response.json();
           throw new Error(
-            errorData.detail || errorData.message || `Error ${response.status}`
+            errorData.detail || errorData.message || `Error ${response.status}`,
           );
         }
 
         const result = await response.json();
 
         if (editingUser) {
+          // Actualizar el usuario existente
           setUsuarios((prev) =>
-            prev.map((u) => (u.id === editingUser.id ? { ...u, ...result } : u))
+            prev.map((u) =>
+              u.id === editingUser.id
+                ? {
+                    ...u,
+                    nombres: result.nombres,
+                    apellidoPaterno: result.ap_paterno,
+                    apellidoMaterno: result.ap_materno,
+                    ci: result.ci,
+                    celular: result.telefono,
+                    rol: result.rol?.nombre || "Sin rol",
+                    sucursal: result.sucursal?.nombre || "",
+                    username: result.username,
+                  }
+                : u,
+            ),
           );
+          setSuccessMessage("Usuario actualizado exitosamente");
         } else {
-          setUsuarios((prev) => [...prev, result]);
+          // Agregar el nuevo usuario AL INICIO de la lista
+          const nuevoUsuarioMapeado = {
+            id: result.usuario_id,
+            usuario_id: result.usuario_id,
+            nombres: result.nombres,
+            apellidoPaterno: result.ap_paterno,
+            apellidoMaterno: result.ap_materno,
+            ci: result.ci,
+            celular: result.telefono,
+            rol: result.rol?.nombre || "Sin rol",
+            sucursal: result.sucursal?.nombre || "",
+            username: result.username,
+          };
+          setUsuarios((prev) => [nuevoUsuarioMapeado, ...prev]);
+          setSuccessMessage("Usuario creado exitosamente");
+          setCurrentPage(1); // Ir a la primera página para ver el nuevo usuario
         }
 
+        setTimeout(() => setSuccessMessage(null), 5000); // Ocultar después de 5 segundos
         setShowForm(false);
         resetForm();
+        setError(null);
       } catch (err) {
         setError(err.message);
       }
     },
-    [newUser, editingUser, resetForm]
+    [newUser, editingUser, resetForm],
   );
 
   // Funciones para manejar modales (memoizadas)
@@ -255,17 +348,35 @@ export default function UsuariosPage() {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `bearer ${Cookies.get("access_token")}`,
+          Authorization: `Bearer ${Cookies.get("access_token")}`,
         },
       });
+      await handleFetchResponse(response);
 
-      if (!response.ok) throw new Error("Error al eliminar usuario");
+      if (!response.ok) {
+        // Intentar obtener el mensaje de error del backend
+        let errorMessage = "No se puede eliminar este usuario";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.detail || errorData.message || errorMessage;
+        } catch (e) {
+          // Si no se puede parsear el JSON, usar mensaje genérico
+          errorMessage =
+            "Este usuario tiene datos relacionados (horarios, cursos, etc.) y no puede ser eliminado. Debe eliminar primero todas sus asignaciones.";
+        }
+        throw new Error(errorMessage);
+      }
 
       setUsuarios((prev) => prev.filter((u) => u.id !== userToDelete.id));
       setShowDeleteModal(false);
       setUserToDelete(null);
+      setError(null); // Limpiar cualquier error previo
+      setSuccessMessage("Usuario eliminado exitosamente");
+      setTimeout(() => setSuccessMessage(null), 5000); // Ocultar después de 5 segundos
     } catch (err) {
       setError(err.message);
+      setShowDeleteModal(false); // Cerrar modal para que el usuario vea el mensaje de error
+      setUserToDelete(null);
     }
   }, [userToDelete]);
 
@@ -279,7 +390,7 @@ export default function UsuariosPage() {
         setError(err.message);
       }
     },
-    [fetchUsuarioById]
+    [fetchUsuarioById],
   );
 
   // Efecto para cargar datos iniciales
@@ -292,15 +403,17 @@ export default function UsuariosPage() {
         const [usuariosRes, sucursalesRes] = await Promise.all([
           fetch(`${API_URL}/usuarios/`, {
             headers: {
-              Authorization: `bearer ${Cookies.get("access_token")}`,
+              Authorization: `Bearer ${Cookies.get("access_token")}`,
             },
           }),
           fetch(`${API_URL}/sucursales/`, {
             headers: {
-              Authorization: `bearer ${Cookies.get("access_token")}`,
+              Authorization: `Bearer ${Cookies.get("access_token")}`,
             },
           }),
         ]);
+        await handleFetchResponse(usuariosRes);
+        await handleFetchResponse(sucursalesRes);
 
         if (!usuariosRes.ok) throw new Error("Error al obtener usuarios");
         if (!sucursalesRes.ok) throw new Error("Error al obtener sucursales");
@@ -321,6 +434,9 @@ export default function UsuariosPage() {
           username: usuario.username,
         }));
 
+        // Ordenar por ID descendente para que los más recientes aparezcan primero
+        usuariosMapeados.sort((a, b) => b.id - a.id);
+
         setUsuarios(usuariosMapeados);
         setSucursales(sucursalesData);
       } catch (err) {
@@ -340,23 +456,23 @@ export default function UsuariosPage() {
       usuarios.filter((usuario) =>
         `${usuario.nombres} ${usuario.apellidoPaterno} ${usuario.apellidoMaterno} ${usuario.ci}`
           .toLowerCase()
-          .includes(searchTerm.toLowerCase())
+          .includes(searchTerm.toLowerCase()),
       ),
-    [usuarios, searchTerm]
+    [usuarios, searchTerm],
   );
 
   const paginatedUsuarios = useMemo(
     () =>
       filteredUsuarios.slice(
         (currentPage - 1) * recordsPerPage,
-        currentPage * recordsPerPage
+        currentPage * recordsPerPage,
       ),
-    [filteredUsuarios, currentPage, recordsPerPage]
+    [filteredUsuarios, currentPage, recordsPerPage],
   );
 
   const totalPages = useMemo(
     () => Math.ceil(filteredUsuarios.length / recordsPerPage),
-    [filteredUsuarios.length, recordsPerPage]
+    [filteredUsuarios.length, recordsPerPage],
   );
 
   // Manejador de búsqueda memoizado
@@ -389,6 +505,37 @@ export default function UsuariosPage() {
       />
 
       {error && <ErrorAlert error={error} onClose={() => setError(null)} />}
+
+      {successMessage && (
+        <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center justify-between">
+          <div className="flex items-center">
+            <svg
+              className="w-5 h-5 text-green-600 mr-3"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+            >
+              <path
+                fillRule="evenodd"
+                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                clipRule="evenodd"
+              />
+            </svg>
+            <span className="text-green-800 font-medium">{successMessage}</span>
+          </div>
+          <button
+            onClick={() => setSuccessMessage(null)}
+            className="text-green-600 hover:text-green-800"
+          >
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+              <path
+                fillRule="evenodd"
+                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </button>
+        </div>
+      )}
 
       <UsuariosTable
         usuarios={paginatedUsuarios}
@@ -435,6 +582,7 @@ export default function UsuariosPage() {
             setShowForm(false);
             resetForm();
           }}
+          loading={loadingForm}
         />
       )}
 
