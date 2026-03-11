@@ -17,6 +17,8 @@ export default function ModalInscripcionAlumno({
   const [error, setError] = useState(null);
   const [guardando, setGuardando] = useState(false);
   const [mensajeExito, setMensajeExito] = useState(null);
+  const [inscripcionesExistentes, setInscripcionesExistentes] = useState([]);
+  const [loadingInscripciones, setLoadingInscripciones] = useState(false);
 
   const API = "https://api-umam-1.onrender.com";
 
@@ -26,12 +28,15 @@ export default function ModalInscripcionAlumno({
 
     const loadAllData = async () => {
       setLoading(true);
+      setLoadingInscripciones(true);
       setError(null);
+      setInscripcionesExistentes([]);
+      setFilas([]);
       const token = Cookies.get("access_token");
 
       try {
-        // Cargar gestiones, sucursales y cursos en paralelo
-        const [gRes, sRes, cRes] = await Promise.all([
+        // Cargar gestiones, sucursales, cursos e inscripciones del estudiante en paralelo
+        const [gRes, sRes, cRes, iRes] = await Promise.all([
           fetch(`${API}/cursos/gestiones`, {
             headers: { Authorization: `Bearer ${token}` },
           }),
@@ -39,6 +44,9 @@ export default function ModalInscripcionAlumno({
             headers: { Authorization: `Bearer ${token}` },
           }),
           fetch(`${API}/cursos/`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          fetch(`${API}/inscripciones/estudiante/${estudiante.estudiante_id}`, {
             headers: { Authorization: `Bearer ${token}` },
           }),
         ]);
@@ -61,16 +69,23 @@ export default function ModalInscripcionAlumno({
         // Establecer gestión activa por defecto
         const gestionActiva = gData.find((g) => g.activo) || gData[0];
         setGestionActual(gestionActiva?.gestion_id);
+
+        // Cargar inscripciones existentes del estudiante
+        if (iRes.ok) {
+          const iData = await iRes.json();
+          setInscripcionesExistentes(Array.isArray(iData) ? iData : []);
+        }
       } catch (err) {
         console.error("Error cargando datos:", err);
         setError(err.message);
       } finally {
         setLoading(false);
+        setLoadingInscripciones(false);
       }
     };
 
     loadAllData();
-  }, [isOpen]);
+  }, [isOpen, estudiante]);
 
   const agregarFila = (esGestoria) => {
     setFilas([
@@ -247,6 +262,49 @@ export default function ModalInscripcionAlumno({
         <h2 className="text-xl font-bold mb-4">
           Inscribir Cursos - {estudiante.nombres} {estudiante.ap_paterno}
         </h2>
+
+        {/* Inscripciones existentes del estudiante */}
+        {loadingInscripciones ? (
+          <div className="mb-4 p-3 bg-gray-50 rounded text-gray-500 text-sm">
+            Cargando inscripciones actuales...
+          </div>
+        ) : inscripcionesExistentes.length > 0 ? (
+          <div className="mb-4">
+            <h3 className="text-sm font-semibold text-gray-700 mb-2">Inscripciones actuales de este estudiante:</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm border rounded">
+                <thead className="bg-gray-100">
+                  <tr>
+                    <th className="px-3 py-1 text-left border-b">Horario ID</th>
+                    <th className="px-3 py-1 text-left border-b">Gestión ID</th>
+                    <th className="px-3 py-1 text-left border-b">Estado</th>
+                    <th className="px-3 py-1 text-left border-b">Nota Final</th>
+                    <th className="px-3 py-1 text-left border-b">Fecha Matrícula</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {inscripcionesExistentes.map((insc, idx) => (
+                    <tr key={insc.matricula_id ?? idx} className="hover:bg-gray-50">
+                      <td className="px-3 py-1 border-b">{insc.horario_id}</td>
+                      <td className="px-3 py-1 border-b">{insc.gestion_id}</td>
+                      <td className="px-3 py-1 border-b">{insc.estado ?? '-'}</td>
+                      <td className="px-3 py-1 border-b">{insc.nota_final ?? '-'}</td>
+                      <td className="px-3 py-1 border-b">
+                        {insc.fecha_matricula
+                          ? new Date(insc.fecha_matricula).toLocaleDateString()
+                          : '-'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : (
+          <div className="mb-4 p-3 bg-gray-50 rounded text-gray-500 text-sm">
+            Este estudiante no tiene inscripciones actualmente.
+          </div>
+        )}
 
         {/* Mensajes de estado globales */}
         {loading && (
