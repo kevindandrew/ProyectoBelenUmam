@@ -20,7 +20,6 @@ export default function ModalInscripcionAlumno({
   const [error, setError] = useState(null);
   const [guardando, setGuardando] = useState(false);
   const [mensajeExito, setMensajeExito] = useState(null);
-  const [inscripcionesExistentes, setInscripcionesExistentes] = useState([]);
   const [loadingInscripciones, setLoadingInscripciones] = useState(false);
 
   const API = "https://api-umam-1.onrender.com";
@@ -50,10 +49,8 @@ export default function ModalInscripcionAlumno({
       const token = Cookies.get("access_token");
 
       try {
-        // Cargar gestiones, sucursales, cursos e inscripciones en paralelo
-        const [gRes, sRes, cRes, iRes] = await Promise.all([
-        // Cargar gestiones, sucursales, cursos e inscripciones del estudiante en paralelo
-        const [gRes, sRes, cRes, iRes] = await Promise.all([
+        // Cargar gestiones, sucursales y cursos en paralelo
+        const [gRes, sRes, cRes] = await Promise.all([
           fetch(`${API}/cursos/gestiones`, {
             headers: { Authorization: `Bearer ${token}` },
           }),
@@ -61,15 +58,6 @@ export default function ModalInscripcionAlumno({
             headers: { Authorization: `Bearer ${token}` },
           }),
           fetch(`${API}/cursos/`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          fetch(
-            `${API}/inscripciones/?estudiante_id=${estudiante.estudiante_id}`,
-            {
-              headers: { Authorization: `Bearer ${token}` },
-            },
-          ),
-          fetch(`${API}/inscripciones/estudiante/${estudiante.estudiante_id}`, {
             headers: { Authorization: `Bearer ${token}` },
           }),
         ]);
@@ -225,7 +213,6 @@ export default function ModalInscripcionAlumno({
       setInscripcionesExistentes([]);
     }
   }, [gestionActual, todasLasInscripciones]);
-  }, [isOpen, estudiante]);
 
   const agregarFila = (esGestoria) => {
     setFilas([
