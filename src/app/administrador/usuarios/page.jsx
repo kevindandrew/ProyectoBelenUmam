@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import Cookies from "js-cookie";
+import { usePageTitle } from "@/lib/usePageTitle";
 import UsuariosTable from "./components/UsuariosTable";
 import UsuarioFormModal from "./components/UsuarioFormModal";
 import DeleteConfirmationModal from "./components/DeleteConfirmationModal";
@@ -37,6 +38,7 @@ const handleFetchResponse = async (response) => {
 };
 
 export default function UsuariosPage() {
+  usePageTitle("Usuarios");
   // Estados agrupados por categoría
   const [loading, setLoading] = useState(true);
   const [loadingForm, setLoadingForm] = useState(false);
@@ -84,6 +86,11 @@ export default function UsuariosPage() {
   const handleInputChange = useCallback(
     (e) => {
       const { name, value } = e.target;
+      // Validar que name existe antes de usarlo
+      if (!name) {
+        console.warn("handleInputChange: name is undefined", e);
+        return;
+      }
       const finalValue = name.endsWith("_id") ? parseInt(value) || null : value;
 
       setNewUser((prev) => {
@@ -475,6 +482,11 @@ export default function UsuariosPage() {
     [filteredUsuarios.length, recordsPerPage],
   );
 
+  const startRowNumber = useMemo(
+    () => filteredUsuarios.length - (currentPage - 1) * recordsPerPage,
+    [filteredUsuarios.length, currentPage, recordsPerPage],
+  );
+
   // Manejador de búsqueda memoizado
   const handleSearch = useCallback((e) => {
     setSearchTerm(e.target.value);
@@ -543,6 +555,7 @@ export default function UsuariosPage() {
         onEdit={openEditForm}
         onDelete={openDeleteModal}
         onView={openViewModal}
+        startNumber={startRowNumber}
       />
 
       {filteredUsuarios.length > 0 && (

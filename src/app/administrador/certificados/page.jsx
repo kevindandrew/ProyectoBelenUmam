@@ -3,6 +3,8 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { jsPDF } from "jspdf";
 import Cookies from "js-cookie";
+import { usePageTitle } from "@/lib/usePageTitle";
+import { toast } from "react-toastify";
 
 const API_URL = "https://api-umam-1.onrender.com";
 
@@ -17,6 +19,7 @@ const handleFetchResponse = async (response) => {
 };
 
 export default function GeneradorCertificados() {
+  usePageTitle("Certificados");
   // Estado principal
   const [formData, setFormData] = useState({
     tipo: "TALLER",
@@ -397,7 +400,7 @@ export default function GeneradorCertificados() {
       doc.save(`certificados_${formData.curso.replace(/\s+/g, "_")}.pdf`);
     } catch (err) {
       console.error("Error al generar PDF:", err);
-      alert(err.message);
+      toast.error(err.message);
     }
   }, [formData, estudiantesApi, gestionSeleccionada]);
 

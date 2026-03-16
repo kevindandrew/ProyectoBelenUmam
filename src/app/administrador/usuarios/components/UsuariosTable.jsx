@@ -9,11 +9,13 @@ const TableRow = React.memo(({ usuario, numero, onEdit, onDelete, onView }) => {
   return (
     <tr className="hover:bg-gray-50">
       <td className="px-4 py-2 border-b">{numero}</td>
-      <td className="px-4 py-2 border-b">{usuario.nombres}</td>
-      <td className="px-4 py-2 border-b">
+      <td className="px-4 py-2 border-b" style={{ textTransform: "uppercase" }}>
+        {usuario.nombres}
+      </td>
+      <td className="px-4 py-2 border-b" style={{ textTransform: "uppercase" }}>
         {usuario.apellidoPaterno || usuario.ap_paterno}
       </td>
-      <td className="px-4 py-2 border-b">
+      <td className="px-4 py-2 border-b" style={{ textTransform: "uppercase" }}>
         {usuario.apellidoMaterno || usuario.ap_materno}
       </td>
       <td className="px-4 py-2 border-b">{usuario.ci}</td>
@@ -116,10 +118,11 @@ export default React.memo(function UsuariosTable({
   onEdit,
   onDelete,
   onView,
+  startNumber,
 }) {
   const usuariosOrdenados = useMemo(
     () => [...usuarios].sort((a, b) => b.usuario_id - a.usuario_id),
-    [usuarios]
+    [usuarios],
   );
 
   return (
@@ -155,7 +158,7 @@ export default React.memo(function UsuariosTable({
               <TableRow
                 key={usuario.usuario_id}
                 usuario={usuario}
-                numero={index + 1}
+                numero={startNumber ? startNumber - index : index + 1}
                 onEdit={onEdit}
                 onDelete={onDelete}
                 onView={onView}

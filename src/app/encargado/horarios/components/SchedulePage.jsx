@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { Download, Plus, Calendar, Clock } from "lucide-react";
+import { toast } from "react-toastify";
 import Dropdown from "./Dropdown";
 import ScheduleTable from "./ScheduleTable";
 import Modal from "./Modal";
@@ -374,7 +375,7 @@ const SchedulePage = () => {
       });
 
       if (horaExistente) {
-        alert(
+        toast.warning(
           `La hora ${hora_inicio.slice(0, 5)} - ${hora_fin.slice(0, 5)} ya existe`,
         );
         return;
@@ -388,12 +389,14 @@ const SchedulePage = () => {
       // Recargar las horas disponibles
       await fetchTimeSlots();
       setIsHourModalOpen(false);
-      alert(
+      toast.success(
         `Hora ${hora_inicio.slice(0, 5)} - ${hora_fin.slice(0, 5)} creada exitosamente`,
       );
     } catch (error) {
       console.error("Error creando hora:", error);
-      alert(`Error al crear la hora: ${error.message || "Intente nuevamente"}`);
+      toast.error(
+        `Error al crear la hora: ${error.message || "Intente nuevamente"}`,
+      );
     }
   };
 
@@ -414,7 +417,7 @@ const SchedulePage = () => {
       );
 
       if (horaEnUso) {
-        alert(
+        toast.warning(
           "No se puede eliminar esta hora porque está siendo usada en uno o más horarios",
         );
         setIsDeleteHourModalOpen(false);
@@ -430,10 +433,10 @@ const SchedulePage = () => {
       await fetchTimeSlots();
       setIsDeleteHourModalOpen(false);
       setHourToDelete(null);
-      alert("Hora eliminada exitosamente");
+      toast.success("Hora eliminada exitosamente");
     } catch (error) {
       console.error("Error eliminando hora:", error);
-      alert(
+      toast.error(
         `Error al eliminar la hora: ${error.message || "Intente nuevamente"}`,
       );
     } finally {
@@ -483,7 +486,7 @@ const SchedulePage = () => {
     );
 
     if (isBlocked) {
-      alert(
+      toast.warning(
         "Esta celda está marcada como NO DISPONIBLE. Desbloquéala primero para agregar un curso.",
       );
       return;
@@ -558,7 +561,7 @@ const SchedulePage = () => {
     } = formData;
 
     if (!schedules || schedules.length === 0) {
-      alert("Debe agregar al menos un horario (día + hora)");
+      toast.warning("Debe agregar al menos un horario (día + hora)");
       return;
     }
 
@@ -594,7 +597,7 @@ const SchedulePage = () => {
             body: JSON.stringify(payload),
           },
         );
-        alert("Horario actualizado exitosamente");
+        toast.success("Horario actualizado exitosamente");
       } else {
         // Crear nuevo horario
         await fetchWithAuth("https://api-umam-1.onrender.com/horarios/", {
@@ -610,12 +613,12 @@ const SchedulePage = () => {
             return `${dayName} ${s.time}`;
           })
           .join(", ");
-        alert(`Horario creado exitosamente: ${horariosStr}`);
+        toast.success(`Horario creado exitosamente: ${horariosStr}`);
         fetchHorarios();
       }
     } catch (err) {
       console.error("Error en submitNewCourse:", err);
-      alert(
+      toast.error(
         `Error al ${isEditingCourse ? "actualizar" : "crear"} horario: ${err.message || err}`,
       );
     }
@@ -1051,12 +1054,14 @@ const SchedulePage = () => {
 
                 // Validación
                 if (!horaInicio || !horaFin) {
-                  alert("Por favor, complete ambos campos");
+                  toast.warning("Por favor, complete ambos campos");
                   return;
                 }
 
                 if (horaInicio >= horaFin) {
-                  alert("La hora de inicio debe ser menor que la hora de fin");
+                  toast.warning(
+                    "La hora de inicio debe ser menor que la hora de fin",
+                  );
                   return;
                 }
 

@@ -1,11 +1,22 @@
-import Link from "next/link";
 import { cookies } from "next/headers";
-import LogoutButton from "@/components/LogoutButton";
 import { redirect } from "next/navigation";
+import AppShell from "@/components/AppShell";
 export const metadata = {
-  title: "Administrador | UMAM",
+  title: "UMAM - Administrador",
   description: "Panel del administrador",
 };
+
+const adminLinks = [
+  { href: "/administrador/usuarios", label: "Usuarios" },
+  { href: "/administrador/sucursales", label: "Sucursales" },
+  { href: "/administrador/cursos", label: "Cursos" },
+  { href: "/administrador/horarios", label: "Horarios" },
+  { href: "/administrador/estudiantes", label: "Estudiantes" },
+  { href: "/administrador/listas", label: "Listas" },
+  { href: "/administrador/reportes", label: "Reportes" },
+  { href: "/administrador/certificados", label: "Certificados" },
+  { href: "/administrador/backups", label: "Backups" },
+];
 
 async function getUserData() {
   const cookieStore = await cookies();
@@ -73,93 +84,13 @@ export default async function AdministradorLayout({ children }) {
   }
 
   return (
-    <div className="flex h-screen">
-      {/* Sidebar */}
-      <aside className="w-50 bg-slate-800 flex flex-col justify-between">
-        <div className="text-white">
-          <div className="p-4 text-2xl font-bold text-center border-b border-slate-700">
-            UMAM
-          </div>
-          <nav className="mt-4 space-y-2 font-sans">
-            <Link
-              href="/administrador/usuarios"
-              className="block px-6 py-2 hover:bg-teal-400"
-            >
-              Usuarios
-            </Link>
-            <Link
-              href="/administrador/sucursales"
-              className="block px-6 py-2 hover:bg-teal-400"
-            >
-              Sucursales
-            </Link>
-            <Link
-              href="/administrador/cursos"
-              className="block px-6 py-2 hover:bg-teal-400"
-            >
-              Cursos
-            </Link>
-            <Link
-              href="/administrador/horarios"
-              className="block px-6 py-2 hover:bg-teal-400"
-            >
-              Horarios
-            </Link>
-            <Link
-              href="/administrador/estudiantes"
-              className="block px-6 py-2 hover:bg-teal-400"
-            >
-              Estudiantes
-            </Link>
-            <Link
-              href="/administrador/listas"
-              className="block px-6 py-2 hover:bg-teal-400"
-            >
-              Listas
-            </Link>
-            <Link
-              href="/administrador/reportes"
-              className="block px-6 py-2 hover:bg-teal-400"
-            >
-              Reportes
-            </Link>
-            <Link
-              href="/administrador/certificados"
-              className="block px-6 py-2 hover:bg-teal-400"
-            >
-              Certificados
-            </Link>
-            <Link
-              href="/administrador/backups"
-              className="block px-6 py-2 hover:bg-teal-400"
-            >
-              Backups
-            </Link>
-          </nav>
-        </div>
-      </aside>
-
-      {/* Main content */}
-      <div className="flex-1 flex flex-col">
-        {/* Header */}
-        <header className="h-14 flex items-center justify-between px-6 border-b bg-white">
-          <span></span>
-          <div className="relative">
-            <button className="flex items-center text-sm text-gray-700 hover:text-gray-900 peer">
-              {nombreCompleto.toUpperCase()} ({cargo.toUpperCase()}) ▼
-            </button>
-            <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 hidden hover:block peer-focus:block">
-              <LogoutButton className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left" />
-            </div>
-          </div>
-        </header>
-        {/* Page Content */}
-        <main className="flex-1 overflow-auto bg-gray-100 p-6">{children}</main>
-        {/* Footer */}
-        <footer className="h-10 bg-slate-800 text-white text-sm flex items-center justify-center">
-          Copyright © 2025 BMSR - DASI All rights reserved. DASI - UINA
-        </footer>
-      </div>
-    </div>
+    <AppShell
+      links={adminLinks}
+      nombreCompleto={nombreCompleto}
+      cargo={cargo}
+      homeHref="/administrador"
+    >
+      {children}
+    </AppShell>
   );
 }

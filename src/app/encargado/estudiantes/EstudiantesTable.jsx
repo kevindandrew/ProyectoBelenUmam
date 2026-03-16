@@ -1,9 +1,12 @@
 "use client";
 import ActionButton from "./ActionButton";
 
+const EMPTY_ESTUDIANTES = [];
+
 export default function EstudiantesTable({
-  estudiantes = [],
+  estudiantes = EMPTY_ESTUDIANTES,
   loading = false,
+  startNumber,
   onViewAcademicHistory,
   onInscripcion,
   onViewPDF,
@@ -39,14 +42,9 @@ export default function EstudiantesTable({
     }
   };
 
-  // Filtrar y ordenar estudiantes por ID descendente (del último al primero)
-  const estudiantesValidos = estudiantes
-    .filter((est) => est && (est.id || est.estudiante_id || est.ci))
-    .sort((a, b) => {
-      const idA = a.estudiante_id || a.id || 0;
-      const idB = b.estudiante_id || b.id || 0;
-      return idB - idA; // Orden descendente
-    });
+  const estudiantesValidos = estudiantes.filter(
+    (est) => est && (est.id || est.estudiante_id || est.ci),
+  );
 
   // Handler seguro para acciones
   const createActionHandler = (action, estudiante) => (e) => {
@@ -91,18 +89,25 @@ export default function EstudiantesTable({
               const nombreCompleto = `${estudiante.nombres || ""} ${
                 estudiante.ap_paterno || ""
               }`.trim();
+              const registroVisible = startNumber
+                ? startNumber - index
+                : estudiantesValidos.length - index;
 
               return (
                 <tr key={uniqueKey} className="hover:bg-gray-50">
-                  <td className="px-4 py-2 border-b">
-                    {estudiantesValidos.length - index}
-                  </td>
-                  <td className="px-4 py-2 border-b">
+                  <td className="px-4 py-2 border-b">{registroVisible}</td>
+                  <td
+                    className="px-4 py-2 border-b"
+                    style={{ textTransform: "uppercase" }}
+                  >
                     {[estudiante.ap_paterno, estudiante.ap_materno]
                       .filter(Boolean)
                       .join(" ") || "N/A"}
                   </td>
-                  <td className="px-4 py-2 border-b">
+                  <td
+                    className="px-4 py-2 border-b"
+                    style={{ textTransform: "uppercase" }}
+                  >
                     {estudiante.nombres || "N/A"}
                   </td>
                   <td className="px-4 py-2 border-b">
@@ -131,7 +136,10 @@ export default function EstudiantesTable({
                   <td className="px-4 py-2 border-b flex items-center gap-2">
                     <ActionButton
                       onClick={onViewPDF}
-                      actionData={estudiante}
+                      actionData={{
+                        ...estudiante,
+                        registro_id: registroVisible,
+                      }}
                       icon="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
                       color="blue"
                       ariaLabel={`Ver PDF de ${nombreCompleto}`}

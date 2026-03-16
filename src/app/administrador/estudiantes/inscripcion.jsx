@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Cookies from "js-cookie";
 import { generarPDFInscripciones } from "./pdfInscripciones";
+import { toast } from "react-toastify";
 
 export default function ModalInscripcionAlumno({
   estudiante,
@@ -403,7 +404,7 @@ export default function ModalInscripcionAlumno({
 
   const handleGenerarPDF = () => {
     if (inscripcionesExistentes.length === 0) {
-      alert("No hay inscripciones para generar PDF");
+      toast.warning("No hay inscripciones para generar PDF");
       return;
     }
 

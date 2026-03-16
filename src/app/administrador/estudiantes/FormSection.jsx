@@ -9,9 +9,9 @@ export default function FormSection({ title, fields, className = "" }) {
         </h5>
       )}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {fields.map((field, index) => (
+        {fields.map((field) => (
           <div
-            key={index}
+            key={field.name}
             className={field.colSpan === 2 ? "md:col-span-2" : ""}
             style={field.hidden ? { display: "none" } : {}}
           >

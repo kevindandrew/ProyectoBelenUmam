@@ -2,6 +2,8 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 import { jsPDF } from "jspdf";
+import { usePageTitle } from "@/lib/usePageTitle";
+import { toast } from "react-toastify";
 
 // Datos de estudiantes por curso (simulados - en producción vendrían de una API)
 const estudiantesPorCurso = {
@@ -18,6 +20,7 @@ const estudiantesPorCurso = {
 };
 
 export default function GeneradorCertificados() {
+  usePageTitle("Certificados");
   // Estado principal
   const [formData, setFormData] = useState({
     tipo: "TALLER",
@@ -47,7 +50,7 @@ export default function GeneradorCertificados() {
 
   // Previsualización de imágenes
   const [previewFondo, setPreviewFondo] = useState(
-    fondosPredeterminados.TALLER
+    fondosPredeterminados.TALLER,
   );
 
   // Referencia para input de archivo
@@ -240,14 +243,14 @@ export default function GeneradorCertificados() {
   // Generar un solo PDF con todos los certificados del curso
   const generarPDFCursoCompleto = () => {
     if (!formData.curso) {
-      alert("Por favor seleccione un curso");
+      toast.warning("Por favor seleccione un curso");
       return;
     }
 
     const estudiantes = estudiantesPorCurso[formData.curso] || [];
     if (estudiantes.length === 0) {
-      alert(
-        `No hay estudiantes registrados para el curso de ${formData.curso}`
+      toast.warning(
+        `No hay estudiantes registrados para el curso de ${formData.curso}`,
       );
       return;
     }
@@ -285,15 +288,15 @@ export default function GeneradorCertificados() {
         newData.contenidoPersonalizado = prev.contenidoPersonalizado
           .replace(
             "[NOMBRE_CURSO]",
-            name === "curso" ? value : prev.curso || "[NOMBRE_CURSO]"
+            name === "curso" ? value : prev.curso || "[NOMBRE_CURSO]",
           )
           .replace(
             "[FECHA]",
-            name === "fecha" ? value : prev.fecha || "[FECHA]"
+            name === "fecha" ? value : prev.fecha || "[FECHA]",
           )
           .replace(
             "[AÑO]",
-            name === "añoCurricular" ? value : prev.añoCurricular || "[AÑO]"
+            name === "añoCurricular" ? value : prev.añoCurricular || "[AÑO]",
           );
       }
 
@@ -315,9 +318,7 @@ export default function GeneradorCertificados() {
 
   return (
     <div className="container mx-auto max-w-6xl">
-      <h1 className="text-3xl font-bold text-[#13678A] mb-6">
-        CERTIFICADOS
-      </h1>
+      <h1 className="text-3xl font-bold text-[#13678A] mb-6">CERTIFICADOS</h1>
 
       <div className="bg-white p-6 rounded-lg shadow-lg border border-gray-200">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -565,7 +566,7 @@ export default function GeneradorCertificados() {
                       <li key={index} className="py-1 border-b last:border-b-0">
                         {estudiante.nombre} - {estudiante.ci}
                       </li>
-                    )
+                    ),
                   )}
                 </ul>
               </div>

@@ -1,6 +1,9 @@
 "use client";
 import { useState, useEffect } from "react";
 import Cookies from "js-cookie";
+import { generarPDFLista } from "./pdfListas";
+import { usePageTitle } from "@/lib/usePageTitle";
+import { toast } from "react-toastify";
 
 const API_URL = "https://api-umam-1.onrender.com";
 
@@ -105,6 +108,7 @@ const EditarNota = ({ estudiante, onUpdate }) => {
 };
 
 export default function InscripcionesPage() {
+  usePageTitle("Listas");
   const [filtros, setFiltros] = useState({
     gestion_id: "",
     sucursal_id: "",
@@ -116,11 +120,13 @@ export default function InscripcionesPage() {
   const [sucursales, setSucursales] = useState([]);
   const [cursos, setCursos] = useState([]);
   const [profesores, setProfesores] = useState([]);
+  const [horarios, setHorarios] = useState([]);
   const [estudiantes, setEstudiantes] = useState([]);
   const [loading, setLoading] = useState({
     general: true,
     estudiantes: false,
     profesores: false,
+    horarios: false,
   });
   const [error, setError] = useState(null);
 
@@ -182,28 +188,69 @@ export default function InscripcionesPage() {
     loadInitialData();
   }, []);
 
-  // Cargar profesores cuando se selecciona una sucursal
+  // Cargar horarios cuando se selecciona curso, gestión y sucursal
   useEffect(() => {
-    const loadProfesores = async () => {
-      if (!filtros.sucursal_id) {
+    const loadHorarios = async () => {
+      if (!filtros.curso_id || !filtros.gestion_id || !filtros.sucursal_id) {
+        setHorarios([]);
         setProfesores([]);
         return;
       }
 
       try {
-        setLoading((prev) => ({ ...prev, profesores: true }));
-        const data = await fetchData(`${API_URL}/usuarios/?rol_id=3`);
-        setProfesores(data);
+        setLoading((prev) => ({ ...prev, horarios: true }));
+
+        // Obtener horarios del curso específico
+        const params = new URLSearchParams({
+          curso_id: filtros.curso_id,
+          sucursal_id: filtros.sucursal_id,
+          gestion_id: filtros.gestion_id,
+        });
+
+        const horariosData = await fetchData(
+          `${API_URL}/horarios/?${params.toString()}`,
+        );
+
+        console.log("Horarios recibidos:", horariosData);
+        if (horariosData && horariosData.length > 0) {
+          console.log("Primer horario (ejemplo):", horariosData[0]);
+        }
+
+        setHorarios(horariosData);
+
+        // Obtener profesores únicos de los horarios
+        if (horariosData && horariosData.length > 0) {
+          const profesoresIds = [
+            ...new Set(horariosData.map((h) => h.profesor_id)),
+          ].filter(Boolean);
+
+          if (profesoresIds.length > 0) {
+            // Obtener información completa de los profesores
+            const profesoresData = await fetchData(
+              `${API_URL}/usuarios/?rol_id=3`,
+            );
+            const profesoresFiltrados = profesoresData.filter((p) =>
+              profesoresIds.includes(p.usuario_id),
+            );
+            setProfesores(profesoresFiltrados);
+          } else {
+            setProfesores([]);
+          }
+        } else {
+          setProfesores([]);
+        }
       } catch (error) {
-        console.error("Error al cargar profesores:", error);
+        console.error("Error al cargar horarios:", error);
         setError(error.message);
+        setHorarios([]);
+        setProfesores([]);
       } finally {
-        setLoading((prev) => ({ ...prev, profesores: false }));
+        setLoading((prev) => ({ ...prev, horarios: false }));
       }
     };
 
-    loadProfesores();
-  }, [filtros.sucursal_id]);
+    loadHorarios();
+  }, [filtros.curso_id, filtros.gestion_id, filtros.sucursal_id]);
 
   // Obtener estudiantes cuando todos los filtros estén completos
   useEffect(() => {
@@ -235,7 +282,45 @@ export default function InscripcionesPage() {
           `${API_URL}/listas/estudiantes?${params.toString()}`,
         );
 
-        setEstudiantes(estudiantesData);
+        console.log("Estudiantes recibidos:", estudiantesData);
+        if (estudiantesData && estudiantesData.length > 0) {
+          console.log("Primer estudiante (ejemplo):", estudiantesData[0]);
+          console.log(
+            "Campos del primer estudiante:",
+            Object.keys(estudiantesData[0]),
+          );
+        }
+
+        // Enriquecer datos de estudiantes con fecha_nacimiento si no está incluida
+        if (estudiantesData && estudiantesData.length > 0) {
+          const estudiantesEnriquecidos = await Promise.all(
+            estudiantesData.map(async (est) => {
+              // Si ya tiene fecha_nacimiento, no necesitamos buscarla
+              if (est.fecha_nacimiento) {
+                return est;
+              }
+              // Obtener datos completos del estudiante
+              try {
+                const estudianteCompleto = await fetchData(
+                  `${API_URL}/estudiantes/${est.estudiante_id}`,
+                );
+                return {
+                  ...est,
+                  fecha_nacimiento: estudianteCompleto.fecha_nacimiento,
+                };
+              } catch (error) {
+                console.error(
+                  `Error al obtener datos completos del estudiante ${est.estudiante_id}:`,
+                  error,
+                );
+                return est;
+              }
+            }),
+          );
+          setEstudiantes(estudiantesEnriquecidos);
+        } else {
+          setEstudiantes(estudiantesData);
+        }
       } catch (error) {
         console.error("Error al cargar estudiantes:", error);
         setError(error.message);
@@ -323,6 +408,76 @@ export default function InscripcionesPage() {
     filtros.curso_id &&
     filtros.profesor_id;
 
+  // Función para generar el PDF de la lista
+  const handleGenerarPDF = () => {
+    if (!estudiantes || estudiantes.length === 0) {
+      toast.warning("No hay estudiantes para generar el PDF");
+      return;
+    }
+
+    // Obtener información del horario para el curso y profesor seleccionados
+    let horarioTexto = "Sin especificar";
+
+    console.log("Generando PDF con horarios:", horarios);
+    console.log("Profesor seleccionado:", filtros.profesor_id);
+
+    if (horarios && horarios.length > 0) {
+      const horarioEncontrado = horarios.find(
+        (h) => h.profesor_id === parseInt(filtros.profesor_id),
+      );
+
+      if (horarioEncontrado) {
+        console.log("Horario encontrado para el profesor:", horarioEncontrado);
+        const dias = [];
+        if (horarioEncontrado.lunes === true || horarioEncontrado.lunes === 1)
+          dias.push("Lunes");
+        if (horarioEncontrado.martes === true || horarioEncontrado.martes === 1)
+          dias.push("Martes");
+        if (
+          horarioEncontrado.miercoles === true ||
+          horarioEncontrado.miercoles === 1
+        )
+          dias.push("Miércoles");
+        if (horarioEncontrado.jueves === true || horarioEncontrado.jueves === 1)
+          dias.push("Jueves");
+        if (
+          horarioEncontrado.viernes === true ||
+          horarioEncontrado.viernes === 1
+        )
+          dias.push("Viernes");
+        if (horarioEncontrado.sabado === true || horarioEncontrado.sabado === 1)
+          dias.push("Sábado");
+        if (
+          horarioEncontrado.domingo === true ||
+          horarioEncontrado.domingo === 1
+        )
+          dias.push("Domingo");
+
+        console.log("Días encontrados:", dias);
+
+        const diasTexto =
+          dias.length > 0 ? dias.join(", ") : "Sin días específicos";
+        const horaInicio = horarioEncontrado.hora_inicio || "";
+        const horaFin = horarioEncontrado.hora_fin || "";
+        const horaTxt =
+          horaInicio && horaFin ? `${horaInicio} - ${horaFin}` : "";
+
+        horarioTexto = `${diasTexto}${horaTxt ? ` (${horaTxt})` : ""}`;
+      }
+    }
+
+    // Preparar la información del grupo
+    const infoGrupo = {
+      curso: getNombreCurso(filtros.curso_id),
+      sucursal: getNombreSucursal(filtros.sucursal_id),
+      facilitador: getNombreProfesor(filtros.profesor_id),
+      horario: horarioTexto,
+      gestion: getNombreGestion(filtros.gestion_id),
+    };
+
+    generarPDFLista(estudiantes, infoGrupo);
+  };
+
   return (
     <div className="p-4">
       <h1 className="text-3xl font-bold text-[#13678A] border-b pb-2 mb-4">
@@ -339,8 +494,11 @@ export default function InscripcionesPage() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         {/* Selector de Gestión */}
         <div>
-          <label className="block mb-1 font-semibold">Gestión</label>
+          <label htmlFor="gestion-select" className="block mb-1 font-semibold">
+            Gestión
+          </label>
           <select
+            id="gestion-select"
             value={filtros.gestion_id}
             onChange={(e) =>
               setFiltros((prev) => ({ ...prev, gestion_id: e.target.value }))
@@ -359,8 +517,11 @@ export default function InscripcionesPage() {
 
         {/* Selector de Sucursal */}
         <div>
-          <label className="block mb-1 font-semibold">Sucursal</label>
+          <label htmlFor="sucursal-select" className="block mb-1 font-semibold">
+            Sucursal
+          </label>
           <select
+            id="sucursal-select"
             value={filtros.sucursal_id}
             onChange={(e) =>
               setFiltros((prev) => ({
@@ -385,11 +546,18 @@ export default function InscripcionesPage() {
 
         {/* Selector de Curso */}
         <div>
-          <label className="block mb-1 font-semibold">Curso</label>
+          <label htmlFor="curso-select" className="block mb-1 font-semibold">
+            Curso
+          </label>
           <select
+            id="curso-select"
             value={filtros.curso_id}
             onChange={(e) =>
-              setFiltros((prev) => ({ ...prev, curso_id: e.target.value }))
+              setFiltros((prev) => ({
+                ...prev,
+                curso_id: e.target.value,
+                profesor_id: "",
+              }))
             }
             className="w-full border rounded px-3 py-2"
             disabled={
@@ -407,18 +575,22 @@ export default function InscripcionesPage() {
 
         {/* Selector de Profesor */}
         <div>
-          <label className="block mb-1 font-semibold">Profesor</label>
+          <label htmlFor="profesor-select" className="block mb-1 font-semibold">
+            Profesor
+          </label>
           <select
+            id="profesor-select"
             value={filtros.profesor_id}
             onChange={(e) =>
               setFiltros((prev) => ({ ...prev, profesor_id: e.target.value }))
             }
             className="w-full border rounded px-3 py-2"
             disabled={
-              loading.profesores ||
+              loading.horarios ||
               profesores.length === 0 ||
               !filtros.curso_id ||
-              !filtros.sucursal_id
+              !filtros.sucursal_id ||
+              !filtros.gestion_id
             }
           >
             <option value="">Seleccione un profesor</option>
@@ -468,42 +640,79 @@ export default function InscripcionesPage() {
               <p>Cargando estudiantes...</p>
             </div>
           ) : todosFiltrosSeleccionados && estudiantes.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="min-w-full border">
-                <thead className="bg-gray-200">
-                  <tr>
-                    <th className="border px-3 py-2">Nombres</th>
-                    <th className="border px-3 py-2">Apellido Paterno</th>
-                    <th className="border px-3 py-2">Apellido Materno</th>
-                    <th className="border px-3 py-2">CI</th>
-                    <th className="border px-3 py-2">Teléfono</th>
-                    <th className="border px-3 py-2">Nota Final</th>
-                    <th className="border px-3 py-2">Estado</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {estudiantes.map((est) => (
-                    <tr
-                      key={est.estudiante_id}
-                      className="odd:bg-white even:bg-gray-50"
-                    >
-                      <td className="border px-3 py-2">{est.nombres}</td>
-                      <td className="border px-3 py-2">{est.ap_paterno}</td>
-                      <td className="border px-3 py-2">{est.ap_materno}</td>
-                      <td className="border px-3 py-2">{est.ci}</td>
-                      <td className="border px-3 py-2">{est.telefono}</td>
-                      <td className="border px-3 py-2">
-                        <EditarNota
-                          estudiante={est}
-                          onUpdate={actualizarNota}
-                        />
-                      </td>
-                      <td className="border px-3 py-2">{est.estado}</td>
+            <>
+              <div className="mb-4 flex justify-end">
+                <button
+                  onClick={handleGenerarPDF}
+                  className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded shadow flex items-center gap-2"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-5 w-5"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6zm5 6a1 1 0 10-2 0v3.586l-1.293-1.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V8z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  Generar PDF
+                </button>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full border">
+                  <thead className="bg-gray-200">
+                    <tr>
+                      <th className="border px-3 py-2">Nombres</th>
+                      <th className="border px-3 py-2">Apellido Paterno</th>
+                      <th className="border px-3 py-2">Apellido Materno</th>
+                      <th className="border px-3 py-2">CI</th>
+                      <th className="border px-3 py-2">Teléfono</th>
+                      <th className="border px-3 py-2">Nota Final</th>
+                      <th className="border px-3 py-2">Estado</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {estudiantes.map((est) => (
+                      <tr
+                        key={est.estudiante_id}
+                        className="odd:bg-white even:bg-gray-50"
+                      >
+                        <td
+                          className="border px-3 py-2"
+                          style={{ textTransform: "uppercase" }}
+                        >
+                          {est.nombres}
+                        </td>
+                        <td
+                          className="border px-3 py-2"
+                          style={{ textTransform: "uppercase" }}
+                        >
+                          {est.ap_paterno}
+                        </td>
+                        <td
+                          className="border px-3 py-2"
+                          style={{ textTransform: "uppercase" }}
+                        >
+                          {est.ap_materno}
+                        </td>
+                        <td className="border px-3 py-2">{est.ci}</td>
+                        <td className="border px-3 py-2">{est.telefono}</td>
+                        <td className="border px-3 py-2">
+                          <EditarNota
+                            estudiante={est}
+                            onUpdate={actualizarNota}
+                          />
+                        </td>
+                        <td className="border px-3 py-2">{est.estado}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           ) : todosFiltrosSeleccionados && estudiantes.length === 0 ? (
             <div className="text-center py-8 text-gray-600">
               No se encontraron estudiantes con los filtros seleccionados
