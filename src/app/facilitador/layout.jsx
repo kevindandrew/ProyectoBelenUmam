@@ -1,11 +1,12 @@
-import Link from "next/link";
 import { cookies } from "next/headers";
-import LogoutButton from "@/components/LogoutButton";
 import { redirect } from "next/navigation";
+import AppShell from "@/components/AppShell";
 export const metadata = {
-  title: "Administrador | UMAM",
-  description: "Panel del administrador",
+  title: "UMAM - Facilitador",
+  description: "Panel del facilitador",
 };
+
+const facilitadorLinks = [{ href: "/facilitador/listas", label: "Listas" }];
 
 async function getUserData() {
   const cookieStore = await cookies();
@@ -67,45 +68,13 @@ export default async function AdministradorLayout({ children }) {
   }
 
   return (
-    <div className="flex h-screen">
-      {/* Sidebar */}
-      <aside className="w-50 bg-slate-800 flex flex-col justify-between">
-        <div className="text-white">
-          <div className="p-4 text-2xl font-bold text-center border-b border-slate-700">
-            UMAM
-          </div>
-          <nav className="mt-4 space-y-2 font-sans">
-            <Link
-              href="/facilitador/listas"
-              className="block px-6 py-2 hover:bg-teal-400"
-            >
-              Listas
-            </Link>
-          </nav>
-        </div>
-      </aside>
-
-      {/* Main content */}
-      <div className="flex-1 flex flex-col">
-        {/* Header */}
-        <header className="h-14 flex items-center justify-between px-6 border-b bg-white">
-          <span></span>
-          <div className="relative">
-            <button className="flex items-center text-sm text-gray-700 hover:text-gray-900 peer">
-              {nombreCompleto.toUpperCase()} ({cargo.toUpperCase()}) ▼
-            </button>
-            <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 hidden hover:block peer-focus:block">
-              <LogoutButton className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left" />
-            </div>
-          </div>
-        </header>
-        {/* Page Content */}
-        <main className="flex-1 overflow-auto bg-gray-100 p-6">{children}</main>
-        {/* Footer */}
-        <footer className="h-10 bg-slate-800 text-white text-sm flex items-center justify-center">
-          Copyright © 2025 BMSR - DASI All rights reserved. DASI - UINA
-        </footer>
-      </div>
-    </div>
+    <AppShell
+      links={facilitadorLinks}
+      nombreCompleto={nombreCompleto}
+      cargo={cargo}
+      homeHref="/facilitador"
+    >
+      {children}
+    </AppShell>
   );
 }

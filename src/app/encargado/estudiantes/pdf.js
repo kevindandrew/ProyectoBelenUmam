@@ -36,6 +36,11 @@ function extraerDireccion(direccionCompleta) {
 export const generarFichaEstudiante = async (estudiante) => {
   if (typeof window === "undefined") return;
   const fechaFormateada = formatoDDMMYYYY(estudiante.fecha_registro);
+  const numeroRegistro =
+    estudiante?.registro_id ??
+    estudiante?.estudiante_id ??
+    estudiante?.id ??
+    "";
 
   const pdfMake = (await import("pdfmake/build/pdfmake")).default;
   const pdfFonts = await import("pdfmake/build/vfs_fonts");
@@ -157,7 +162,7 @@ export const generarFichaEstudiante = async (estudiante) => {
                 margin: [2, 3, 2, 3],
               },
               {
-                text: estudiante.estudiante_id,
+                text: numeroRegistro,
                 fontSize: 9,
                 margin: [2, 3, 2, 3],
               },

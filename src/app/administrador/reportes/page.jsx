@@ -2,6 +2,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import Cookies from "js-cookie";
+import { usePageTitle } from "@/lib/usePageTitle";
 
 const API_URL = "https://api-umam-1.onrender.com";
 
@@ -16,6 +17,7 @@ const handleFetchResponse = async (response) => {
 };
 
 export default function DashboardUMAM() {
+  usePageTitle("Reportes");
   // Filtros dinámicos
   const [sucursales, setSucursales] = useState([]);
   const [gestiones, setGestiones] = useState([]);

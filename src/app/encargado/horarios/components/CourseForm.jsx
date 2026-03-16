@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
+import { toast } from "react-toastify";
 
 const CourseForm = ({
   onSubmit,
@@ -88,16 +89,16 @@ const CourseForm = ({
       !formData.is_unavailable &&
       (!formData.curso_id || !formData.profesor_id)
     ) {
-      alert("Por favor, completa todos los campos obligatorios");
+      toast.warning("Por favor, completa todos los campos obligatorios");
       return;
     }
     if (!formData.classroom) {
-      alert("Por favor, selecciona un aula");
+      toast.warning("Por favor, selecciona un aula");
       return;
     }
     // Validar que al menos un horario esté configurado
     if (formData.schedules.length === 0) {
-      alert("Por favor, agrega al menos un horario (día + hora)");
+      toast.warning("Por favor, agrega al menos un horario (día + hora)");
       return;
     }
     onSubmit(formData);

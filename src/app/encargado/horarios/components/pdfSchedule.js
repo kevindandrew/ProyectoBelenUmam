@@ -1,3 +1,4 @@
+import { toast } from "react-toastify";
 let pdfMake;
 if (typeof window !== "undefined") {
   pdfMake = require("pdfmake/build/pdfmake");
@@ -17,7 +18,7 @@ export function generateSchedulePDF({
   gestion = "",
 }) {
   if (!pdfMake) {
-    alert("La generación de PDF solo está disponible en el navegador.");
+    toast.warning("La generación de PDF solo está disponible en el navegador.");
     return;
   }
 

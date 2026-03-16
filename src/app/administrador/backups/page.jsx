@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Cookies from "js-cookie";
+import { usePageTitle } from "@/lib/usePageTitle";
 import {
   FiDownload,
   FiTrash2,
@@ -13,6 +14,7 @@ import {
 const API_BASE = "https://api-umam-1.onrender.com/backups";
 
 export default function BackupsPage() {
+  usePageTitle("Backups");
   const [backups, setBackups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);

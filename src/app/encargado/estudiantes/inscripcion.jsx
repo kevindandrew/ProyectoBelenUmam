@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Cookies from "js-cookie";
 import { generarPDFInscripciones } from "./pdfInscripciones";
+import { toast } from "react-toastify";
 
 export default function ModalInscripcionAlumno({
   estudiante,
@@ -418,7 +419,7 @@ export default function ModalInscripcionAlumno({
 
   const handleGenerarPDF = () => {
     if (inscripcionesExistentes.length === 0) {
-      alert("No hay inscripciones para generar PDF");
+      toast.warning("No hay inscripciones para generar PDF");
       return;
     }
 
@@ -458,7 +459,9 @@ export default function ModalInscripcionAlumno({
           </div>
         ) : inscripcionesExistentes.length > 0 ? (
           <div className="mb-4">
-            <h3 className="text-sm font-semibold text-gray-700 mb-2">Inscripciones actuales de este estudiante:</h3>
+            <h3 className="text-sm font-semibold text-gray-700 mb-2">
+              Inscripciones actuales de este estudiante:
+            </h3>
             <div className="overflow-x-auto">
               <table className="w-full text-sm border rounded">
                 <thead className="bg-gray-100">
@@ -467,20 +470,29 @@ export default function ModalInscripcionAlumno({
                     <th className="px-3 py-1 text-left border-b">Gestión ID</th>
                     <th className="px-3 py-1 text-left border-b">Estado</th>
                     <th className="px-3 py-1 text-left border-b">Nota Final</th>
-                    <th className="px-3 py-1 text-left border-b">Fecha Matrícula</th>
+                    <th className="px-3 py-1 text-left border-b">
+                      Fecha Matrícula
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {inscripcionesExistentes.map((insc, idx) => (
-                    <tr key={insc.matricula_id ?? idx} className="hover:bg-gray-50">
+                    <tr
+                      key={insc.matricula_id ?? idx}
+                      className="hover:bg-gray-50"
+                    >
                       <td className="px-3 py-1 border-b">{insc.horario_id}</td>
                       <td className="px-3 py-1 border-b">{insc.gestion_id}</td>
-                      <td className="px-3 py-1 border-b">{insc.estado ?? '-'}</td>
-                      <td className="px-3 py-1 border-b">{insc.nota_final ?? '-'}</td>
+                      <td className="px-3 py-1 border-b">
+                        {insc.estado ?? "-"}
+                      </td>
+                      <td className="px-3 py-1 border-b">
+                        {insc.nota_final ?? "-"}
+                      </td>
                       <td className="px-3 py-1 border-b">
                         {insc.fecha_matricula
                           ? new Date(insc.fecha_matricula).toLocaleDateString()
-                          : '-'}
+                          : "-"}
                       </td>
                     </tr>
                   ))}

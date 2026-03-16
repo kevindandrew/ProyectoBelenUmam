@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import Cookies from "js-cookie";
+import { usePageTitle } from "@/lib/usePageTitle";
+import { toast } from "react-toastify";
 
 const API_URL = "https://api-umam-1.onrender.com";
 
@@ -15,7 +17,48 @@ const handleFetchResponse = async (response) => {
   return response;
 };
 
+// Componentes de iconos
+const EditIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    fill="none"
+    viewBox="0 0 24 24"
+    strokeWidth={2}
+    stroke="currentColor"
+    className="w-5 h-5"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M16.862 4.487a2.062 2.062 0 112.91 2.91l-9.193 9.193a2.062 2.062 0 01-1.035.556l-3.47.694a.516.516 0 01-.605-.605l.694-3.47a2.062 2.062 0 01.556-1.035l9.193-9.193z"
+    />
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M19.5 7.5l-1.25 1.25"
+    />
+  </svg>
+);
+
+const DeleteIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    fill="none"
+    viewBox="0 0 24 24"
+    strokeWidth={2}
+    stroke="currentColor"
+    className="w-5 h-5"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M6 18L18 6M6 6l12 12"
+    />
+  </svg>
+);
+
 export default function SucursalesPage() {
+  usePageTitle("Sucursales");
   const [modalOpen, setModalOpen] = useState(false);
   const [sucursales, setSucursales] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -191,7 +234,7 @@ export default function SucursalesPage() {
       setEditingAula(null);
     } catch (error) {
       console.error("Error al actualizar aula:", error);
-      alert(`Error al actualizar aula: ${error.message}`);
+      toast.error(`Error al actualizar aula: ${error.message}`);
     }
   };
   const deleteAula = async (aulaId) => {
@@ -216,7 +259,7 @@ export default function SucursalesPage() {
       setAulasSeleccionadas((prev) => prev.filter((a) => a.aula_id !== aulaId));
     } catch (error) {
       console.error("Error al eliminar aula:", error);
-      alert(`Error al eliminar aula: ${error.message}`);
+      toast.error(`Error al eliminar aula: ${error.message}`);
     }
   };
 
@@ -271,7 +314,7 @@ export default function SucursalesPage() {
       setModalOpen(false);
     } catch (error) {
       // Mostrar error al usuario
-      alert("Ocurrió un error al guardar la sucursal");
+      toast.error("Ocurrió un error al guardar la sucursal");
     }
   };
 
@@ -313,7 +356,7 @@ export default function SucursalesPage() {
 
   const handleCreateAula = async () => {
     if (!nombreAula.trim() || !capacidadAula.trim()) {
-      alert("Por favor, complete todos los campos.");
+      toast.warning("Por favor, complete todos los campos.");
       return;
     }
 
@@ -326,7 +369,7 @@ export default function SucursalesPage() {
       await createAula(sucursalSeleccionada.sucursal_id, aulaData);
     } catch (error) {
       console.error("Error al crear aula:", error);
-      alert(`Error al crear aula: ${error.message}`);
+      toast.error(`Error al crear aula: ${error.message}`);
     }
   };
 
@@ -348,7 +391,7 @@ export default function SucursalesPage() {
       setDeleteModalOpen(false);
       setSucursalToDelete(null);
     } catch (error) {
-      alert("Ocurrió un error al eliminar la sucursal");
+      toast.error("Ocurrió un error al eliminar la sucursal");
     }
   };
   // Cancelar eliminación
@@ -356,46 +399,6 @@ export default function SucursalesPage() {
     setDeleteModalOpen(false);
     setSucursalToDelete(null);
   };
-
-  // Íconos SVG
-  const EditIcon = () => (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      strokeWidth={2}
-      stroke="currentColor"
-      className="w-5 h-5"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M16.862 4.487a2.062 2.062 0 112.91 2.91l-9.193 9.193a2.062 2.062 0 01-1.035.556l-3.47.694a.516.516 0 01-.605-.605l.694-3.47a2.062 2.062 0 01.556-1.035l9.193-9.193z"
-      />
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M19.5 7.5l-1.25 1.25"
-      />
-    </svg>
-  );
-
-  const DeleteIcon = () => (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      strokeWidth={2}
-      stroke="currentColor"
-      className="w-5 h-5"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M6 18L18 6M6 6l12 12"
-      />
-    </svg>
-  );
 
   const normalizeAula = (aula) => {
     return {
@@ -597,7 +600,9 @@ export default function SucursalesPage() {
                                 ),
                               );
                             } catch (error) {
-                              alert("Ocurrió un error al eliminar el aula");
+                              toast.error(
+                                "Ocurrió un error al eliminar el aula",
+                              );
                             }
                           }}
                           className="text-red-500 hover:underline"
@@ -791,7 +796,7 @@ export default function SucursalesPage() {
                     });
                     setEditingAula(null);
                   } catch (error) {
-                    alert("Ocurrió un error al actualizar el aula");
+                    toast.error("Ocurrió un error al actualizar el aula");
                   }
                 }}
                 className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"

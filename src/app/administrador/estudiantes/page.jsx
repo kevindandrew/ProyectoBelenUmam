@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useState, useMemo } from "react";
 import Cookies from "js-cookie";
+import { usePageTitle } from "@/lib/usePageTitle";
+import { toast } from "react-toastify";
 import { generarFichaEstudiante } from "./pdf";
 import HistorialAcademicoModal from "./historial";
 import ModalInscripcionAlumno from "./inscripcion";
@@ -21,7 +23,20 @@ const handleFetchResponse = async (response) => {
   return response;
 };
 
+const deleteEstudianteWithFallback = async (estudianteId, token) => {
+  return fetch(`/api/estudiantes/${estudianteId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+};
+
+const getEstudianteId = (estudiante) =>
+  estudiante?.estudiante_id ?? estudiante?.id ?? null;
+
 export default function EstudiantesPage() {
+  usePageTitle("Estudiantes");
   // Dentro de tu componente EstudiantesPage (arriba de los demás estados)
   const [showOCRModal, setShowOCRModal] = useState(false);
   const [ocrLoading, setOcrLoading] = useState(false);
@@ -33,6 +48,7 @@ export default function EstudiantesPage() {
   const [estudiantes, setEstudiantes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
   const [showForm, setShowForm] = useState(false);
   const [editingEstudiante, setEditingEstudiante] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -356,7 +372,7 @@ export default function EstudiantesPage() {
   // Función unificada para procesar imágenes
   const procesarCarnet = async () => {
     if (!ocrImages.anverso || !ocrImages.reverso) {
-      alert("Sube ambas imágenes del carnet");
+      toast.warning("Sube ambas imágenes del carnet");
       return;
     }
 
@@ -453,7 +469,7 @@ export default function EstudiantesPage() {
       setShowOCRModal(false);
     } catch (error) {
       console.error("Error en OCR:", error);
-      alert("Error al leer el carnet. Sube una foto más clara");
+      toast.error("Error al leer el carnet. Sube una foto más clara");
     } finally {
       setOcrLoading(false);
     }
@@ -487,7 +503,10 @@ export default function EstudiantesPage() {
   }, []);
 
   // Función para manejar búsqueda
-  const handleSearch = (e) => setSearchTerm(e.target.value);
+  const handleSearch = (e) => {
+    setSearchTerm(e.target.value);
+    setCurrentPage(1);
+  };
 
   // Funciones para abrir modales
   const openAcademicHistoryModal = (estudiante) => {
@@ -584,6 +603,11 @@ export default function EstudiantesPage() {
   // Manejar cambios en los inputs
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
+    // Validar que name existe antes de usarlo
+    if (!name) {
+      console.warn("handleInputChange: name is undefined", e);
+      return;
+    }
     let actualValue = type === "checkbox" ? checked : value;
 
     if (name === "ci" || name === "telefono" || name.includes("telefono")) {
@@ -667,17 +691,17 @@ export default function EstudiantesPage() {
     );
 
     if (missingFields.length > 0) {
-      alert(`Faltan campos requeridos: ${missingFields.join(", ")}`);
+      toast.warning(`Faltan campos requeridos: ${missingFields.join(", ")}`);
       return false;
     }
 
     if (!/^\d{5,10}$/.test(newEstudiante.ci)) {
-      alert("El CI debe tener 7 u 8 dígitos");
+      toast.warning("El CI debe tener 7 u 8 dígitos");
       return false;
     }
 
     if (newEstudiante.telefono && !/^\d{6,15}$/.test(newEstudiante.telefono)) {
-      alert("El teléfono debe tener entre 6 y 15 dígitos");
+      toast.warning("El teléfono debe tener entre 6 y 15 dígitos");
       return false;
     }
 
@@ -760,7 +784,7 @@ export default function EstudiantesPage() {
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         console.error("Error del backend:", errorData);
-        alert(`Error: ${JSON.stringify(errorData, null, 2)}`);
+        toast.error(`Error: ${JSON.stringify(errorData, null, 2)}`);
         throw new Error(errorData.message || "Error al guardar");
       }
 
@@ -776,7 +800,7 @@ export default function EstudiantesPage() {
       resetForm();
     } catch (error) {
       console.error("Error:", error);
-      alert(`Error al guardar: ${error.message}`);
+      toast.error(`Error al guardar: ${error.message}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -784,21 +808,23 @@ export default function EstudiantesPage() {
 
   // Manejar eliminación de estudiantes
   const openDeleteModal = (estudiante) => {
-    if (!estudiante?.estudiante_id) {
+    const estudianteId = getEstudianteId(estudiante);
+    if (!estudianteId) {
       console.error("Estudiante sin ID recibido:", estudiante);
       return;
     }
-    setEstudianteToDelete(estudiante);
+    setEstudianteToDelete({ ...estudiante, estudiante_id: estudianteId });
     setShowDeleteModal(true);
   };
 
   const confirmDelete = async () => {
-    if (!estudianteToDelete?.estudiante_id) {
+    const estudianteId = getEstudianteId(estudianteToDelete);
+    if (!estudianteId) {
       console.error(
         "Intento de eliminar estudiante inválido:",
         estudianteToDelete,
       );
-      alert("Error: No se pudo identificar el estudiante a eliminar");
+      toast.error("Error: No se pudo identificar el estudiante a eliminar");
       setShowDeleteModal(false);
       return;
     }
@@ -813,25 +839,13 @@ export default function EstudiantesPage() {
         );
       }
 
-      console.log(
-        `🗑️ Intentando eliminar estudiante ID: ${estudianteToDelete.estudiante_id}`,
-      );
-      console.log(
-        `📡 URL: ${API_URL}/estudiantes/${estudianteToDelete.estudiante_id}`,
-      );
+      console.log(`🗑️ Intentando eliminar estudiante ID: ${estudianteId}`);
+      console.log(`📡 URL: ${API_URL}/estudiantes/${estudianteId}`);
       console.log(
         `🔑 Token: ${token ? "Sí (" + token.substring(0, 20) + "...)" : "No"}`,
       );
 
-      const response = await fetch(
-        `${API_URL}/estudiantes/${estudianteToDelete.estudiante_id}`,
-        {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      );
+      const response = await deleteEstudianteWithFallback(estudianteId, token);
 
       console.log(
         `📥 Respuesta recibida: ${response.status} ${response.statusText}`,
@@ -842,12 +856,18 @@ export default function EstudiantesPage() {
       if (!response.ok) {
         let errorMessage = `Error HTTP: ${response.status}`;
         try {
-          const errorData = await response.json();
+          const rawError = await response.text();
+          const errorData = rawError ? JSON.parse(rawError) : {};
           errorMessage = errorData.detail || errorData.message || errorMessage;
-          console.error("❌ Error del servidor:", errorData);
         } catch (parseError) {
           console.warn("⚠️ No se pudo parsear la respuesta de error");
         }
+
+        if (response.status === 500 && errorMessage === `Error HTTP: 500`) {
+          errorMessage =
+            "El servidor no pudo eliminar el estudiante. Intenta nuevamente o verifica si tiene registros relacionados.";
+        }
+
         throw new Error(errorMessage);
       }
 
@@ -855,38 +875,24 @@ export default function EstudiantesPage() {
 
       // Actualizar estado optimizado
       setEstudiantes((prev) =>
-        prev.filter(
-          (e) => e.estudiante_id !== estudianteToDelete.estudiante_id,
-        ),
+        prev.filter((e) => getEstudianteId(e) !== estudianteId),
       );
       setShowDeleteModal(false);
       setEstudianteToDelete(null);
-      alert("✅ Estudiante eliminado exitosamente");
+      toast.success("✅ Estudiante eliminado exitosamente");
     } catch (error) {
-      console.error("❌ Error al eliminar:", error);
-      console.error("❌ Tipo de error:", error.name);
-      console.error("❌ Mensaje:", error.message);
-
-      // Manejar errores de red (TypeError con "fetch")
-      if (error.name === "TypeError" && error.message.includes("fetch")) {
-        alert(
-          "❌ No se pudo conectar con el servidor.\n\n" +
-            "Posibles causas:\n" +
-            "• El servidor está en modo sleep (Render.com) - espera 30 segundos\n" +
-            "• Problema de CORS con el método DELETE\n" +
-            "• Sin conexión a internet\n\n" +
-            "💡 Intenta nuevamente en 30 segundos.",
-        );
-      } else if (error.message.includes("401")) {
-        alert("Sesión expirada. Por favor, inicia sesión nuevamente.");
+      if (error.message.includes("401")) {
+        toast.warning("Sesión expirada. Por favor, inicia sesión nuevamente.");
       } else if (error.message.includes("403")) {
-        alert("No tienes permisos para eliminar estudiantes.");
+        toast.error("No tienes permisos para realizar esta acción.");
       } else if (error.message.includes("422")) {
-        alert(
-          "No se puede eliminar el estudiante porque tiene registros relacionados.",
+        toast.error(
+          "No se pudo eliminar. El estudiante tiene registros relacionados.",
         );
       } else {
-        alert(`Error al eliminar: ${error.message}`);
+        toast.error(
+          "No se pudo realizar la acción. Comuníquese con el administrador.",
+        );
       }
     } finally {
       setIsDeleting(false);
@@ -902,6 +908,38 @@ export default function EstudiantesPage() {
     );
   }, [estudiantes, searchTerm]);
 
+  const recordsPerPage = 10;
+
+  const sortedFilteredEstudiantes = useMemo(
+    () =>
+      [...filteredEstudiantes].sort((a, b) => {
+        const idA = a.estudiante_id || a.id || 0;
+        const idB = b.estudiante_id || b.id || 0;
+        return idB - idA;
+      }),
+    [filteredEstudiantes],
+  );
+
+  const totalPages = useMemo(
+    () =>
+      Math.max(1, Math.ceil(sortedFilteredEstudiantes.length / recordsPerPage)),
+    [sortedFilteredEstudiantes.length],
+  );
+
+  const paginatedEstudiantes = useMemo(
+    () =>
+      sortedFilteredEstudiantes.slice(
+        (currentPage - 1) * recordsPerPage,
+        currentPage * recordsPerPage,
+      ),
+    [sortedFilteredEstudiantes, currentPage],
+  );
+
+  const startRowNumber = useMemo(
+    () => sortedFilteredEstudiantes.length - (currentPage - 1) * recordsPerPage,
+    [sortedFilteredEstudiantes.length, currentPage],
+  );
+
   // Renderizado del componente
   return (
     <div className="text-gray-900 relative p-4">
@@ -916,10 +954,10 @@ export default function EstudiantesPage() {
           <select
             id="registros"
             className="border border-gray-300 rounded px-2 py-1 text-sm"
+            value={recordsPerPage}
+            disabled
           >
-            <option>10</option>
-            <option>25</option>
-            <option>50</option>
+            <option value={10}>10</option>
           </select>
           <span className="text-sm">registros</span>
         </div>
@@ -981,22 +1019,44 @@ export default function EstudiantesPage() {
         </button>
       </div>
       <EstudiantesTable
-        estudiantes={filteredEstudiantes}
+        estudiantes={paginatedEstudiantes}
         loading={loading}
+        startNumber={startRowNumber}
         onViewAcademicHistory={openAcademicHistoryModal}
         onInscripcion={openInscripcionModal}
         onViewPDF={generarFichaEstudiante}
         onEdit={openEditForm}
         onDelete={(estudiante) => openDeleteModal(estudiante)}
       />
-      <div className="flex justify-end items-center gap-4 mt-4">
-        <button className="text-sm text-gray-500 hover:text-black">
-          Anterior
-        </button>
-        <button className="text-sm text-gray-500 hover:text-black">
-          Siguiente
-        </button>
-      </div>
+
+      {sortedFilteredEstudiantes.length > 0 && (
+        <div className="flex justify-between items-center mt-4">
+          <span className="text-sm text-gray-600">
+            Mostrando {(currentPage - 1) * recordsPerPage + 1} a{" "}
+            {Math.min(
+              currentPage * recordsPerPage,
+              sortedFilteredEstudiantes.length,
+            )}{" "}
+            de {sortedFilteredEstudiantes.length} registros
+          </span>
+          <div className="flex gap-1">
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-1 border rounded disabled:opacity-50"
+            >
+              Anterior
+            </button>
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1 border rounded disabled:opacity-50"
+            >
+              Siguiente
+            </button>
+          </div>
+        </div>
+      )}
       {/* Modales */}
       {isHistorialOpen && (
         <HistorialAcademicoModal

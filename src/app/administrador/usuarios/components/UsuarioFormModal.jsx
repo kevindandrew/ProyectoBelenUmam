@@ -239,7 +239,21 @@ function FormField({
             const regex = /^[0-9\b]+$/;
             if (!regex.test(e.target.value)) return;
           }
-          onChange(e);
+
+          // Convertir a mayúsculas para campos de texto (excepto username)
+          if (type === "text" && name !== "username") {
+            const upperValue = e.target.value.toUpperCase();
+            onChange({
+              ...e,
+              target: {
+                ...e.target,
+                name: name,
+                value: upperValue,
+              },
+            });
+          } else {
+            onChange(e);
+          }
         }}
         readOnly={readOnly}
         required={required}
@@ -247,6 +261,11 @@ function FormField({
         className={`w-full border rounded px-3 py-2 ${
           readOnly ? "bg-gray-100" : ""
         }`}
+        style={
+          type === "text" && name !== "username"
+            ? { textTransform: "uppercase" }
+            : {}
+        }
       />
     </div>
   );

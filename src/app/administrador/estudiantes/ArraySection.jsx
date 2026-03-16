@@ -1,9 +1,12 @@
 "use client";
 
+const EMPTY_ITEMS = [];
+const EMPTY_FIELDS = [];
+
 export default function ArraySection({
   title,
-  items = [],
-  fields = [],
+  items = EMPTY_ITEMS,
+  fields = EMPTY_FIELDS,
   onAdd,
   onRemove,
   onInputChange,

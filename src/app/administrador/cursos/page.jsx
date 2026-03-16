@@ -1,6 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
 import Cookies from "js-cookie";
+import { usePageTitle } from "@/lib/usePageTitle";
+import { toast } from "react-toastify";
 
 const handleFetchResponse = async (response) => {
   if (response.status === 401) {
@@ -53,6 +55,7 @@ const DeleteIcon = () => (
 );
 
 export default function CursosPage() {
+  usePageTitle("Cursos");
   const API_URL = "https://api-umam-1.onrender.com/cursos";
   const [cursos, setCursos] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -98,12 +101,12 @@ export default function CursosPage() {
     const nombreValido = formData.nombre.trim();
 
     if (nombreValido.length === 0) {
-      alert("El nombre del curso no puede estar vacío.");
+      toast.warning("El nombre del curso no puede estar vacío.");
       return;
     }
 
     if (nombreValido.length > 100) {
-      alert("El nombre del curso no puede superar los 100 caracteres.");
+      toast.warning("El nombre del curso no puede superar los 100 caracteres.");
       return;
     }
 
@@ -147,7 +150,7 @@ export default function CursosPage() {
 
       cerrarModal();
     } catch (error) {
-      alert(error.message);
+      toast.error(error.message);
     }
   };
 
@@ -168,7 +171,7 @@ export default function CursosPage() {
 
       setCursos(cursos.filter((curso) => curso.curso_id !== id));
     } catch (error) {
-      alert(error.message);
+      toast.error(error.message);
     }
   };
 

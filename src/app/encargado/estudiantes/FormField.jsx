@@ -1,10 +1,12 @@
+const EMPTY_OPTIONS = [];
+
 export default function FormField({
   type = "text",
   name,
   label,
   value,
   onChange,
-  options = [],
+  options = EMPTY_OPTIONS,
   required = false,
   placeholder = "",
   disabled = false,
@@ -38,8 +40,8 @@ export default function FormField({
           {...props}
         >
           <option value="">Seleccione...</option>
-          {options.map((option, index) => (
-            <option key={index} value={option}>
+          {options.map((option) => (
+            <option key={option} value={option}>
               {option}
             </option>
           ))}
@@ -48,11 +50,22 @@ export default function FormField({
         <textarea
           name={name}
           value={value || ""}
-          onChange={onChange}
+          onChange={(e) => {
+            const upperValue = e.target.value.toUpperCase();
+            onChange({
+              ...e,
+              target: {
+                ...e.target,
+                name: name,
+                value: upperValue,
+              },
+            });
+          }}
           required={required}
           disabled={disabled}
           placeholder={placeholder}
           className="w-full border rounded px-3 py-2"
+          style={{ textTransform: "uppercase" }}
           {...props}
         />
       ) : type === "checkbox" ? (
@@ -77,13 +90,33 @@ export default function FormField({
           type={type}
           name={name}
           value={value || ""}
-          onChange={onChange}
+          onChange={(e) => {
+            // Convertir a mayúsculas solo para campos de texto
+            if (type === "text" && !["ci", "telefono"].includes(name)) {
+              const upperValue = e.target.value.toUpperCase();
+              onChange({
+                ...e,
+                target: {
+                  ...e.target,
+                  name: name,
+                  value: upperValue,
+                },
+              });
+            } else {
+              onChange(e);
+            }
+          }}
           required={required}
           disabled={disabled}
           placeholder={placeholder}
           className="w-full border rounded px-3 py-2"
           inputMode={inputMode}
           pattern={pattern}
+          style={
+            type === "text" && !["ci", "telefono"].includes(name)
+              ? { textTransform: "uppercase" }
+              : {}
+          }
           {...props}
         />
       )}

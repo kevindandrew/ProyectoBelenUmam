@@ -377,7 +377,7 @@ const SchedulePage = () => {
       });
 
       if (horaExistente) {
-        alert(
+        toast.warning(
           `La hora ${hora_inicio.slice(0, 5)} - ${hora_fin.slice(0, 5)} ya existe`,
         );
         return;
@@ -391,12 +391,14 @@ const SchedulePage = () => {
       // Recargar las horas disponibles
       await fetchTimeSlots();
       setIsHourModalOpen(false);
-      alert(
+      toast.success(
         `Hora ${hora_inicio.slice(0, 5)} - ${hora_fin.slice(0, 5)} creada exitosamente`,
       );
     } catch (error) {
       console.error("Error creando hora:", error);
-      alert(`Error al crear la hora: ${error.message || "Intente nuevamente"}`);
+      toast.error(
+        `Error al crear la hora: ${error.message || "Intente nuevamente"}`,
+      );
     }
   };
 
@@ -417,7 +419,7 @@ const SchedulePage = () => {
       );
 
       if (horaEnUso) {
-        alert(
+        toast.warning(
           "No se puede eliminar esta hora porque está siendo usada en uno o más horarios",
         );
         setIsDeleteHourModalOpen(false);
@@ -433,10 +435,10 @@ const SchedulePage = () => {
       await fetchTimeSlots();
       setIsDeleteHourModalOpen(false);
       setHourToDelete(null);
-      alert("Hora eliminada exitosamente");
+      toast.success("Hora eliminada exitosamente");
     } catch (error) {
       console.error("Error eliminando hora:", error);
-      alert(
+      toast.error(
         `Error al eliminar la hora: ${error.message || "Intente nuevamente"}`,
       );
     } finally {
@@ -491,7 +493,7 @@ const SchedulePage = () => {
     const isBlocked = isCellBlocked(time, day, classroom);
 
     if (isBlocked) {
-      alert(
+      toast.warning(
         "Esta celda está marcada como NO DISPONIBLE. Desbloqúeala primero para agregar un curso.",
       );
       return;
@@ -511,7 +513,7 @@ const SchedulePage = () => {
   // Función para bloquear/desbloquear una celda - AHORA GUARDA EN EL BACKEND
   const toggleBlockCell = async (time, day, classroom) => {
     if (!selectedGestion?.value || !selectedSucursal?.value) {
-      alert("Seleccione una gestión y sucursal primero");
+      toast.warning("Seleccione una gestión y sucursal primero");
       return;
     }
 
@@ -536,7 +538,7 @@ const SchedulePage = () => {
 
           // Recargar horarios
           await fetchHorarios();
-          alert("Horario desbloqueado exitosamente");
+          toast.success("Horario desbloqueado exitosamente");
         }
       } else {
         // Bloquear: crear un nuevo horario "NO DISPONIBLE" en el backend
@@ -582,8 +584,8 @@ const SchedulePage = () => {
         }
 
         if (!cursNoDisponible || !profesorNoDisponible) {
-          alert(
-            "⚠️ Necesita tener al menos un curso y un profesor registrado.\n\nRecomendación: Cree un curso llamado 'NO DISPONIBLE' y un usuario facilitador llamado 'Sistema' para marcar horarios bloqueados.",
+          toast.warning(
+            "Necesita tener al menos un curso y un profesor registrado. Recomendación: Cree un curso llamado 'NO DISPONIBLE' y un usuario facilitador llamado 'Sistema' para marcar horarios bloqueados.",
           );
           return;
         }
@@ -616,11 +618,11 @@ const SchedulePage = () => {
 
         // Recargar horarios
         await fetchHorarios();
-        alert("✅ Horario marcado como NO DISPONIBLE");
+        toast.success("✅ Horario marcado como NO DISPONIBLE");
       }
     } catch (err) {
       console.error("Error al bloquear/desbloquear celda:", err);
-      alert(`Error: ${err.message || err}`);
+      toast.error(`Error: ${err.message || err}`);
     }
   };
 
@@ -635,7 +637,7 @@ const SchedulePage = () => {
     } = formData;
 
     if (!schedules || schedules.length === 0) {
-      alert("Debe agregar al menos un horario (día + hora)");
+      toast.warning("Debe agregar al menos un horario (día + hora)");
       return;
     }
 
@@ -673,7 +675,7 @@ const SchedulePage = () => {
             body: JSON.stringify(payload),
           },
         );
-        alert("Horario actualizado exitosamente");
+        toast.success("Horario actualizado exitosamente");
       } else {
         // Crear nuevo horario
         await fetchWithAuth("https://api-umam-1.onrender.com/horarios/", {
@@ -689,7 +691,7 @@ const SchedulePage = () => {
             return `${dayName} ${s.time}`;
           })
           .join(", ");
-        alert(`Horario creado exitosamente: ${horariosStr}`);
+        toast.success(`Horario creado exitosamente: ${horariosStr}`);
       }
       setIsModalOpen(false);
       setCourseFormData(null);
@@ -698,7 +700,7 @@ const SchedulePage = () => {
       fetchHorarios();
     } catch (err) {
       console.error("Error en submitNewCourse:", err);
-      alert(
+      toast.error(
         `Error al ${isEditingCourse ? "actualizar" : "crear"} horario: ${err.message || err}`,
       );
     }
@@ -1134,12 +1136,14 @@ const SchedulePage = () => {
 
                 // Validación
                 if (!horaInicio || !horaFin) {
-                  alert("Por favor, complete ambos campos");
+                  toast.warning("Por favor, complete ambos campos");
                   return;
                 }
 
                 if (horaInicio >= horaFin) {
-                  alert("La hora de inicio debe ser menor que la hora de fin");
+                  toast.warning(
+                    "La hora de inicio debe ser menor que la hora de fin",
+                  );
                   return;
                 }
 
