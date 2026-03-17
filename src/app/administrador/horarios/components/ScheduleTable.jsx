@@ -10,6 +10,7 @@ const ScheduleTable = ({
   onCellClick,
   onDeleteCourse,
   onEditCourse,
+  onEditTimeSlot,
   onToggleBlockCell,
   isCellBlocked,
 }) => {
@@ -59,7 +60,11 @@ const ScheduleTable = ({
                         rowSpan={availableClassrooms.length}
                         className="px-4 py-3 text-sm font-bold text-gray-900 bg-blue-50 border-r border-gray-200 sticky left-0 z-10 align-top"
                       >
-                        <div className="bg-blue-600 text-white px-3 py-2 rounded-lg font-semibold text-center shadow-sm">
+                        <div
+                          onClick={() => onEditTimeSlot?.(time)}
+                          className="bg-blue-600 text-white px-3 py-2 rounded-lg font-semibold text-center shadow-sm cursor-pointer hover:bg-blue-700 transition-colors"
+                          title="Clic para cambiar esta hora por una ya creada"
+                        >
                           {time}
                         </div>
                       </td>
