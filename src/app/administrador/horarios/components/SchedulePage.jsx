@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { Download, Plus, Calendar, Clock } from "lucide-react";
+import { toast } from "react-toastify";
 import Dropdown from "./Dropdown";
 import ScheduleTable from "./ScheduleTable";
 import Modal from "./Modal";
@@ -23,6 +24,7 @@ const SchedulePage = () => {
   const [errorSucursales, setErrorSucursales] = useState(null);
   const [classroomsBySucursal, setClassroomsBySucursal] = useState({});
   const [timeSlots, setTimeSlots] = useState([]);
+  const [horariosRaw, setHorariosRaw] = useState([]);
   const [days, setDays] = useState([]);
   const [courses, setCourses] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -51,6 +53,9 @@ const SchedulePage = () => {
   // Nuevos estados para manejar horas
   const [selectedHourToRender, setSelectedHourToRender] = useState(null);
   const [isHourModalOpen, setIsHourModalOpen] = useState(false);
+  const [isEditHourModalOpen, setIsEditHourModalOpen] = useState(false);
+  const [hourToEdit, setHourToEdit] = useState(null);
+  const [targetHourId, setTargetHourId] = useState("");
   const [hourToDelete, setHourToDelete] = useState(null);
   const [isDeleteHourModalOpen, setIsDeleteHourModalOpen] = useState(false);
   const [isDeletingHour, setIsDeletingHour] = useState(false);
@@ -239,6 +244,7 @@ const SchedulePage = () => {
       const data = await fetchWithAuth(
         `https://api-umam-1.onrender.com/horarios/?gestion_id=${selectedGestion.value}&sucursal_id=${selectedSucursal.value}`,
       );
+      setHorariosRaw(data);
 
       const formattedCourses = data.flatMap((horario) => {
         const curso = availableSubjects.find(
@@ -408,6 +414,78 @@ const SchedulePage = () => {
     setIsDeleteHourModalOpen(true);
   };
 
+  const handleEditHour = (hour) => {
+    if (!hour) return;
+    setHourToEdit(hour);
+    setTargetHourId("");
+    setIsEditHourModalOpen(true);
+  };
+
+  const submitEditHour = async () => {
+    if (!hourToEdit) return;
+    if (!targetHourId) {
+      toast.warning("Seleccione una hora de reemplazo");
+      return;
+    }
+
+    if (parseInt(targetHourId, 10) === hourToEdit.id) {
+      toast.warning("Seleccione una hora diferente");
+      return;
+    }
+
+    try {
+      const targetHour = timeSlots.find(
+        (slot) => slot.id === parseInt(targetHourId, 10),
+      );
+      if (!targetHour) {
+        toast.error("No se encontró la hora de reemplazo seleccionada");
+        return;
+      }
+
+      await fetchWithAuth(
+        `https://api-umam-1.onrender.com/horarios/horas/${hourToEdit.id}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            hora_inicio: targetHour.rawData.hora_inicio,
+            hora_fin: targetHour.rawData.hora_fin,
+          }),
+        },
+      );
+
+      await fetchTimeSlots();
+      await fetchHorarios();
+
+      if (selectedHourToRender?.id === hourToEdit.id) {
+        setSelectedHourToRender(targetHour);
+      }
+
+      toast.success("Hora reasignada exitosamente");
+      closeEditHourModal();
+    } catch (error) {
+      console.error("Error reasignando hora:", error);
+      toast.error(
+        `Error al reasignar la hora: ${error.message || "Intente nuevamente"}`,
+      );
+    }
+  };
+
+  const targetHourOptions = timeSlots.filter(
+    (slot) => slot.id !== hourToEdit?.id,
+  );
+
+  const confirmEditHourSelection = async (e) => {
+    e.preventDefault();
+    await submitEditHour();
+  };
+
+  const closeEditHourModal = () => {
+    setIsEditHourModalOpen(false);
+    setHourToEdit(null);
+    setTargetHourId("");
+  };
+
   const confirmDeleteHour = async () => {
     if (!hourToDelete) return;
 
@@ -451,18 +529,19 @@ const SchedulePage = () => {
     (timeSlot) => !courses.some((course) => course.time === timeSlot.label),
   );
 
-  const filteredTimeSlots = selectedHourToRender
-    ? [
-        ...new Set([
-          ...timeSlots.filter((timeSlot) =>
-            courses.some((course) => course.time === timeSlot.label),
-          ),
-          selectedHourToRender,
-        ]),
-      ]
-    : timeSlots.filter((timeSlot) =>
-        courses.some((course) => course.time === timeSlot.label),
-      );
+  const usedTimeSlotLabels = [
+    ...new Set(
+      timeSlots
+        .filter((timeSlot) =>
+          courses.some((course) => course.time === timeSlot.label),
+        )
+        .map((timeSlot) => timeSlot.label),
+    ),
+  ];
+
+  const filteredTimeSlots = selectedHourToRender?.label
+    ? [...new Set([...usedTimeSlotLabels, selectedHourToRender.label])]
+    : usedTimeSlotLabels;
 
   // Handlers existentes
   const handleSucursalChange = async (sucursal) => {
@@ -484,12 +563,10 @@ const SchedulePage = () => {
   };
 
   const handleCellClick = (time, day, classroom) => {
-    // Verifica que classroom tenga el formato correcto
     if (!classroom || !classroom.value) {
       return;
     }
 
-    // Verificar si la celda está bloqueada usando la función que revisa en el backend
     const isBlocked = isCellBlocked(time, day, classroom);
 
     if (isBlocked) {
@@ -501,7 +578,7 @@ const SchedulePage = () => {
 
     setCourseFormData({
       time,
-      days: [day], // Pre-marcar el día para que el formulario lo use
+      days: [day],
       classroom: classroom.value,
       classroomObject: classroom,
       curso_id: "",
@@ -518,7 +595,6 @@ const SchedulePage = () => {
     }
 
     try {
-      // Buscar si ya existe un horario "NO DISPONIBLE" en esta celda
       const existingCourse = courses.find(
         (c) =>
           c.time === time &&
@@ -528,26 +604,22 @@ const SchedulePage = () => {
       );
 
       if (existingCourse) {
-        // Desbloquear: eliminar el horario del backend
-        const horarioId = existingCourse.id.split("-")[0]; // Extraer horario_id
+        const horarioId = existingCourse.id.split("-")[0];
 
         if (confirm("¿Desea desbloquear este horario?")) {
           await fetchWithAuthDelete(
             `https://api-umam-1.onrender.com/horarios/${horarioId}`,
           );
 
-          // Recargar horarios
           await fetchHorarios();
           toast.success("Horario desbloqueado exitosamente");
         }
       } else {
-        // Bloquear: crear un nuevo horario "NO DISPONIBLE" en el backend
         const hora = timeSlots.find((h) => h.label === time);
         if (!hora) {
           throw new Error(`Hora inválida: ${time}`);
         }
 
-        // Buscar un curso especial llamado "NO DISPONIBLE" o similar
         let cursNoDisponible = availableSubjects.find(
           (c) =>
             c.nombre &&
@@ -556,7 +628,6 @@ const SchedulePage = () => {
               c.nombre.toUpperCase().includes("OCUPADO")),
         );
 
-        // Si no existe, usar el primer curso disponible (temporal)
         if (!cursNoDisponible && availableSubjects.length > 0) {
           cursNoDisponible = availableSubjects[0];
           console.warn(
@@ -564,7 +635,6 @@ const SchedulePage = () => {
           );
         }
 
-        // Buscar un profesor "Sistema" o "No Disponible"
         let profesorNoDisponible = availableProfessors.find((p) => {
           const nombreCompleto =
             `${p.nombres} ${p.ap_paterno || ""} ${p.ap_materno || ""}`.toUpperCase();
@@ -575,7 +645,6 @@ const SchedulePage = () => {
           );
         });
 
-        // Si no existe, usar el primer profesor disponible (temporal)
         if (!profesorNoDisponible && availableProfessors.length > 0) {
           profesorNoDisponible = availableProfessors[0];
           console.warn(
@@ -616,7 +685,6 @@ const SchedulePage = () => {
           body: JSON.stringify(payload),
         });
 
-        // Recargar horarios
         await fetchHorarios();
         toast.success("✅ Horario marcado como NO DISPONIBLE");
       }
@@ -1013,7 +1081,7 @@ const SchedulePage = () => {
               // Importar dinámicamente la función para evitar problemas SSR
               const { generateSchedulePDF } = await import("./pdfSchedule");
               generateSchedulePDF({
-                timeSlots: filteredTimeSlots.map((t) => t.label),
+                timeSlots: filteredTimeSlots,
                 availableClassrooms: selectedSucursal?.value
                   ? classroomsBySucursal[selectedSucursal.value] || []
                   : [],
@@ -1055,7 +1123,7 @@ const SchedulePage = () => {
         {selectedGestion?.value ? (
           <ScheduleTable
             courses={courses}
-            timeSlots={filteredTimeSlots.map((t) => t.label)}
+            timeSlots={filteredTimeSlots}
             days={days}
             availableClassrooms={
               selectedSucursal?.value
@@ -1065,6 +1133,10 @@ const SchedulePage = () => {
             onCellClick={handleCellClick}
             onDeleteCourse={handleDeleteCourse}
             onEditCourse={handleEditCourse}
+            onEditTimeSlot={(timeLabel) => {
+              const hour = timeSlots.find((h) => h.label === timeLabel);
+              handleEditHour(hour);
+            }}
             onToggleBlockCell={toggleBlockCell}
             isCellBlocked={isCellBlocked}
           />
@@ -1190,6 +1262,52 @@ const SchedulePage = () => {
                   className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
                 >
                   Crear Hora
+                </button>
+              </div>
+            </form>
+          </div>
+        </Modal>
+
+        {/* Modal para editar hora */}
+        <Modal isOpen={isEditHourModalOpen} onClose={closeEditHourModal}>
+          <div className="p-6">
+            <h2 className="text-xl font-bold mb-4">Cambiar Hora</h2>
+            <p className="text-sm text-gray-600 mb-3">
+              Hora actual:{" "}
+              <span className="font-semibold">{hourToEdit?.label}</span>
+            </p>
+            <form onSubmit={confirmEditHourSelection}>
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-1">
+                  Cambiar por una hora ya creada
+                </label>
+                <select
+                  value={targetHourId}
+                  onChange={(e) => setTargetHourId(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-md"
+                  required
+                >
+                  <option value="">Seleccione una hora</option>
+                  {targetHourOptions.map((slot) => (
+                    <option key={slot.id} value={slot.id}>
+                      {slot.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={closeEditHourModal}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                >
+                  Cambiar Hora
                 </button>
               </div>
             </form>
