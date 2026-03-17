@@ -622,8 +622,43 @@ const SchedulePage = () => {
     );
   };
 
+  const submitNewCourse = async (formData) => {
+    const {
+      curso_id,
+      profesor_id,
+      classroom,
+      schedules,
+      horario_id,
+      is_unavailable,
+    } = formData;
+
+    if (!schedules || schedules.length === 0) {
+      toast.warning("Debe agregar al menos un horario (día + hora)");
+      return;
+    }
+
+    try {
+      const dias_clase = schedules.map((schedule) => {
+        const hora = timeSlots.find((h) => h.label === schedule.time);
+        if (!hora) {
+          throw new Error(`Hora inválida: ${schedule.time}`);
+        }
+        return {
+          dia_semana_id: parseInt(schedule.day),
+          hora_id: hora.id,
+        };
+      });
+
+      const payload = {
+        curso_id: is_unavailable ? null : parseInt(curso_id),
+        aula_id: parseInt(classroom),
+        profesor_id: is_unavailable ? null : parseInt(profesor_id),
+        gestion_id: parseInt(selectedGestion.value),
+        activo: true,
+        dias_clase,
+      };
+
       if (isEditingCourse && horario_id) {
-        // Editar horario existente
         await fetchWithAuth(
           `https://api-umam-1.onrender.com/horarios/${horario_id}`,
           {
@@ -634,14 +669,12 @@ const SchedulePage = () => {
         );
         toast.success("Horario actualizado exitosamente");
       } else {
-        // Crear nuevo horario
         await fetchWithAuth("https://api-umam-1.onrender.com/horarios/", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
 
-        // Mostrar mensaje con los horarios creados
         const horariosStr = schedules
           .map((s) => {
             const dayName = days.find((d) => d.id === parseInt(s.day))?.name;
@@ -1154,14 +1187,12 @@ const SchedulePage = () => {
         </Modal>
 
         {/* Modal para editar hora */}
-        <Modal
-          isOpen={isEditHourModalOpen}
-          onClose={closeEditHourModal}
-        >
+        <Modal isOpen={isEditHourModalOpen} onClose={closeEditHourModal}>
           <div className="p-6">
             <h2 className="text-xl font-bold mb-4">Cambiar Hora</h2>
             <p className="text-sm text-gray-600 mb-3">
-              Hora actual: <span className="font-semibold">{hourToEdit?.label}</span>
+              Hora actual:{" "}
+              <span className="font-semibold">{hourToEdit?.label}</span>
             </p>
             <form onSubmit={confirmEditHourSelection}>
               <div className="mb-4">
