@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
 
-export default function LogoutButton() {
+export default function LogoutButton({ className = "", compact = false }) {
   const router = useRouter();
 
   const handleLogout = () => {
@@ -16,9 +16,12 @@ export default function LogoutButton() {
   return (
     <button
       onClick={handleLogout}
-      className="text-red-600 hover:text-red-800 font-medium p-2"
+      className={`font-medium p-2 transition-colors ${
+        className || "text-red-600 hover:text-red-800"
+      }`}
+      title="Cerrar sesion"
     >
-      Cerrar sesión
+      {compact ? "Salir" : "Cerrar sesion"}
     </button>
   );
 }

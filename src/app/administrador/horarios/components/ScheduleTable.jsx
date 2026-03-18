@@ -96,6 +96,7 @@ const ScheduleTable = ({
                             <div
                               onClick={() => onEditCourse?.(course)}
                               className={`${course.color} rounded-lg p-3 border-2 cursor-pointer hover:shadow-md transition-shadow relative group`}
+                              style={course.colorStyle || undefined}
                             >
                               <button
                                 onClick={(e) => {

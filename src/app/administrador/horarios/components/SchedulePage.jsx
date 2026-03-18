@@ -271,33 +271,48 @@ const SchedulePage = () => {
               dia.dia_semana.dias_semana_id !== 6 &&
               dia.dia_semana.dias_semana_id !== 7,
           ) // Filtrar sábado y domingo
-          .map((dia) => ({
-            id: `${horario.horario_id}-${dia.dia_clase_id}`,
-            subject: isUnavailable
+          .map((dia) => {
+            const subjectName = isUnavailable
               ? "NO DISPONIBLE"
-              : curso?.nombre || `Curso ${horario.curso_id}`,
-            professor: isUnavailable
-              ? "ENCARGADO CAPS"
-              : profesor
-                ? `${profesor.nombres} ${profesor.ap_paterno || ""} ${
-                    profesor.ap_materno || ""
-                  }`.trim()
-                : `Profesor ${horario.profesor_id}`,
-            classroom: {
-              value: horario.aula_id.toString(),
-              label: `Aula ${horario.aula_id}`,
-            },
-            time: formatTimeSlot(dia.hora),
-            day: dia.dia_semana.dias_semana_id,
-            color: isUnavailable
-              ? "bg-gray-300 border-gray-400 text-gray-800" // Color especial para no disponible
-              : getCourseColor(curso?.nombre || `Curso ${horario.curso_id}`),
-            gestion: horario.gestion_id.toString(),
-            sucursal: selectedSucursal.value,
-            curso_id: horario.curso_id,
-            profesor_id: horario.profesor_id,
-            is_unavailable: isUnavailable,
-          }));
+              : curso?.nombre || `Curso ${horario.curso_id}`;
+            // Usar aula del día si está disponible, sino usar aula del horario
+            const aulaId = dia.aula_id || horario.aula_id;
+            return {
+              id: `${horario.horario_id}-${dia.dia_clase_id}`,
+              subject: subjectName,
+              professor: isUnavailable
+                ? "ENCARGADO CAPS"
+                : profesor
+                  ? `${profesor.nombres} ${profesor.ap_paterno || ""} ${
+                      profesor.ap_materno || ""
+                    }`.trim()
+                  : `Profesor ${horario.profesor_id}`,
+              classroom: {
+                value: aulaId.toString(),
+                label: `Aula ${aulaId}`,
+              },
+              time: formatTimeSlot(dia.hora),
+              day: dia.dia_semana.dias_semana_id,
+              color: isUnavailable
+                ? "bg-gray-300 border-gray-400 text-gray-800" // Color especial para no disponible
+                : "",
+              colorStyle: isUnavailable
+                ? undefined
+                : getCourseColorStyle(subjectName),
+              gestion: horario.gestion_id.toString(),
+              sucursal: selectedSucursal.value,
+              curso_id: horario.curso_id,
+              profesor_id: horario.profesor_id,
+              is_unavailable: isUnavailable,
+              horario_id: horario.horario_id,
+              gestion_id: horario.gestion_id,
+              aula_id: aulaId,
+              cursoId: horario.curso_id,
+              profesorId: horario.profesor_id,
+              gestionId: horario.gestion_id,
+              aulaId: aulaId,
+            };
+          });
       });
 
       setCourses(formattedCourses);
@@ -710,47 +725,105 @@ const SchedulePage = () => {
     }
 
     try {
-      // Crear array de dias_clase con todos los horarios (día + hora)
-      const dias_clase = schedules.map((schedule) => {
+      const scheduleEntries = schedules.map((schedule) => {
         const hora = timeSlots.find((h) => h.label === schedule.time);
         if (!hora) {
           throw new Error(`Hora inválida: ${schedule.time}`);
         }
+
+        const aulaId = parseInt(schedule.classroom || classroom, 10);
+        if (Number.isNaN(aulaId)) {
+          throw new Error("Aula inválida en uno de los horarios");
+        }
+
         return {
+          aula_id: aulaId,
           dia_semana_id: parseInt(schedule.day),
           hora_id: hora.id,
         };
       });
 
-      const payload = {
-        curso_id: is_unavailable ? null : parseInt(curso_id),
-        aula_id: parseInt(classroom),
-        profesor_id: is_unavailable ? null : parseInt(profesor_id),
-        gestion_id: parseInt(selectedGestion.value),
-        activo: true,
-        dias_clase: dias_clase,
-      };
+      const parsedCursoId = is_unavailable ? null : parseInt(curso_id, 10);
+      const parsedProfesorId = is_unavailable
+        ? null
+        : parseInt(profesor_id, 10);
+      const parsedGestionId = parseInt(selectedGestion.value, 10);
 
-      console.log("Payload a enviar:", payload);
+      console.log("Bloques de horario a enviar:", scheduleEntries);
 
       if (isEditingCourse && horario_id) {
-        // Editar horario existente
-        await fetchWithAuth(
-          `https://api-umam-1.onrender.com/horarios/${horario_id}`,
-          {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          },
+        // Reemplazar el paralelo completo (todos sus horarios relacionados)
+        const relatedHorarios = horariosRaw.filter(
+          (h) =>
+            h.curso_id === parsedCursoId &&
+            h.profesor_id === parsedProfesorId &&
+            h.gestion_id === parsedGestionId,
         );
+
+        await Promise.all(
+          relatedHorarios.map((h) =>
+            fetchWithAuthDelete(
+              `https://api-umam-1.onrender.com/horarios/${h.horario_id || h.id}`,
+            ),
+          ),
+        );
+
+        const entriesByAula = scheduleEntries.reduce((acc, item) => {
+          if (!acc[item.aula_id]) {
+            acc[item.aula_id] = [];
+          }
+          acc[item.aula_id].push(item);
+          return acc;
+        }, {});
+
+        for (const [aulaId, entries] of Object.entries(entriesByAula)) {
+          await fetchWithAuth("https://api-umam-1.onrender.com/horarios/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              curso_id: parsedCursoId,
+              aula_id: parseInt(aulaId, 10),
+              profesor_id: parsedProfesorId,
+              gestion_id: parsedGestionId,
+              activo: true,
+              dias_clase: entries.map((item) => ({
+                dia_semana_id: item.dia_semana_id,
+                hora_id: item.hora_id,
+                aula_id: item.aula_id,
+              })),
+            }),
+          });
+        }
+
         toast.success("Horario actualizado exitosamente");
       } else {
-        // Crear nuevo horario
-        await fetchWithAuth("https://api-umam-1.onrender.com/horarios/", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
+        // Crear el mismo paralelo en aulas distintas sin perder la relación lógica.
+        const entriesByAula = scheduleEntries.reduce((acc, item) => {
+          if (!acc[item.aula_id]) {
+            acc[item.aula_id] = [];
+          }
+          acc[item.aula_id].push(item);
+          return acc;
+        }, {});
+
+        for (const [aulaId, entries] of Object.entries(entriesByAula)) {
+          await fetchWithAuth("https://api-umam-1.onrender.com/horarios/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              curso_id: parsedCursoId,
+              aula_id: parseInt(aulaId, 10),
+              profesor_id: parsedProfesorId,
+              gestion_id: parsedGestionId,
+              activo: true,
+              dias_clase: entries.map((item) => ({
+                dia_semana_id: item.dia_semana_id,
+                hora_id: item.hora_id,
+                aula_id: item.aula_id,
+              })),
+            }),
+          });
+        }
 
         // Mostrar mensaje con los horarios creados
         const horariosStr = schedules
@@ -829,6 +902,39 @@ const SchedulePage = () => {
 
   // Función para manejar la edición de cursos
   const handleEditCourse = (course) => {
+    const relatedHorarios = horariosRaw.filter(
+      (h) =>
+        h.curso_id === course.curso_id &&
+        h.profesor_id === course.profesor_id &&
+        h.gestion_id === course.gestion_id,
+    );
+
+    const schedules = relatedHorarios
+      .flatMap((h) =>
+        (Array.isArray(h?.dias_clase) ? h.dias_clase : []).map((dia) => ({
+          day: dia?.dia_semana?.dias_semana_id,
+          time: formatTimeSlot(dia?.hora),
+          classroom: String(dia?.aula_id || h?.aula_id || ""),
+        })),
+      )
+      .filter((s) => s.day && s.time && s.classroom);
+
+    const uniqueSchedules = Array.from(
+      new Map(
+        schedules.map((s) => [`${s.day}-${s.time}-${s.classroom}`, s]),
+      ).values(),
+    );
+
+    const fallbackSchedule = {
+      day: course.day,
+      time: course.time,
+      classroom: course.classroom.value,
+    };
+
+    const horarioId = String(
+      relatedHorarios[0]?.horario_id || course.id.split("-")[0],
+    );
+
     setCourseToEdit(course);
     setIsEditingCourse(true);
     setCourseFormData({
@@ -837,8 +943,11 @@ const SchedulePage = () => {
       classroom: course.classroom.value,
       classroomObject: course.classroom,
       time: course.time,
-      days: [course.day], // Mantener para compatibilidad
-      horario_id: course.id.split("-")[0],
+      days: (uniqueSchedules.length ? uniqueSchedules : [fallbackSchedule]).map(
+        (s) => s.day,
+      ),
+      schedules: uniqueSchedules.length ? uniqueSchedules : [fallbackSchedule],
+      horario_id: horarioId,
       is_unavailable: course.is_unavailable || false,
     });
     setIsModalOpen(true);
@@ -887,21 +996,20 @@ const SchedulePage = () => {
     }
   };
 
-  const getCourseColor = (subject) => {
-    const colors = [
-      "bg-pink-200 border-pink-300 text-pink-800",
-      "bg-cyan-200 border-cyan-300 text-cyan-800",
-      "bg-green-200 border-green-300 text-green-800",
-      "bg-blue-200 border-blue-300 text-blue-800",
-      "bg-purple-200 border-purple-300 text-purple-800",
-      "bg-yellow-200 border-yellow-300 text-yellow-800",
-      "bg-orange-200 border-orange-300 text-orange-800",
-      "bg-red-200 border-red-300 text-red-800",
-      "bg-indigo-200 border-indigo-300 text-indigo-800",
-      "bg-teal-200 border-teal-300 text-teal-800",
-    ];
-    const hash = subject.split("").reduce((a, b) => a + b.charCodeAt(0), 0);
-    return colors[hash % colors.length];
+  const getCourseColorStyle = (subject) => {
+    const safeSubject = String(subject || "")
+      .trim()
+      .toUpperCase();
+    const hash = safeSubject
+      .split("")
+      .reduce((acc, char) => acc * 31 + char.charCodeAt(0), 7);
+    const hue = Math.abs(hash) % 360;
+
+    return {
+      backgroundColor: `hsl(${hue} 75% 88%)`,
+      borderColor: `hsl(${hue} 65% 52%)`,
+      color: `hsl(${hue} 55% 22%)`,
+    };
   };
 
   const renderSucursales = () => {
@@ -973,30 +1081,39 @@ const SchedulePage = () => {
     setDeleteError(null);
 
     try {
-      const [horarioId] = courseToDelete.id.split("-");
+      // Buscar todos los horarios del MISMO curso (mismo curso_id + profesor_id + gestion_id + sucursal_id)
+      const allRelatedHorarios = horariosRaw.filter((h) => {
+        return (
+          h.curso_id === courseToDelete.cursoId &&
+          h.profesor_id === courseToDelete.profesorId &&
+          h.gestion_id === courseToDelete.gestionId
+        );
+      });
 
-      // Usamos la nueva función específica para DELETE
-      await fetchWithAuthDelete(
-        `https://api-umam-1.onrender.com/horarios/${horarioId}`,
+      if (allRelatedHorarios.length === 0) {
+        throw new Error(
+          "No se encontraron horarios relacionados para eliminar",
+        );
+      }
+
+      // Eliminar TODOS los horarios relacionados
+      await Promise.all(
+        allRelatedHorarios.map((h) =>
+          fetchWithAuthDelete(
+            `https://api-umam-1.onrender.com/horarios/${h.horario_id || h.id}`,
+          ),
+        ),
       );
-
-      // Actualización optimista
-      setCourses((prev) => prev.filter((c) => c.id !== courseToDelete.id));
 
       // Cierra el modal y limpia
       setIsDeleteModalOpen(false);
       setCourseToDelete(null);
 
-      // Opcional: Recargar datos para asegurar consistencia
+      // Recargar datos para asegurar consistencia
       await fetchHorarios();
     } catch (error) {
       console.error("Error eliminando horario:", error);
       setDeleteError(error.message || "Error al eliminar el horario");
-
-      // Revertir la actualización optimista si falla
-      if (courseToDelete) {
-        setCourses((prev) => [...prev, courseToDelete]);
-      }
     } finally {
       setIsDeleting(false);
     }

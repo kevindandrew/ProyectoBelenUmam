@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Cookies from "js-cookie";
 import { generarPDFInscripciones } from "./pdfInscripciones";
 import { toast } from "react-toastify";
@@ -200,6 +200,51 @@ export default function ModalInscripcionAlumno({
     }
   }, [gestionActual, todasLasInscripciones]);
 
+  const inscripcionesAgrupadas = useMemo(() => {
+    return Object.values(
+      inscripcionesExistentes.reduce((acc, insc) => {
+        const horario = insc.horario || {};
+        const cursoId = horario?.curso?.curso_id || "";
+        const facilitadorId = horario?.facilitador?.facilitador_id || "";
+        const sucursalId = horario?.sucursal?.sucursal_id || "";
+        const key = `${cursoId}_${facilitadorId}_${insc.gestion_id}_${sucursalId}`;
+
+        if (!acc[key]) {
+          acc[key] = {
+            ...insc,
+            inscripciones: [insc],
+            horariosTexto: [],
+            aulasTexto: [],
+          };
+        } else {
+          acc[key].inscripciones.push(insc);
+        }
+
+        const diasClase = Array.isArray(horario?.dias_clase)
+          ? horario.dias_clase
+          : [];
+        diasClase.forEach((dc) => {
+          const dia = dc?.dia_semana?.dia_semana || "";
+          const inicio = dc?.hora?.hora_inicio?.slice(0, 5) || "";
+          const fin = dc?.hora?.hora_fin?.slice(0, 5) || "";
+          const aula = dc?.aula?.nombre_aula || dc?.aula?.nombre || "";
+          if (dia && inicio && fin) {
+            acc[key].horariosTexto.push(`${dia} ${inicio}-${fin}`);
+          }
+          if (aula) {
+            acc[key].aulasTexto.push(aula);
+          }
+        });
+
+        return acc;
+      }, {}),
+    ).map((grupo) => ({
+      ...grupo,
+      horariosTexto: Array.from(new Set(grupo.horariosTexto)),
+      aulasTexto: Array.from(new Set(grupo.aulasTexto)),
+    }));
+  }, [inscripcionesExistentes]);
+
   const agregarFila = (esGestoria) => {
     setFilas([
       ...filas,
@@ -258,7 +303,35 @@ export default function ModalInscripcionAlumno({
       if (!res.ok) throw new Error("Error al cargar horarios");
 
       const data = await res.json();
-      filasActualizadas[index].horariosDisponibles = data;
+
+      // Agrupar horarios del mismo curso/profesor/gestion/sucursal para
+      // mostrarlos como una sola opción aunque usen aulas distintas.
+      const grouped = Object.values(
+        data.reduce((acc, h) => {
+          const key = `${h.curso_id}_${h.profesor_id}_${h.gestion_id}_${sucursalId}`;
+
+          if (!acc[key]) {
+            acc[key] = {
+              ...h,
+              horario_id: h.horario_id,
+              horario_ids: [h.horario_id],
+              dias_clase: [],
+            };
+          } else {
+            acc[key].horario_ids.push(h.horario_id);
+          }
+
+          const diasConAula = (h.dias_clase || []).map((dc) => ({
+            ...dc,
+            aula_id: dc.aula_id || h.aula_id,
+          }));
+
+          acc[key].dias_clase.push(...diasConAula);
+          return acc;
+        }, {}),
+      );
+
+      filasActualizadas[index].horariosDisponibles = grouped;
 
       if (data.length === 0) {
         filasActualizadas[index].errorHorarios =
@@ -280,12 +353,20 @@ export default function ModalInscripcionAlumno({
   const inscribirCurso = async (fila, index) => {
     if (!fila.horario || !gestionActual) return;
 
-    // Verificar si ya está inscrito en este curso
-    const yaInscrito = inscripcionesExistentes.some(
-      (insc) => insc.horario_id === fila.horario,
+    const horarioSeleccionado = (fila.horariosDisponibles || []).find(
+      (h) => h.horario_id === fila.horario,
+    );
+    const horarioIds =
+      horarioSeleccionado?.horario_ids?.length > 0
+        ? horarioSeleccionado.horario_ids
+        : [fila.horario];
+
+    const horarioIdsNuevos = horarioIds.filter(
+      (id) => !inscripcionesExistentes.some((insc) => insc.horario_id === id),
     );
 
-    if (yaInscrito) {
+    // Verificar si ya está inscrito en todos los horarios del curso seleccionado
+    if (horarioIdsNuevos.length === 0) {
       const nuevasFilas = [...filas];
       nuevasFilas[index].errorGuardado = "Ya está inscrito en este curso";
       setFilas(nuevasFilas);
@@ -300,22 +381,24 @@ export default function ModalInscripcionAlumno({
     const token = Cookies.get("access_token");
 
     try {
-      const response = await fetch(`${API}/inscripciones/`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          estudiante_id: estudiante.estudiante_id,
-          horario_id: fila.horario,
-          gestion_id: gestionActual,
-        }),
-      });
+      for (const horarioId of horarioIdsNuevos) {
+        const response = await fetch(`${API}/inscripciones/`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            estudiante_id: estudiante.estudiante_id,
+            horario_id: horarioId,
+            gestion_id: gestionActual,
+          }),
+        });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || "Error al inscribir");
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.detail || "Error al inscribir");
+        }
       }
 
       // Actualizar estado
@@ -394,6 +477,34 @@ export default function ModalInscripcionAlumno({
       setInscripcionesExistentes(
         inscripcionesExistentes.filter(
           (i) => i.inscripcion_id !== inscripcionId,
+        ),
+      );
+      setMensajeExito("Inscripción eliminada correctamente");
+    } catch (err) {
+      setError("Error al eliminar la inscripción");
+    }
+  };
+
+  const eliminarGrupoInscripcion = async (grupo) => {
+    if (!confirm("¿Está seguro de eliminar esta inscripción completa?")) return;
+
+    const token = Cookies.get("access_token");
+    try {
+      await Promise.all(
+        (grupo.inscripciones || []).map((insc) =>
+          fetch(`${API}/inscripciones/${insc.inscripcion_id}`, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+        ),
+      );
+
+      setInscripcionesExistentes((prev) =>
+        prev.filter(
+          (insc) =>
+            !(grupo.inscripciones || []).some(
+              (g) => g.inscripcion_id === insc.inscripcion_id,
+            ),
         ),
       );
       setMensajeExito("Inscripción eliminada correctamente");
@@ -526,11 +637,11 @@ export default function ModalInscripcionAlumno({
         </div>
 
         {/* Inscripciones Existentes */}
-        {inscripcionesExistentes.length > 0 && (
+        {inscripcionesAgrupadas.length > 0 && (
           <div className="mb-6 border rounded-lg p-4 bg-gray-50">
             <div className="flex justify-between items-center mb-3">
               <h3 className="text-lg font-semibold text-gray-800">
-                Cursos Inscritos ({inscripcionesExistentes.length})
+                Cursos Inscritos ({inscripcionesAgrupadas.length})
               </h3>
               <button
                 onClick={handleGenerarPDF}
@@ -554,21 +665,13 @@ export default function ModalInscripcionAlumno({
               </button>
             </div>
             <div className="space-y-2">
-              {inscripcionesExistentes.map((insc, idx) => {
-                const horario = insc.horario || {};
+              {inscripcionesAgrupadas.map((grupo, idx) => {
+                const horario = grupo.horario || {};
                 const curso = horario.curso || {};
                 const sucursal = horario.sucursal || {};
                 const facilitador = horario.facilitador || {};
-                const diasClase = horario.dias_clase || [];
-
-                const horarioTexto = diasClase
-                  .map((dc) => {
-                    const dia = dc.dia_semana?.dia_semana || "";
-                    const inicio = dc.hora?.hora_inicio?.slice(0, 5) || "";
-                    const fin = dc.hora?.hora_fin?.slice(0, 5) || "";
-                    return `${dia} ${inicio}-${fin}`;
-                  })
-                  .join(", ");
+                const aulasTexto = grupo.aulasTexto.join(", ");
+                const horarioTexto = grupo.horariosTexto.join(", ");
 
                 const esGestoria = curso.gestoria === true;
                 const colorBorde = esGestoria
@@ -580,7 +683,7 @@ export default function ModalInscripcionAlumno({
 
                 return (
                   <div
-                    key={`insc-${insc.inscripcion_id || Math.random()}`}
+                    key={`insc-group-${idx}`}
                     className={`flex justify-between items-center p-3 bg-white rounded border ${colorBorde}`}
                   >
                     <div className="flex-1">
@@ -631,7 +734,7 @@ export default function ModalInscripcionAlumno({
                             d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
                           />
                         </svg>
-                        {horario.aula?.nombre || "Sin aula"}
+                        {aulasTexto || horario.aula?.nombre || "Sin aula"}
                       </p>
                       <p className="text-sm text-gray-600 flex items-center gap-1">
                         <svg
@@ -685,7 +788,7 @@ export default function ModalInscripcionAlumno({
                       </p>
                     </div>
                     <button
-                      onClick={() => eliminarInscripcion(insc.inscripcion_id)}
+                      onClick={() => eliminarGrupoInscripcion(grupo)}
                       className="ml-4 text-red-600 hover:text-red-800 px-3 py-1 border border-red-600 rounded flex items-center gap-1"
                     >
                       <svg
@@ -870,10 +973,22 @@ export default function ModalInscripcionAlumno({
                       f.horariosDisponibles.map((h) => (
                         <option key={h.horario_id} value={h.horario_id}>
                           {h.dias_clase
-                            .map((d) => d.dia_semana.dia_semana)
-                            .join(", ")}{" "}
-                          {h.dias_clase[0]?.hora.hora_inicio.slice(0, 5)}-
-                          {h.dias_clase[0]?.hora.hora_fin.slice(0, 5)}
+                            .map((d) => {
+                              const dia = d.dia_semana?.dia_semana || "";
+                              const inicio =
+                                d.hora?.hora_inicio?.slice(0, 5) || "";
+                              const fin = d.hora?.hora_fin?.slice(0, 5) || "";
+                              const aula =
+                                sucursales
+                                  .flatMap((s) => s.aulas || [])
+                                  .find(
+                                    (a) =>
+                                      a.aula_id === (d.aula_id || h.aula_id),
+                                  )?.nombre_aula ||
+                                `Aula ${d.aula_id || h.aula_id}`;
+                              return `${dia} ${inicio}-${fin} (${aula})`;
+                            })
+                            .join(", ")}
                         </option>
                       ))
                     )}
