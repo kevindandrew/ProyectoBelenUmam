@@ -1,608 +1,605 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import Cookies from "js-cookie";
-import { generarPDFLista } from "./pdfListas";
 import { usePageTitle } from "@/lib/usePageTitle";
-import { toast } from "react-toastify";
 
 const API_URL = "https://api-umam-1.onrender.com";
+const diasSemana = [
+  "lunes",
+  "martes",
+  "miercoles",
+  "jueves",
+  "viernes",
+  "sabado",
+  "domingo",
+];
 
-const handleFetchResponse = async (response) => {
-  if (response.status === 401) {
-    window.dispatchEvent(new CustomEvent("sessionExpired"));
-    Cookies.remove("access_token");
-    Cookies.remove("user_data");
-    throw new Error("Sesión expirada...");
-  }
-  return response;
+const diaIdToNombre = {
+  1: "Lunes",
+  2: "Martes",
+  3: "Miercoles",
+  4: "Jueves",
+  5: "Viernes",
+  6: "Sabado",
+  7: "Domingo",
 };
 
-export default function InscripcionesPage() {
+function formatHora(value) {
+  if (!value) return "";
+  const str = String(value);
+  if (str.includes("T")) {
+    return (str.split("T")[1] || "").slice(0, 5);
+  }
+  return str.slice(0, 5);
+}
+
+function buildHorarioLabel(horario) {
+  const diasClase = Array.isArray(horario?.dias_clase)
+    ? horario.dias_clase
+    : [];
+
+  if (diasClase.length > 0) {
+    const dias = diasClase
+      .map((d) => {
+        const fromName = d?.dia_semana?.dia_semana;
+        if (fromName) {
+          const clean = String(fromName).trim();
+          return clean.charAt(0).toUpperCase() + clean.slice(1).toLowerCase();
+        }
+        return diaIdToNombre[d?.dia_semana_id] || "";
+      })
+      .filter(Boolean);
+
+    const hi = formatHora(diasClase[0]?.hora?.hora_inicio);
+    const hf = formatHora(diasClase[0]?.hora?.hora_fin);
+    const diasTexto = dias.length
+      ? Array.from(new Set(dias)).join(", ")
+      : "Sin dias";
+
+    return hi && hf ? `${diasTexto} (${hi} - ${hf})` : diasTexto;
+  }
+
+  const dias = diasSemana
+    .filter((dia) => horario[dia] === true || horario[dia] === 1)
+    .map((dia) => dia.charAt(0).toUpperCase() + dia.slice(1));
+
+  const diasTexto = dias.length ? dias.join(", ") : "Sin dias";
+  const hi = formatHora(horario.hora_inicio);
+  const hf = formatHora(horario.hora_fin);
+
+  return hi && hf ? `${diasTexto} (${hi} - ${hf})` : diasTexto;
+}
+
+function normalizeArrayPayload(payload) {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload?.items)) return payload.items;
+  if (Array.isArray(payload?.results)) return payload.results;
+  if (Array.isArray(payload?.rows)) return payload.rows;
+  if (Array.isArray(payload?.estudiantes)) return payload.estudiantes;
+  if (Array.isArray(payload?.estudiantes?.data))
+    return payload.estudiantes.data;
+  return [];
+}
+
+function getStudentUniqueKey(item) {
+  return String(
+    item?.estudiante_id ||
+      item?.id_estudiante ||
+      item?.estudiante?.estudiante_id ||
+      item?.estudiante?.id ||
+      item?.ci ||
+      item?.matricula_id ||
+      JSON.stringify(item),
+  );
+}
+
+export default function ListasEncargadoPage() {
   usePageTitle("Listas");
-  const [filtros, setFiltros] = useState({
-    gestion_id: "",
-    sucursal_id: "",
-    curso_id: "",
-    profesor_id: "",
-  });
 
   const [gestiones, setGestiones] = useState([]);
   const [sucursales, setSucursales] = useState([]);
-  const [cursos, setCursos] = useState([]);
-  const [profesores, setProfesores] = useState([]);
-  const [horarios, setHorarios] = useState([]);
-  const [estudiantes, setEstudiantes] = useState([]);
-  const [loading, setLoading] = useState({
-    general: true,
-    estudiantes: false,
-    profesores: false,
-    horarios: false,
-  });
-  const [error, setError] = useState(null);
+  const [selectedGestionId, setSelectedGestionId] = useState("");
+  const [selectedSucursalId, setSelectedSucursalId] = useState("");
+  const [search, setSearch] = useState("");
+  const [cards, setCards] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  // Función para hacer fetch con manejo de errores
-  const fetchData = async (url, options = {}) => {
-    try {
-      const token = Cookies.get("access_token");
-      if (!token) {
-        throw new Error("No hay token de autenticación");
-      }
+  const fetchAuth = async (url) => {
+    const token = Cookies.get("access_token");
+    if (!token) throw new Error("Sesion expirada.");
 
-      const response = await fetch(url, {
-        ...options,
-        headers: {
-          ...options.headers,
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-      await handleFetchResponse(response);
+    const response = await fetch(url, {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `Error ${response.status}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error(`Error en fetchData (${url}):`, error);
-      throw error;
+    if (response.status === 401) {
+      window.dispatchEvent(new CustomEvent("sessionExpired"));
+      Cookies.remove("access_token");
+      Cookies.remove("user_data");
+      throw new Error("Sesion expirada.");
     }
+
+    return response;
   };
 
-  // Obtener datos iniciales
   useEffect(() => {
-    const loadInitialData = async () => {
+    const loadData = async () => {
       try {
-        setLoading((prev) => ({ ...prev, general: true }));
-        setError(null);
+        setLoading(true);
+        setError("");
 
-        // Cargar todos los datos necesarios en paralelo
-        const [gestionesData, sucursalesData, cursosData] = await Promise.all([
-          fetchData(`${API_URL}/cursos/gestiones`),
-          fetchData(`${API_URL}/sucursales/`),
-          fetchData(`${API_URL}/cursos/`),
+        const [
+          gestionesRes,
+          sucursalesRes,
+          cursosRes,
+          profesoresRes,
+          horariosRes,
+          estudiantesRes,
+        ] = await Promise.all([
+          fetchAuth(`${API_URL}/cursos/gestiones`),
+          fetchAuth(`${API_URL}/sucursales/`),
+          fetchAuth(`${API_URL}/cursos/`),
+          fetchAuth(`${API_URL}/usuarios/?rol_id=3`),
+          fetchAuth(`${API_URL}/horarios/`),
+          fetchAuth(`${API_URL}/listas/estudiantes?limit=9999`),
         ]);
 
-        setGestiones(gestionesData);
-        setSucursales(sucursalesData);
-        setCursos(cursosData);
-      } catch (error) {
-        console.error("Error al cargar datos iniciales:", error);
-        setError(error.message);
+        if (
+          !gestionesRes.ok ||
+          !sucursalesRes.ok ||
+          !cursosRes.ok ||
+          !profesoresRes.ok ||
+          !horariosRes.ok ||
+          !estudiantesRes.ok
+        ) {
+          throw new Error("No se pudo cargar la informacion.");
+        }
+
+        const [
+          gestionesData,
+          sucursalesData,
+          cursosData,
+          profesoresData,
+          horariosData,
+          estudiantesData,
+        ] = await Promise.all([
+          gestionesRes.json(),
+          sucursalesRes.json(),
+          cursosRes.json(),
+          profesoresRes.json(),
+          horariosRes.json(),
+          estudiantesRes.json(),
+        ]);
+
+        const cursosById = {};
+        (Array.isArray(cursosData) ? cursosData : []).forEach((curso) => {
+          if (curso?.curso_id != null)
+            cursosById[String(curso.curso_id)] = curso;
+        });
+
+        const profesoresById = {};
+        (Array.isArray(profesoresData) ? profesoresData : []).forEach(
+          (prof) => {
+            if (prof?.usuario_id != null)
+              profesoresById[String(prof.usuario_id)] = prof;
+          },
+        );
+
+        const horariosById = {};
+        (Array.isArray(horariosData) ? horariosData : []).forEach((h) => {
+          const hid = h?.horario_id || h?.id;
+          if (hid != null) horariosById[String(hid)] = h;
+        });
+
+        const estudiantesLista = normalizeArrayPayload(estudiantesData);
+
+        // Contar inscritos por horario_id
+        const inscritosPorHorario = {};
+        estudiantesLista.forEach((item) => {
+          const horario_id =
+            item?.horario_id ||
+            item?.id_horario ||
+            item?.horario?.horario_id ||
+            item?.horario?.id ||
+            item?.matricula?.horario_id ||
+            item?.inscripcion?.horario_id;
+          const estudianteKey = getStudentUniqueKey(item);
+          if (horario_id != null) {
+            const hid = String(horario_id);
+            if (!inscritosPorHorario[hid]) {
+              inscritosPorHorario[hid] = new Set();
+            }
+            inscritosPorHorario[hid].add(String(estudianteKey));
+          }
+        });
+
+        const aulaToSucursal = {};
+        (Array.isArray(sucursalesData) ? sucursalesData : []).forEach(
+          (sucursal) => {
+            (Array.isArray(sucursal?.aulas) ? sucursal.aulas : []).forEach(
+              (aula) => {
+                if (aula?.aula_id != null) {
+                  aulaToSucursal[String(aula.aula_id)] = {
+                    sucursal_id: sucursal.sucursal_id,
+                    nombre: sucursal.nombre,
+                  };
+                }
+              },
+            );
+          },
+        );
+
+        const inscritosPorParalelo = {};
+        Object.entries(inscritosPorHorario).forEach(([hid, estudiantesSet]) => {
+          const h = horariosById[hid];
+          if (!h) return;
+
+          const cursoId = h.curso_id ?? h.id_curso ?? h.curso?.curso_id ?? null;
+          const profesorId =
+            h.profesor_id ?? h.usuario_id ?? h.profesor?.usuario_id ?? null;
+          const gestionId =
+            h.gestion_id ?? h.id_gestion ?? h.gestion?.gestion_id ?? null;
+          const aulaId = h.aula_id ?? h.id_aula ?? h.aula?.aula_id ?? null;
+          const sucursalInfo = aulaId ? aulaToSucursal[String(aulaId)] : null;
+          const sucursalId =
+            h.sucursal_id ?? h.id_sucursal ?? sucursalInfo?.sucursal_id ?? null;
+
+          const paraleloKey = `${cursoId}_${profesorId}_${gestionId}_${sucursalId}`;
+          if (!inscritosPorParalelo[paraleloKey]) {
+            inscritosPorParalelo[paraleloKey] = new Set();
+          }
+          estudiantesSet.forEach((studentKey) => {
+            inscritosPorParalelo[paraleloKey].add(studentKey);
+          });
+        });
+
+        const normalizadas = (
+          Array.isArray(horariosData) ? horariosData : []
+        ).map((h) => {
+          const cursoId = h.curso_id ?? h.id_curso ?? h.curso?.curso_id ?? null;
+          const profesorId =
+            h.profesor_id ?? h.usuario_id ?? h.profesor?.usuario_id ?? null;
+          const aulaId = h.aula_id ?? h.id_aula ?? h.aula?.aula_id ?? null;
+          const sucursalInfo = aulaId ? aulaToSucursal[String(aulaId)] : null;
+
+          const profesor = profesoresById[String(profesorId)] || null;
+
+          const horarioKey = String(h.horario_id || h.id || "");
+          const cursoNombre =
+            h.curso?.nombre ||
+            h.curso_nombre ||
+            cursosById[String(cursoId)]?.nombre ||
+            "Curso";
+          const cursoUpper = String(cursoNombre).toUpperCase();
+          const isNoDisponible =
+            !cursoId ||
+            !profesorId ||
+            cursoUpper.includes("NO DISPONIBLE") ||
+            cursoUpper.includes("BLOQUEADO") ||
+            cursoUpper.includes("OCUPADO");
+          const paraleloKey = `${cursoId}_${profesorId}_${
+            h.gestion_id ?? h.id_gestion ?? h.gestion?.gestion_id ?? null
+          }_${
+            h.sucursal_id ?? h.id_sucursal ?? sucursalInfo?.sucursal_id ?? null
+          }`;
+
+          return {
+            horario_id: h.horario_id || h.id,
+            curso_id: cursoId,
+            curso_nombre: cursoNombre,
+            profesor_id: profesorId,
+            docente_nombre: profesor
+              ? `${profesor.nombres || ""} ${profesor.ap_paterno || ""} ${
+                  profesor.ap_materno || ""
+                }`
+                  .trim()
+                  .toUpperCase()
+              : "SIN DOCENTE",
+            is_no_disponible: isNoDisponible,
+            paralelo_key: paraleloKey,
+            gestion_id:
+              h.gestion_id ?? h.id_gestion ?? h.gestion?.gestion_id ?? null,
+            sucursal_id:
+              h.sucursal_id ??
+              h.id_sucursal ??
+              sucursalInfo?.sucursal_id ??
+              null,
+            sucursal_nombre:
+              h.sucursal?.nombre ||
+              h.sucursal_nombre ||
+              sucursalInfo?.nombre ||
+              "Sucursal",
+            horario_texto: buildHorarioLabel(h),
+            inscritos:
+              inscritosPorParalelo[paraleloKey]?.size ??
+              inscritosPorHorario[horarioKey]?.size ??
+              h.total_estudiantes ??
+              h.cantidad_estudiantes ??
+              h.inscritos ??
+              (Array.isArray(h.estudiantes) ? h.estudiantes.length : 0),
+          };
+        });
+
+        const cardsPorParalelo = {};
+        normalizadas.forEach((card) => {
+          if (!card?.paralelo_key) return;
+          if (!cardsPorParalelo[card.paralelo_key]) {
+            cardsPorParalelo[card.paralelo_key] = {
+              ...card,
+              horario_ids: [card.horario_id],
+              horarios_texto: [card.horario_texto],
+            };
+          } else {
+            cardsPorParalelo[card.paralelo_key].horario_ids.push(
+              card.horario_id,
+            );
+            cardsPorParalelo[card.paralelo_key].horarios_texto.push(
+              card.horario_texto,
+            );
+            cardsPorParalelo[card.paralelo_key].inscritos = Math.max(
+              Number(cardsPorParalelo[card.paralelo_key].inscritos) || 0,
+              Number(card.inscritos) || 0,
+            );
+          }
+        });
+
+        const cardsAgrupadas = Object.values(cardsPorParalelo).map((card) => ({
+          ...card,
+          horario_id: card.horario_ids[0],
+          horario_texto: Array.from(new Set(card.horarios_texto)).join(" | "),
+        }));
+
+        const cardsConConteoReal = await Promise.all(
+          cardsAgrupadas.map(async (card) => {
+            if ((Number(card.inscritos) || 0) > 0) return card;
+
+            const query = new URLSearchParams({
+              profesor_id: String(card.profesor_id || ""),
+              curso_id: String(card.curso_id || ""),
+              sucursal_id: String(card.sucursal_id || ""),
+              gestion_id: String(card.gestion_id || ""),
+            });
+
+            if (
+              !query.get("profesor_id") ||
+              !query.get("curso_id") ||
+              !query.get("sucursal_id") ||
+              !query.get("gestion_id")
+            ) {
+              return card;
+            }
+
+            try {
+              const res = await fetchAuth(
+                `${API_URL}/listas/estudiantes?${query.toString()}`,
+              );
+              if (!res.ok) return card;
+              const data = await res.json();
+              const lista = normalizeArrayPayload(data);
+              const unique = new Set(
+                lista.map((item) => getStudentUniqueKey(item)),
+              );
+              return { ...card, inscritos: unique.size };
+            } catch {
+              return card;
+            }
+          }),
+        );
+
+        const nowYear = new Date().getFullYear();
+        const gestionActual =
+          gestionesData.find((g) => g.activa || g.vigente || g.actual) ||
+          gestionesData.find((g) => Number(g.year_id) === nowYear) ||
+          gestionesData[0] ||
+          null;
+
+        setGestiones(Array.isArray(gestionesData) ? gestionesData : []);
+        setSucursales(Array.isArray(sucursalesData) ? sucursalesData : []);
+        setSelectedGestionId(
+          gestionActual ? String(gestionActual.gestion_id) : "",
+        );
+        setCards(
+          cardsConConteoReal.filter((c) => c.horario_id && !c.is_no_disponible),
+        );
+      } catch {
+        setError(
+          "No se pudo cargar la informacion. Comuniquese con el administrador.",
+        );
       } finally {
-        setLoading((prev) => ({ ...prev, general: false }));
+        setLoading(false);
       }
     };
 
-    loadInitialData();
+    loadData();
   }, []);
 
-  // Cargar horarios cuando se selecciona curso, gestión y sucursal
-  useEffect(() => {
-    const loadHorarios = async () => {
-      if (!filtros.curso_id || !filtros.gestion_id || !filtros.sucursal_id) {
-        setHorarios([]);
-        setProfesores([]);
-        return;
-      }
+  const cardsFiltradas = useMemo(() => {
+    const term = search.trim().toLowerCase();
 
-      try {
-        setLoading((prev) => ({ ...prev, horarios: true }));
-
-        // Obtener horarios del curso específico
-        const params = new URLSearchParams({
-          curso_id: filtros.curso_id,
-          sucursal_id: filtros.sucursal_id,
-          gestion_id: filtros.gestion_id,
-        });
-
-        const horariosData = await fetchData(
-          `${API_URL}/horarios/?${params.toString()}`,
+    return cards
+      .filter(
+        (c) =>
+          !selectedGestionId ||
+          String(c.gestion_id) === String(selectedGestionId),
+      )
+      .filter(
+        (c) =>
+          !selectedSucursalId ||
+          String(c.sucursal_id) === String(selectedSucursalId),
+      )
+      .filter((c) => {
+        if (!term) return true;
+        return (
+          String(c.curso_nombre || "")
+            .toLowerCase()
+            .includes(term) ||
+          String(c.docente_nombre || "")
+            .toLowerCase()
+            .includes(term)
         );
-
-        setHorarios(horariosData);
-
-        // Obtener profesores únicos de los horarios
-        if (horariosData && horariosData.length > 0) {
-          const profesoresIds = [
-            ...new Set(horariosData.map((h) => h.profesor_id)),
-          ].filter(Boolean);
-
-          if (profesoresIds.length > 0) {
-            // Obtener información completa de los profesores
-            const profesoresData = await fetchData(
-              `${API_URL}/usuarios/?rol_id=3`,
-            );
-            const profesoresFiltrados = profesoresData.filter((p) =>
-              profesoresIds.includes(p.usuario_id),
-            );
-            setProfesores(profesoresFiltrados);
-          } else {
-            setProfesores([]);
-          }
-        } else {
-          setProfesores([]);
-        }
-      } catch (error) {
-        console.error("Error al cargar horarios:", error);
-        setError(error.message);
-        setHorarios([]);
-        setProfesores([]);
-      } finally {
-        setLoading((prev) => ({ ...prev, horarios: false }));
-      }
-    };
-
-    loadHorarios();
-  }, [filtros.curso_id, filtros.gestion_id, filtros.sucursal_id]);
-
-  // Obtener estudiantes cuando todos los filtros estén completos
-  useEffect(() => {
-    const loadEstudiantes = async () => {
-      // Verificar que todos los filtros estén seleccionados
-      if (
-        !filtros.gestion_id ||
-        !filtros.sucursal_id ||
-        !filtros.curso_id ||
-        !filtros.profesor_id
-      ) {
-        setEstudiantes([]);
-        return;
-      }
-
-      try {
-        setLoading((prev) => ({ ...prev, estudiantes: true }));
-        setEstudiantes([]);
-        setError(null);
-
-        const params = new URLSearchParams({
-          sucursal_id: filtros.sucursal_id,
-          gestion_id: filtros.gestion_id,
-          curso_id: filtros.curso_id,
-          profesor_id: filtros.profesor_id,
-        });
-
-        const estudiantesData = await fetchData(
-          `${API_URL}/listas/estudiantes?${params.toString()}`,
-        );
-
-        // Enriquecer datos de estudiantes con fecha_nacimiento si no está incluida
-        if (estudiantesData && estudiantesData.length > 0) {
-          const estudiantesEnriquecidos = await Promise.all(
-            estudiantesData.map(async (est) => {
-              // Si ya tiene fecha_nacimiento, no necesitamos buscarla
-              if (est.fecha_nacimiento) {
-                return est;
-              }
-              // Obtener datos completos del estudiante
-              try {
-                const estudianteCompleto = await fetchData(
-                  `${API_URL}/estudiantes/${est.estudiante_id}`,
-                );
-                return {
-                  ...est,
-                  fecha_nacimiento: estudianteCompleto.fecha_nacimiento,
-                };
-              } catch (error) {
-                console.error(
-                  `Error al obtener datos completos del estudiante ${est.estudiante_id}:`,
-                  error,
-                );
-                return est;
-              }
-            }),
-          );
-          setEstudiantes(estudiantesEnriquecidos);
-        } else {
-          setEstudiantes(estudiantesData);
-        }
-      } catch (error) {
-        console.error("Error al cargar estudiantes:", error);
-        setError(error.message);
-      } finally {
-        setLoading((prev) => ({ ...prev, estudiantes: false }));
-      }
-    };
-
-    // Debounce para evitar múltiples llamadas
-    const timer = setTimeout(loadEstudiantes, 300);
-    return () => clearTimeout(timer);
-  }, [filtros]);
-
-  // Actualizar nota de estudiante
-  const actualizarNota = async (estudiante_id, nuevaNota) => {
-    try {
-      await fetchData(`${API_URL}/listas/estudiante/${estudiante_id}/nota`, {
-        method: "PUT",
-        body: JSON.stringify({ nota_final: nuevaNota }),
-      });
-
-      setEstudiantes((prev) =>
-        prev.map((est) =>
-          est.estudiante_id === estudiante_id
-            ? { ...est, nota_final: nuevaNota }
-            : est,
+      })
+      .sort((a, b) =>
+        `${a.curso_nombre} ${a.docente_nombre}`.localeCompare(
+          `${b.curso_nombre} ${b.docente_nombre}`,
+          "es",
+          { sensitivity: "base" },
         ),
       );
-    } catch (error) {
-      console.error("Error al actualizar nota:", error);
-      toast.error(error.message);
-    }
-  };
+  }, [cards, selectedGestionId, selectedSucursalId, search]);
 
-  // Funciones auxiliares para obtener nombres
-  const getNombreGestion = (gestion_id) => {
-    const gestion = gestiones.find(
-      (g) => g.gestion_id === parseInt(gestion_id),
-    );
-    return gestion
-      ? `${gestion.gestion} ${gestion.year_id}`
-      : "Gestión no encontrada";
-  };
-
-  const getNombreCurso = (curso_id) => {
-    const curso = cursos.find((c) => c.curso_id === parseInt(curso_id));
-    return curso?.nombre || "Curso no encontrado";
-  };
-
-  const getNombreProfesor = (profesor_id) => {
-    const profesor = profesores.find(
-      (p) => p.usuario_id === parseInt(profesor_id),
-    );
-    return profesor
-      ? `${profesor.nombres} ${profesor.ap_paterno} ${profesor.ap_materno}`
-      : "Profesor no encontrado";
-  };
-
-  const getNombreSucursal = (sucursal_id) => {
-    const sucursal = sucursales.find(
-      (s) => s.sucursal_id === parseInt(sucursal_id),
-    );
-    return sucursal?.nombre || "Sucursal no encontrada";
-  };
-
-  // Verificar si todos los filtros están seleccionados
-  const todosFiltrosSeleccionados =
-    filtros.gestion_id &&
-    filtros.sucursal_id &&
-    filtros.curso_id &&
-    filtros.profesor_id;
-
-  // Función para generar el PDF de la lista
-  const handleGenerarPDF = () => {
-    if (!estudiantes || estudiantes.length === 0) {
-      toast.warning("No hay estudiantes para generar el PDF");
-      return;
-    }
-
-    // Obtener información del horario para el curso y profesor seleccionados
-    let horarioTexto = "Sin especificar";
-
-    if (horarios && horarios.length > 0) {
-      const horarioEncontrado = horarios.find(
-        (h) => h.profesor_id === parseInt(filtros.profesor_id),
+  const saveCardContext = (card) => {
+    try {
+      if (typeof window === "undefined") return;
+      const payload = {
+        profesor_id: card.profesor_id != null ? String(card.profesor_id) : "",
+        curso_id: card.curso_id != null ? String(card.curso_id) : "",
+        sucursal_id: card.sucursal_id != null ? String(card.sucursal_id) : "",
+        gestion_id: card.gestion_id != null ? String(card.gestion_id) : "",
+        curso: card.curso_nombre || "Curso",
+        sucursal: card.sucursal_nombre || "Sucursal",
+        horario: card.horario_texto || "Sin horario",
+        docente: card.docente_nombre || "Sin docente",
+      };
+      sessionStorage.setItem(
+        `listas_ctx_encargado_${card.horario_id}`,
+        JSON.stringify(payload),
       );
-
-      if (horarioEncontrado) {
-        const dias = [];
-        if (horarioEncontrado.lunes === true || horarioEncontrado.lunes === 1)
-          dias.push("Lunes");
-        if (horarioEncontrado.martes === true || horarioEncontrado.martes === 1)
-          dias.push("Martes");
-        if (
-          horarioEncontrado.miercoles === true ||
-          horarioEncontrado.miercoles === 1
-        )
-          dias.push("Miércoles");
-        if (horarioEncontrado.jueves === true || horarioEncontrado.jueves === 1)
-          dias.push("Jueves");
-        if (
-          horarioEncontrado.viernes === true ||
-          horarioEncontrado.viernes === 1
-        )
-          dias.push("Viernes");
-        if (horarioEncontrado.sabado === true || horarioEncontrado.sabado === 1)
-          dias.push("Sábado");
-        if (
-          horarioEncontrado.domingo === true ||
-          horarioEncontrado.domingo === 1
-        )
-          dias.push("Domingo");
-
-        const diasTexto =
-          dias.length > 0 ? dias.join(", ") : "Sin días específicos";
-        const horaInicio = horarioEncontrado.hora_inicio || "";
-        const horaFin = horarioEncontrado.hora_fin || "";
-        const horaTxt =
-          horaInicio && horaFin ? `${horaInicio} - ${horaFin}` : "";
-
-        horarioTexto = `${diasTexto}${horaTxt ? ` (${horaTxt})` : ""}`;
-      }
+    } catch {
+      // Ignore storage errors and keep API fallback behavior.
     }
-
-    // Preparar la información del grupo
-    const infoGrupo = {
-      curso: getNombreCurso(filtros.curso_id),
-      sucursal: getNombreSucursal(filtros.sucursal_id),
-      facilitador: getNombreProfesor(filtros.profesor_id),
-      horario: horarioTexto,
-      gestion: getNombreGestion(filtros.gestion_id),
-    };
-
-    generarPDFLista(estudiantes, infoGrupo);
   };
 
   return (
-    <div className="p-4">
-      <h1 className="text-3xl font-bold text-[#13678A] border-b pb-2 mb-4">
-        LISTAS
-      </h1>
-
-      {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-          {error}
-        </div>
-      )}
-
-      {/* Filtros */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        {/* Selector de Gestión */}
+    <div className="space-y-6 p-4">
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
-          <label htmlFor="gestion-select" className="block mb-1 font-semibold">
-            Gestión
+          <h1 className="text-3xl font-bold text-[#13678A]">LISTAS</h1>
+          <p className="mt-1 text-sm text-gray-600">
+            Cursos disponibles por sucursal y gestion.
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        <div>
+          <label
+            htmlFor="gestion-select"
+            className="mb-1 block text-sm font-semibold"
+          >
+            Gestion
           </label>
           <select
             id="gestion-select"
-            value={filtros.gestion_id}
-            onChange={(e) =>
-              setFiltros((prev) => ({ ...prev, gestion_id: e.target.value }))
-            }
-            className="w-full border rounded px-3 py-2"
-            disabled={loading.general || gestiones.length === 0}
+            value={selectedGestionId}
+            onChange={(e) => setSelectedGestionId(e.target.value)}
+            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+            disabled={loading || gestiones.length === 0}
           >
-            <option value="">Seleccione una gestión</option>
-            {gestiones.map((gestion) => (
-              <option key={gestion.gestion_id} value={gestion.gestion_id}>
-                {gestion.gestion} {gestion.year_id}
+            <option value="">Todas</option>
+            {gestiones.map((g) => (
+              <option key={g.gestion_id} value={g.gestion_id}>
+                {g.gestion} - {g.year_id}
               </option>
             ))}
           </select>
         </div>
 
-        {/* Selector de Sucursal */}
         <div>
-          <label htmlFor="sucursal-select" className="block mb-1 font-semibold">
+          <label
+            htmlFor="sucursal-select"
+            className="mb-1 block text-sm font-semibold"
+          >
             Sucursal
           </label>
           <select
             id="sucursal-select"
-            value={filtros.sucursal_id}
-            onChange={(e) =>
-              setFiltros((prev) => ({
-                ...prev,
-                sucursal_id: e.target.value,
-                profesor_id: "",
-              }))
-            }
-            className="w-full border rounded px-3 py-2"
-            disabled={
-              loading.general || sucursales.length === 0 || !filtros.gestion_id
-            }
+            value={selectedSucursalId}
+            onChange={(e) => setSelectedSucursalId(e.target.value)}
+            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+            disabled={loading || sucursales.length === 0}
           >
-            <option value="">Seleccione una sucursal</option>
-            {sucursales.map((sucursal) => (
-              <option key={sucursal.sucursal_id} value={sucursal.sucursal_id}>
-                {sucursal.nombre}
+            <option value="">Todas</option>
+            {sucursales.map((s) => (
+              <option key={s.sucursal_id} value={s.sucursal_id}>
+                {s.nombre}
               </option>
             ))}
           </select>
         </div>
 
-        {/* Selector de Curso */}
         <div>
-          <label htmlFor="curso-select" className="block mb-1 font-semibold">
-            Curso
-          </label>
-          <select
-            id="curso-select"
-            value={filtros.curso_id}
-            onChange={(e) =>
-              setFiltros((prev) => ({
-                ...prev,
-                curso_id: e.target.value,
-                profesor_id: "",
-              }))
-            }
-            className="w-full border rounded px-3 py-2"
-            disabled={
-              loading.general || cursos.length === 0 || !filtros.sucursal_id
-            }
+          <label
+            htmlFor="search-card"
+            className="mb-1 block text-sm font-semibold"
           >
-            <option value="">Seleccione un curso</option>
-            {cursos.map((curso) => (
-              <option key={curso.curso_id} value={curso.curso_id}>
-                {curso.nombre}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Selector de Profesor */}
-        <div>
-          <label htmlFor="profesor-select" className="block mb-1 font-semibold">
-            Profesor
+            Buscar Curso o Docente
           </label>
-          <select
-            id="profesor-select"
-            value={filtros.profesor_id}
-            onChange={(e) =>
-              setFiltros((prev) => ({ ...prev, profesor_id: e.target.value }))
-            }
-            className="w-full border rounded px-3 py-2"
-            disabled={
-              loading.horarios ||
-              profesores.length === 0 ||
-              !filtros.curso_id ||
-              !filtros.sucursal_id ||
-              !filtros.gestion_id
-            }
-          >
-            <option value="">Seleccione un profesor</option>
-            {profesores.map((profesor) => (
-              <option key={profesor.usuario_id} value={profesor.usuario_id}>
-                {profesor.nombres} {profesor.ap_paterno} {profesor.ap_materno}
-              </option>
-            ))}
-          </select>
+          <input
+            id="search-card"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Nombre del curso o docente"
+            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+          />
         </div>
       </div>
 
-      {/* Resumen de filtros */}
-      {todosFiltrosSeleccionados && (
-        <div className="mb-4 bg-gray-100 p-4 rounded shadow">
-          <p>
-            <strong>Gestión:</strong> {getNombreGestion(filtros.gestion_id)}
-          </p>
-          <p>
-            <strong>Sucursal:</strong> {getNombreSucursal(filtros.sucursal_id)}
-          </p>
-          <p>
-            <strong>Curso:</strong> {getNombreCurso(filtros.curso_id)}
-          </p>
-          <p>
-            <strong>Profesor:</strong> {getNombreProfesor(filtros.profesor_id)}
-          </p>
+      {error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-700">
+          {error}
         </div>
       )}
 
-      {/* Contenido principal */}
-      {loading.general ? (
-        <div className="text-center py-8">
-          <p>Cargando datos iniciales...</p>
+      {loading ? (
+        <div className="rounded-xl border border-gray-200 bg-white p-6 text-sm text-gray-500">
+          Cargando cursos...
+        </div>
+      ) : cardsFiltradas.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-600">
+          No hay cursos para los filtros seleccionados.
         </div>
       ) : (
-        <>
-          {!todosFiltrosSeleccionados && (
-            <div className="text-center py-8 text-gray-600">
-              Por favor seleccione todos los filtros para mostrar la lista de
-              estudiantes
-            </div>
-          )}
-
-          {todosFiltrosSeleccionados && loading.estudiantes ? (
-            <div className="text-center py-8">
-              <p>Cargando estudiantes...</p>
-            </div>
-          ) : todosFiltrosSeleccionados && estudiantes.length > 0 ? (
-            <>
-              <div className="mb-4 flex justify-end">
-                <button
-                  onClick={handleGenerarPDF}
-                  className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded shadow flex items-center gap-2"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6zm5 6a1 1 0 10-2 0v3.586l-1.293-1.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V8z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                  Generar PDF
-                </button>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {cardsFiltradas.map((card) => (
+            <Link
+              key={card.horario_id}
+              href={`/encargado/listas/${card.horario_id}`}
+              onClick={() => saveCardContext(card)}
+              className="rounded-xl border border-gray-200 bg-white p-4 text-left shadow-sm transition hover:shadow-md"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  {card.curso_nombre}
+                </h3>
+                <span className="rounded-full bg-[#13678A] px-2 py-1 text-xs font-semibold text-white">
+                  ACTIVO
+                </span>
               </div>
-              <div className="overflow-x-auto">
-                <table className="min-w-full border">
-                  <thead className="bg-gray-200">
-                    <tr>
-                      <th className="border px-3 py-2">Nombres</th>
-                      <th className="border px-3 py-2">Apellido Paterno</th>
-                      <th className="border px-3 py-2">Apellido Materno</th>
-                      <th className="border px-3 py-2">CI</th>
-                      <th className="border px-3 py-2">Teléfono</th>
-                      <th className="border px-3 py-2">Nota Final</th>
-                      <th className="border px-3 py-2">Estado</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {estudiantes.map((est) => (
-                      <tr
-                        key={est.estudiante_id}
-                        className="odd:bg-white even:bg-gray-50"
-                      >
-                        <td
-                          className="border px-3 py-2"
-                          style={{ textTransform: "uppercase" }}
-                        >
-                          {est.nombres}
-                        </td>
-                        <td
-                          className="border px-3 py-2"
-                          style={{ textTransform: "uppercase" }}
-                        >
-                          {est.ap_paterno}
-                        </td>
-                        <td
-                          className="border px-3 py-2"
-                          style={{ textTransform: "uppercase" }}
-                        >
-                          {est.ap_materno}
-                        </td>
-                        <td className="border px-3 py-2">{est.ci}</td>
-                        <td className="border px-3 py-2">{est.telefono}</td>
-                        <td className="border px-3 py-2">
-                          <input
-                            type="number"
-                            min="0"
-                            max="100"
-                            value={est.nota_final || 0}
-                            onChange={(e) =>
-                              actualizarNota(
-                                est.estudiante_id,
-                                Number(e.target.value),
-                              )
-                            }
-                            className="w-16 border rounded px-2 py-1 text-center"
-                          />
-                        </td>
-                        <td className="border px-3 py-2">{est.estado}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <p className="mt-2 text-xs font-semibold text-gray-700">
+                Docente: {card.docente_nombre}
+              </p>
+              <p className="mt-1 text-sm text-gray-600">
+                {card.sucursal_nombre}
+              </p>
+              <p className="mt-1 text-xs text-gray-500">{card.horario_texto}</p>
+              <div className="mt-4 flex items-center justify-between text-sm">
+                <span className="text-gray-500">Inscritos</span>
+                <span className="font-bold text-[#13678A]">
+                  {Number(card.inscritos) || 0}
+                </span>
               </div>
-            </>
-          ) : todosFiltrosSeleccionados && estudiantes.length === 0 ? (
-            <div className="text-center py-8 text-gray-600">
-              No se encontraron estudiantes con los filtros seleccionados
-            </div>
-          ) : null}
-        </>
+              <div className="mt-3 text-sm font-medium text-[#13678A]">
+                Ver lista
+              </div>
+            </Link>
+          ))}
+        </div>
       )}
     </div>
   );

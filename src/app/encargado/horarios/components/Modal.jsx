@@ -7,12 +7,12 @@ const Modal = ({ isOpen, onClose, children, title }) => {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3"
       onClick={onClose} // Este se activa solo si haces click *fuera* del modal
     >
       {/* Modal interior: detiene propagación del click */}
       <div
-        className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 relative"
+        className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-4 sm:p-6 relative"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Encabezado con botón de cerrar */}

@@ -33,9 +33,15 @@ const CourseForm = ({
     if (initialData) {
       // Si viene de clic en celda, pre-cargar el horario
       const initialSchedules =
-        initialData.days && initialData.time
-          ? initialData.days.map((day) => ({ day, time: initialData.time }))
-          : [];
+        Array.isArray(initialData.schedules) && initialData.schedules.length > 0
+          ? initialData.schedules
+          : initialData.days && initialData.time
+            ? initialData.days.map((day) => ({
+                day,
+                time: initialData.time,
+                classroom: initialData.classroom || "",
+              }))
+            : [];
 
       setFormData({
         curso_id: initialData.curso_id || "",
@@ -56,12 +62,18 @@ const CourseForm = ({
 
   const addSchedule = () => {
     if (timeSlots.length === 0 || days.length === 0) return;
+    const defaultClassroom =
+      formData.classroom || availableClassrooms[0]?.value || "";
 
     setFormData((prev) => ({
       ...prev,
       schedules: [
         ...prev.schedules,
-        { day: days[0].id, time: timeSlots[0].label },
+        {
+          day: days[0].id,
+          time: timeSlots[0].label,
+          classroom: defaultClassroom,
+        },
       ],
     }));
   };
@@ -92,13 +104,13 @@ const CourseForm = ({
       toast.warning("Por favor, completa todos los campos obligatorios");
       return;
     }
-    if (!formData.classroom) {
-      toast.warning("Por favor, selecciona un aula");
-      return;
-    }
     // Validar que al menos un horario esté configurado
     if (formData.schedules.length === 0) {
       toast.warning("Por favor, agrega al menos un horario (día + hora)");
+      return;
+    }
+    if (formData.schedules.some((s) => !s.classroom)) {
+      toast.warning("Cada horario debe tener aula seleccionada");
       return;
     }
     onSubmit(formData);
@@ -193,34 +205,20 @@ const CourseForm = ({
         </div>
       )}
 
-      {/* Aula */}
+      {/* Aula base */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          Aula *
+          Aula base
         </label>
-        {isEditMode ? (
-          <select
-            name="classroom"
-            value={formData.classroom}
-            onChange={handleChange}
-            required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="">Seleccionar aula</option>
-            {availableClassrooms.map((aula) => (
-              <option key={aula.value} value={aula.value}>
-                {aula.label}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <input
-            type="text"
-            value={getClassroomLabel()}
-            readOnly
-            className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700"
-          />
-        )}
+        <input
+          type="text"
+          value={getClassroomLabel()}
+          readOnly
+          className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700"
+        />
+        <p className="mt-1 text-xs text-gray-500">
+          Puede cambiar el aula en cada bloque de horario.
+        </p>
       </div>
 
       {/* Horarios * (Día + Hora) */}
@@ -251,7 +249,7 @@ const CourseForm = ({
                 key={index}
                 className="flex gap-2 items-start p-3 border border-gray-200 rounded-md bg-gray-50"
               >
-                <div className="flex-1 grid grid-cols-2 gap-2">
+                <div className="flex-1 grid grid-cols-1 gap-2 md:grid-cols-3">
                   {/* Selector de Día */}
                   <select
                     value={schedule.day}
@@ -278,6 +276,22 @@ const CourseForm = ({
                     {timeSlots.map((time) => (
                       <option key={time.id} value={time.label}>
                         {time.label}
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* Selector de Aula por bloque */}
+                  <select
+                    value={schedule.classroom || ""}
+                    onChange={(e) =>
+                      updateSchedule(index, "classroom", e.target.value)
+                    }
+                    className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Seleccionar aula</option>
+                    {availableClassrooms.map((aula) => (
+                      <option key={aula.value} value={aula.value}>
+                        {aula.label}
                       </option>
                     ))}
                   </select>

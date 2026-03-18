@@ -1,16 +1,12 @@
 import { NextResponse } from "next/server";
 
-export function middleware(request) {
+export function proxy(request) {
   const { pathname } = request.nextUrl;
-
-  // Obtener cookies directamente del request
-  const accessToken = request.cookies.get("access_token")?.value;
   const userDataCookie = request.cookies.get("user_data")?.value;
 
-  // Rutas públicas
+  // Rutas publicas
   const publicPaths = ["/login"];
 
-  // Permitir acceso a rutas públicas
   if (publicPaths.includes(pathname)) {
     if (userDataCookie) {
       try {
@@ -31,7 +27,6 @@ export function middleware(request) {
     return NextResponse.next();
   }
 
-  // Si no hay datos de usuario, redirigir a login
   if (!userDataCookie) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
@@ -44,7 +39,6 @@ export function middleware(request) {
       3: "/facilitador",
     };
 
-    // Redirigir desde la raíz
     if (pathname === "/") {
       const targetRoute = roleRoutes[userData.rol_id];
       if (targetRoute) {
@@ -52,7 +46,6 @@ export function middleware(request) {
       }
     }
 
-    // Verificar acceso a rutas según rol
     const userBaseRoute = roleRoutes[userData.rol_id];
     if (userBaseRoute && !pathname.startsWith(userBaseRoute)) {
       return NextResponse.redirect(new URL(userBaseRoute, request.url));
@@ -60,7 +53,7 @@ export function middleware(request) {
 
     return NextResponse.next();
   } catch (error) {
-    console.error("Error de autenticación:", error);
+    console.error("Error de autenticacion:", error);
     const response = NextResponse.redirect(new URL("/login", request.url));
     response.cookies.delete("access_token");
     response.cookies.delete("user_data");

@@ -52,6 +52,12 @@ function toUpperSafe(value) {
   return value ? String(value).toUpperCase() : "";
 }
 
+function buildFullName(est) {
+  return `${est.nombres || ""} ${est.ap_paterno || ""} ${est.ap_materno || ""}`
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function getAuthUser() {
   try {
     const raw = Cookies.get("user_data");
@@ -69,7 +75,7 @@ function getAuthUser() {
   }
 }
 
-export default function ListaCursoDetallePage() {
+export default function ListaCursoDetalleAdminPage() {
   const params = useParams();
 
   const [estudiantes, setEstudiantes] = useState([]);
@@ -82,11 +88,11 @@ export default function ListaCursoDetallePage() {
     curso: "Curso",
     sucursal: "Sucursal",
     horario: "Sin horario",
-    docente: "Facilitador",
+    docente: "Sin docente",
     gestion: "",
   });
 
-  usePageTitle(`Cursos - ${headerInfo.curso}`);
+  usePageTitle(`Listas - ${headerInfo.curso}`);
 
   const fetchAuth = async (url, options = {}) => {
     const token = Cookies.get("access_token");
@@ -111,16 +117,6 @@ export default function ListaCursoDetallePage() {
     return response;
   };
 
-  const requestData = useMemo(() => {
-    const user = getAuthUser();
-    return {
-      profesor_id: user?.id ? String(user.id) : "",
-      curso_id: "",
-      sucursal_id: "",
-      gestion_id: "",
-    };
-  }, []);
-
   useEffect(() => {
     const loadEstudiantes = async () => {
       try {
@@ -130,14 +126,10 @@ export default function ListaCursoDetallePage() {
         const horarioId = Array.isArray(params?.horarioId)
           ? params.horarioId[0]
           : params?.horarioId;
-        const stored = getStoredListContext("facilitador", horarioId);
+        const stored = getStoredListContext("admin", horarioId);
 
         const resolvedRequest = {
-          ...requestData,
-          profesor_id:
-            stored?.profesor_id && String(stored.profesor_id)
-              ? String(stored.profesor_id)
-              : requestData.profesor_id,
+          profesor_id: stored?.profesor_id ? String(stored.profesor_id) : "",
           curso_id: stored?.curso_id ? String(stored.curso_id) : "",
           sucursal_id: stored?.sucursal_id ? String(stored.sucursal_id) : "",
           gestion_id: stored?.gestion_id ? String(stored.gestion_id) : "",
@@ -153,147 +145,93 @@ export default function ListaCursoDetallePage() {
           }));
         }
 
-        const resolveSucursalFromAula = async (aulaId) => {
-          if (!aulaId) return "";
-
-          const sucursalesRes = await fetchAuth(`${API_URL}/sucursales/`);
-          if (!sucursalesRes.ok) return "";
-
-          const sucursalesData = await sucursalesRes.json();
-          for (const sucursal of Array.isArray(sucursalesData)
-            ? sucursalesData
-            : []) {
-            const aulas = Array.isArray(sucursal?.aulas) ? sucursal.aulas : [];
-            const found = aulas.find(
-              (a) => String(a?.aula_id) === String(aulaId),
-            );
-            if (found && sucursal?.sucursal_id != null) {
-              return String(sucursal.sucursal_id);
-            }
-          }
-
-          return "";
-        };
-
         if (
-          !resolvedRequest.profesor_id ||
-          !resolvedRequest.curso_id ||
-          !resolvedRequest.sucursal_id ||
-          !resolvedRequest.gestion_id
+          (!resolvedRequest.profesor_id ||
+            !resolvedRequest.curso_id ||
+            !resolvedRequest.sucursal_id ||
+            !resolvedRequest.gestion_id) &&
+          horarioId
         ) {
-          const user = getAuthUser();
-          if (!user?.id || !horarioId) {
-            throw new Error(
-              "No se pudo determinar los datos del curso seleccionado.",
-            );
-          }
-
-          const horariosRes = await fetchAuth(
-            `${API_URL}/listas/profesor/${user.id}/horarios`,
+          const horarioRes = await fetchAuth(
+            `${API_URL}/horarios/${horarioId}`,
           );
-
-          if (!horariosRes.ok) {
-            throw new Error(
-              "No se pudo determinar los datos del curso seleccionado.",
-            );
-          }
-
-          const horariosData = await horariosRes.json();
-          const match = (Array.isArray(horariosData) ? horariosData : []).find(
-            (h) => String(h.horario_id || h.id) === String(horarioId),
-          );
-
-          if (!match) {
-            throw new Error(
-              "No se pudo determinar los datos del curso seleccionado.",
-            );
-          }
-
-          resolvedRequest.profesor_id = String(
-            resolvedRequest.profesor_id ||
-              match.profesor_id ||
-              match.profesor?.usuario_id ||
-              user.id,
-          );
-          resolvedRequest.curso_id = String(
-            resolvedRequest.curso_id ||
-              match.curso_id ||
-              match.curso?.curso_id ||
-              match.id_curso ||
-              "",
-          );
-          resolvedRequest.sucursal_id = String(
-            resolvedRequest.sucursal_id ||
-              match.sucursal_id ||
-              match.sucursal?.sucursal_id ||
-              match.id_sucursal ||
-              "",
-          );
-
-          if (!resolvedRequest.sucursal_id) {
-            const matchAulaId =
-              match.aula_id || match.aula?.aula_id || match.id_aula;
-            if (matchAulaId) {
-              resolvedRequest.sucursal_id =
-                await resolveSucursalFromAula(matchAulaId);
-            }
-          }
-
-          if (!resolvedRequest.sucursal_id) {
-            const horarioRes = await fetchAuth(
-              `${API_URL}/horarios/${horarioId}`,
-            );
-            if (horarioRes.ok) {
-              const horarioDetalle = await horarioRes.json();
-              const aulaIdDetalle =
-                horarioDetalle?.aula_id ||
-                horarioDetalle?.aula?.aula_id ||
-                null;
-              resolvedRequest.sucursal_id =
-                await resolveSucursalFromAula(aulaIdDetalle);
-            }
-          }
-
-          resolvedRequest.gestion_id = String(
-            resolvedRequest.gestion_id ||
-              match.gestion_id ||
-              match.gestion?.gestion_id ||
-              match.id_gestion ||
-              "",
-          );
-
-          const docenteNombreResuelto = [
-            match.profesor?.nombres,
-            match.profesor?.ap_paterno,
-            match.profesor?.ap_materno,
-          ]
-            .filter(Boolean)
-            .join(" ")
-            .trim();
-
-          setHeaderInfo({
-            curso:
-              match.curso?.nombre ||
-              (typeof match.curso === "string" ? match.curso : "") ||
-              match.curso_nombre ||
-              "Curso",
-            sucursal:
-              match.sucursal?.nombre ||
-              (typeof match.sucursal === "string" ? match.sucursal : "") ||
-              match.sucursal_nombre ||
-              "Sucursal",
-            horario: buildHorarioLabel(match),
-            docente:
-              docenteNombreResuelto || getAuthUser()?.nombre || "Facilitador",
-            gestion:
+          if (horarioRes.ok) {
+            const h = await horarioRes.json();
+            resolvedRequest.profesor_id =
               String(
-                match.gestion?.gestion ||
-                  match.gestion_id ||
-                  match.id_gestion ||
-                  resolvedRequest.gestion_id ||
+                resolvedRequest.profesor_id ||
+                  h.profesor_id ||
+                  h.usuario_id ||
+                  h.profesor?.usuario_id ||
                   "",
-              ) || "",
-          });
+              ) || "";
+            resolvedRequest.curso_id =
+              String(
+                resolvedRequest.curso_id ||
+                  h.curso_id ||
+                  h.id_curso ||
+                  h.curso?.curso_id ||
+                  "",
+              ) || "";
+            resolvedRequest.gestion_id =
+              String(
+                resolvedRequest.gestion_id ||
+                  h.gestion_id ||
+                  h.id_gestion ||
+                  h.gestion?.gestion_id ||
+                  "",
+              ) || "";
+
+            let sucursalNombreResuelta =
+              h.sucursal?.nombre || h.sucursal_nombre || "Sucursal";
+
+            if (!resolvedRequest.sucursal_id) {
+              const sucursalesRes = await fetchAuth(`${API_URL}/sucursales/`);
+              if (sucursalesRes.ok) {
+                const sucursalesData = await sucursalesRes.json();
+                const aulaId = h.aula_id || h.id_aula || h.aula?.aula_id;
+                for (const sucursal of Array.isArray(sucursalesData)
+                  ? sucursalesData
+                  : []) {
+                  const aulas = Array.isArray(sucursal?.aulas)
+                    ? sucursal.aulas
+                    : [];
+                  if (
+                    aulas.some((a) => String(a?.aula_id) === String(aulaId))
+                  ) {
+                    resolvedRequest.sucursal_id = String(sucursal.sucursal_id);
+                    sucursalNombreResuelta =
+                      sucursal.nombre || sucursalNombreResuelta;
+                    break;
+                  }
+                }
+              }
+            }
+
+            const docenteNombreResuelto = [
+              h.profesor?.nombres,
+              h.profesor?.ap_paterno,
+              h.profesor?.ap_materno,
+            ]
+              .filter(Boolean)
+              .join(" ")
+              .trim();
+
+            setHeaderInfo({
+              curso: h.curso?.nombre || h.curso_nombre || "Curso",
+              sucursal: sucursalNombreResuelta,
+              horario: buildHorarioLabel(h),
+              docente: docenteNombreResuelto || "Sin docente",
+              gestion:
+                String(
+                  h.gestion?.gestion ||
+                    h.gestion_id ||
+                    h.id_gestion ||
+                    resolvedRequest.gestion_id ||
+                    "",
+                ) || "",
+            });
+          }
         }
 
         if (
@@ -362,19 +300,25 @@ export default function ListaCursoDetallePage() {
     };
 
     loadEstudiantes();
-  }, [params, requestData]);
+  }, [params]);
 
   const estudiantesFiltrados = useMemo(() => {
     const term = search.trim().toLowerCase();
-    return estudiantes.filter((e) => {
-      const full =
-        `${e.nombres} ${e.ap_paterno} ${e.ap_materno} ${e.ci}`.toLowerCase();
-      const matchText = !term || full.includes(term);
-      const matchEstado =
-        statusFilter === "TODOS" ||
-        (e.estado || "").toUpperCase() === statusFilter;
-      return matchText && matchEstado;
-    });
+    return estudiantes
+      .filter((e) => {
+        const full =
+          `${e.nombres} ${e.ap_paterno} ${e.ap_materno} ${e.ci}`.toLowerCase();
+        const matchText = !term || full.includes(term);
+        const matchEstado =
+          statusFilter === "TODOS" ||
+          (e.estado || "").toUpperCase() === statusFilter;
+        return matchText && matchEstado;
+      })
+      .sort((a, b) =>
+        buildFullName(a).localeCompare(buildFullName(b), "es", {
+          sensitivity: "base",
+        }),
+      );
   }, [estudiantes, search, statusFilter]);
 
   const updateStudentField = (matriculaId, field, value) => {
@@ -392,9 +336,7 @@ export default function ListaCursoDetallePage() {
 
   const guardarNotaEstado = async (student) => {
     if (!student?.matricula_id) {
-      toast.error(
-        "No se pudo realizar la accion. Comuniquese con el administrador.",
-      );
+      toast.error("No se pudo guardar.");
       return;
     }
 
@@ -402,17 +344,8 @@ export default function ListaCursoDetallePage() {
       ? student.matricula_ids.filter(Boolean)
       : [student.matricula_id];
 
-    const nota = Number(student.nota_final);
-    if (Number.isNaN(nota) || nota < 0 || nota > 100) {
-      toast.warning("La nota final debe estar entre 0 y 100.");
-      return;
-    }
-
+    const nota = Number(student.nota_final ?? 0);
     const estado = (student.estado || "").toUpperCase();
-    if (!ESTADOS_VALIDOS.includes(estado)) {
-      toast.warning("Seleccione un estado valido.");
-      return;
-    }
 
     try {
       setSavingByMatricula((prev) => {
@@ -424,13 +357,23 @@ export default function ListaCursoDetallePage() {
       });
 
       for (const matriculaId of matriculaIds) {
-        const response = await fetchAuth(
+        let response = await fetchAuth(
           `${API_URL}/listas/matricula/${matriculaId}/nota`,
           {
             method: "PUT",
             body: JSON.stringify({ nota_final: nota, estado }),
           },
         );
+
+        if (!response.ok && response.status === 422 && student.estudiante_id) {
+          response = await fetchAuth(
+            `${API_URL}/listas/estudiante/${student.estudiante_id}/nota`,
+            {
+              method: "PUT",
+              body: JSON.stringify({ nota_final: nota }),
+            },
+          );
+        }
 
         if (!response.ok) {
           throw new Error("No se pudo guardar.");
@@ -439,9 +382,7 @@ export default function ListaCursoDetallePage() {
 
       toast.success("Actualizacion guardada correctamente.");
     } catch {
-      toast.error(
-        "No se pudo realizar la accion. Comuniquese con el administrador.",
-      );
+      toast.error("No se pudo guardar la nota.");
     } finally {
       setSavingByMatricula((prev) => {
         const next = { ...prev };
@@ -468,9 +409,7 @@ export default function ListaCursoDetallePage() {
           const allStudents = await allRes.json();
           byStudentId = (Array.isArray(allStudents) ? allStudents : []).reduce(
             (acc, s) => {
-              if (s?.estudiante_id != null) {
-                acc[String(s.estudiante_id)] = s;
-              }
+              if (s?.estudiante_id != null) acc[String(s.estudiante_id)] = s;
               return acc;
             },
             {},
@@ -480,52 +419,18 @@ export default function ListaCursoDetallePage() {
         byStudentId = {};
       }
 
-      if (Object.keys(byStudentId).length === 0) {
-        const uniqueIds = Array.from(
-          new Set(
-            estudiantes
-              .map((e) => e?.estudiante_id)
-              .filter((id) => id !== null && id !== undefined),
-          ),
-        );
-
-        const details = await Promise.all(
-          uniqueIds.map(async (id) => {
-            try {
-              const res = await fetchAuth(`${API_URL}/estudiantes/${id}`);
-              if (!res.ok) return null;
-              return await res.json();
-            } catch {
-              return null;
-            }
-          }),
-        );
-
-        byStudentId = details.reduce((acc, s) => {
-          if (s?.estudiante_id != null) {
-            acc[String(s.estudiante_id)] = s;
-          }
-          return acc;
-        }, {});
-      }
-
-      const estudiantesConNacimiento = estudiantes.map((e) => {
+      const estudiantesConNacimiento = estudiantesFiltrados.map((e) => {
         const full = byStudentId[String(e.estudiante_id)] || null;
         return {
           ...e,
-          fecha_nacimiento:
-            e.fecha_nacimiento ||
-            full?.fecha_nacimiento ||
-            full?.fechaNacimiento ||
-            "",
+          fecha_nacimiento: full?.fecha_nacimiento || "",
         };
       });
 
       const infoGrupo = {
         curso: headerInfo.curso,
         sucursal: headerInfo.sucursal,
-        facilitador:
-          headerInfo.docente || getAuthUser()?.nombre || "Facilitador",
+        facilitador: headerInfo.docente || getAuthUser()?.nombre || "Docente",
         horario: headerInfo.horario,
         gestion: headerInfo.gestion,
       };
@@ -540,10 +445,10 @@ export default function ListaCursoDetallePage() {
     <div className="space-y-6 p-4">
       <div className="text-sm text-gray-500">
         <Link
-          href="/facilitador/listas"
+          href="/administrador/listas"
           className="hover:text-[#13678A] hover:underline"
         >
-          Cursos
+          Listas
         </Link>{" "}
         &gt;{" "}
         <span className="font-semibold text-gray-700">{headerInfo.curso}</span>
@@ -557,6 +462,9 @@ export default function ListaCursoDetallePage() {
             </h1>
             <p className="text-sm text-gray-500">
               {headerInfo.sucursal} - {headerInfo.horario}
+            </p>
+            <p className="text-xs text-gray-500">
+              Docente: {headerInfo.docente}
             </p>
           </div>
 
@@ -624,9 +532,7 @@ export default function ListaCursoDetallePage() {
                 {estudiantesFiltrados.map((e) => (
                   <tr key={e.matricula_id} className="border-b last:border-b-0">
                     <td className="px-3 py-3 font-medium text-gray-900">
-                      {[e.nombres, e.ap_paterno, e.ap_materno]
-                        .filter(Boolean)
-                        .join(" ")}
+                      {buildFullName(e)}
                     </td>
                     <td className="px-3 py-3 text-gray-700">{e.ci || "-"}</td>
                     <td className="px-3 py-3 text-gray-700">

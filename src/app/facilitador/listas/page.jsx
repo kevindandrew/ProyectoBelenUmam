@@ -266,7 +266,37 @@ export default function ListasFacilitadorPage() {
           )
           .filter((c) => c.curso_id && c.gestion_id);
 
-        setCards(normalizadas);
+        // Unificar paralelos que el backend entrega en varios horarios (por aula)
+        // para mostrar una sola tarjeta al facilitador.
+        const agrupadas = Object.values(
+          normalizadas.reduce((acc, card) => {
+            const key = `${card.curso_id}_${card.profesor_id}_${card.gestion_id}_${card.sucursal_id}`;
+
+            if (!acc[key]) {
+              acc[key] = {
+                ...card,
+                horario_ids: [card.horario_id],
+                horarios_texto: [card.horario_texto],
+              };
+            } else {
+              acc[key].horario_ids.push(card.horario_id);
+              acc[key].horarios_texto.push(card.horario_texto);
+              // Evitar inflar inscritos cuando son los mismos alumnos en paralelo.
+              acc[key].inscritos = Math.max(
+                Number(acc[key].inscritos) || 0,
+                Number(card.inscritos) || 0,
+              );
+            }
+
+            return acc;
+          }, {}),
+        ).map((card) => ({
+          ...card,
+          horario_id: card.horario_ids[0],
+          horario_texto: Array.from(new Set(card.horarios_texto)).join(" | "),
+        }));
+
+        setCards(agrupadas);
       } catch {
         setError(
           "No se pudo cargar la informacion. Comuniquese con el administrador.",
@@ -288,6 +318,31 @@ export default function ListasFacilitadorPage() {
       ),
     [cards, selectedGestionId],
   );
+
+  const saveCardContext = (card) => {
+    try {
+      if (typeof window === "undefined") return;
+      const payload = {
+        profesor_id: card.profesor_id != null ? String(card.profesor_id) : "",
+        curso_id: card.curso_id != null ? String(card.curso_id) : "",
+        sucursal_id: card.sucursal_id != null ? String(card.sucursal_id) : "",
+        gestion_id: card.gestion_id != null ? String(card.gestion_id) : "",
+        horario_ids: Array.isArray(card.horario_ids)
+          ? card.horario_ids.map((id) => String(id))
+          : [String(card.horario_id)],
+        curso: card.curso_nombre || "Curso",
+        sucursal: card.sucursal_nombre || "Sucursal",
+        horario: card.horario_texto || "Sin horario",
+        docente: currentUser?.nombre || "Facilitador",
+      };
+      sessionStorage.setItem(
+        `listas_ctx_facilitador_${card.horario_id}`,
+        JSON.stringify(payload),
+      );
+    } catch {
+      // Ignore storage errors and keep API fallback behavior.
+    }
+  };
 
   return (
     <div className="space-y-6 p-4">
@@ -338,52 +393,36 @@ export default function ListasFacilitadorPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {cardsGestion.map((card) => {
-            const params = new URLSearchParams();
-            if (card.curso_id != null)
-              params.set("curso_id", String(card.curso_id));
-            if (card.sucursal_id != null)
-              params.set("sucursal_id", String(card.sucursal_id));
-            if (card.gestion_id != null)
-              params.set("gestion_id", String(card.gestion_id));
-            if (card.profesor_id != null)
-              params.set("profesor_id", String(card.profesor_id));
-            params.set("curso", card.curso_nombre);
-            params.set("sucursal", card.sucursal_nombre);
-            params.set("horario", card.horario_texto);
-
-            return (
-              <Link
-                key={card.horario_id}
-                href={`/facilitador/listas/${card.horario_id}?${params.toString()}`}
-                className="rounded-xl border border-gray-200 bg-white p-4 text-left shadow-sm transition hover:shadow-md"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    {card.curso_nombre}
-                  </h3>
-                  <span className="rounded-full bg-[#13678A] px-2 py-1 text-xs font-semibold text-white">
-                    ACTIVO
-                  </span>
-                </div>
-                <p className="mt-2 text-sm text-gray-600">
-                  {card.sucursal_nombre}
-                </p>
-                <p className="mt-1 text-xs text-gray-500">
-                  {card.horario_texto}
-                </p>
-                <div className="mt-4 flex items-center justify-between text-sm">
-                  <span className="text-gray-500">Inscritos</span>
-                  <span className="font-bold text-[#13678A]">
-                    {card.inscritos}
-                  </span>
-                </div>
-                <div className="mt-3 text-sm font-medium text-[#13678A]">
-                  Ver lista
-                </div>
-              </Link>
-            );
-          })}
+          {cardsGestion.map((card) => (
+            <Link
+              key={card.horario_id}
+              href={`/facilitador/listas/${card.horario_id}`}
+              onClick={() => saveCardContext(card)}
+              className="rounded-xl border border-gray-200 bg-white p-4 text-left shadow-sm transition hover:shadow-md"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  {card.curso_nombre}
+                </h3>
+                <span className="rounded-full bg-[#13678A] px-2 py-1 text-xs font-semibold text-white">
+                  ACTIVO
+                </span>
+              </div>
+              <p className="mt-2 text-sm text-gray-600">
+                {card.sucursal_nombre}
+              </p>
+              <p className="mt-1 text-xs text-gray-500">{card.horario_texto}</p>
+              <div className="mt-4 flex items-center justify-between text-sm">
+                <span className="text-gray-500">Inscritos</span>
+                <span className="font-bold text-[#13678A]">
+                  {card.inscritos}
+                </span>
+              </div>
+              <div className="mt-3 text-sm font-medium text-[#13678A]">
+                Ver lista
+              </div>
+            </Link>
+          ))}
         </div>
       )}
     </div>
