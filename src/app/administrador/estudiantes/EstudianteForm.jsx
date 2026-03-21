@@ -214,6 +214,7 @@ export default function EstudianteForm({
                     "Centro",
                     "Zongo",
                     "Hampaturi",
+                    "El Alto",
                   ],
                   value: estudiante.macrodistrito,
                   onChange: onInputChange,

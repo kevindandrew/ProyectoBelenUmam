@@ -2,6 +2,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import Cookies from "js-cookie";
+import * as XLSX from "xlsx";
 import { usePageTitle } from "@/lib/usePageTitle";
 
 const API_URL = "https://api-umam-1.onrender.com";
@@ -62,6 +63,152 @@ export default function DashboardUMAM() {
   });
   const [loadingReporte, setLoadingReporte] = useState(false);
   const [errorReporte, setErrorReporte] = useState(null);
+  const [exportandoExcel, setExportandoExcel] = useState(false);
+
+  const calcularEdad = (fechaNacimiento) => {
+    if (!fechaNacimiento) return "";
+    const fecha = new Date(fechaNacimiento);
+    if (isNaN(fecha.getTime())) return "";
+
+    const hoy = new Date();
+    let edad = hoy.getFullYear() - fecha.getFullYear();
+    const mes = hoy.getMonth() - fecha.getMonth();
+
+    if (mes < 0 || (mes === 0 && hoy.getDate() < fecha.getDate())) {
+      edad--;
+    }
+    return edad >= 0 ? edad : "";
+  };
+
+  const obtenerReferenciaFamiliar = (estudiante) => {
+    const referencias = Array.isArray(estudiante?.datos_familiares)
+      ? estudiante.datos_familiares
+      : [];
+
+    if (referencias.length === 0) {
+      return { nombre: "", telefono: "" };
+    }
+
+    const referencia =
+      referencias.find(
+        (item) => String(item?.tipo || "").toLowerCase() === "referencia",
+      ) || referencias[0];
+
+    const nombre = [
+      referencia?.ap_paterno,
+      referencia?.ap_materno,
+      referencia?.nombres,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+
+    return {
+      nombre,
+      telefono: referencia?.telefono || "",
+    };
+  };
+
+  const obtenerDireccionYMacrodistrito = (direccionCompleta) => {
+    if (!direccionCompleta) {
+      return { macrodistrito: "", direccion: "" };
+    }
+
+    const partes = String(direccionCompleta)
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+    if (partes.length <= 1) {
+      return { macrodistrito: "", direccion: direccionCompleta };
+    }
+
+    return {
+      macrodistrito: partes[0],
+      direccion: partes.slice(1).join(", "),
+    };
+  };
+
+  const descargarEstudiantesExcel = async () => {
+    setExportandoExcel(true);
+    try {
+      const token = Cookies.get("access_token") || Cookies.get("token");
+      if (!token) throw new Error("No hay token de autenticación.");
+
+      const response = await fetch(`${API_URL}/estudiantes/`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+        },
+      });
+      await handleFetchResponse(response);
+
+      if (!response.ok) {
+        throw new Error("No se pudo obtener la lista de estudiantes.");
+      }
+
+      const estudiantes = await response.json();
+      if (!Array.isArray(estudiantes) || estudiantes.length === 0) {
+        throw new Error("No hay estudiantes para exportar.");
+      }
+
+      const toUpperText = (value) =>
+        value === null || value === undefined
+          ? ""
+          : String(value).toUpperCase();
+
+      const filas = estudiantes.map((estudiante, index) => {
+        const referencia = obtenerReferenciaFamiliar(estudiante);
+        const datosDireccion = obtenerDireccionYMacrodistrito(
+          estudiante?.direccion,
+        );
+
+        return {
+          Nº: index + 1,
+          NOMBRES: toUpperText(estudiante?.nombres),
+          "APELLIDO PATERNO": toUpperText(estudiante?.ap_paterno),
+          "APELLIDO MATERNO": toUpperText(estudiante?.ap_materno),
+          CI: toUpperText(estudiante?.ci),
+          "FECHA NACIMIENTO": estudiante?.fecha_nacimiento
+            ? String(estudiante.fecha_nacimiento).split("T")[0]
+            : "",
+          EDAD: calcularEdad(estudiante?.fecha_nacimiento),
+          DIRECCION: toUpperText(datosDireccion.direccion),
+          MACRODISTRITO: toUpperText(datosDireccion.macrodistrito),
+          "NRO CELULAR ESTUDIANTE": toUpperText(estudiante?.telefono),
+          "NOMBRE REF FAMILIAR": toUpperText(referencia.nombre),
+          "NRO CELULAR REF FAMILIAR": toUpperText(referencia.telefono),
+        };
+      });
+
+      const worksheet = XLSX.utils.json_to_sheet(filas);
+      worksheet["!cols"] = [
+        { wch: 6 },
+        { wch: 20 },
+        { wch: 20 },
+        { wch: 20 },
+        { wch: 12 },
+        { wch: 16 },
+        { wch: 8 },
+        { wch: 35 },
+        { wch: 20 },
+        { wch: 22 },
+        { wch: 30 },
+        { wch: 22 },
+      ];
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Estudiantes");
+      XLSX.writeFile(
+        workbook,
+        `estudiantes_umam_${new Date().toISOString().split("T")[0]}.xlsx`,
+      );
+    } catch (error) {
+      setErrorDetalle(error.message || "Error al exportar estudiantes.");
+    } finally {
+      setExportandoExcel(false);
+    }
+  };
 
   // Cargar filtros y gráficos al inicio
   useEffect(() => {
@@ -527,9 +674,30 @@ export default function DashboardUMAM() {
   };
   return (
     <div className="space-y-8 max-w-6xl mx-auto">
-      <h1 className="text-3xl font-bold text-[#13678A] border-b pb-2">
-        REPORTES
-      </h1>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b pb-2">
+        <h1 className="text-3xl font-bold text-[#13678A]">REPORTES</h1>
+        <button
+          onClick={descargarEstudiantesExcel}
+          disabled={exportandoExcel}
+          className="bg-[#13678A] hover:bg-[#0f546f] disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded-md transition-colors flex items-center gap-2 self-start"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-5 w-5"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
+            <path
+              fillRule="evenodd"
+              d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm6-14a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 011.414-1.414L9 10.586V3z"
+              clipRule="evenodd"
+            />
+          </svg>
+          {exportandoExcel
+            ? "Generando Excel..."
+            : "Descargar datos estudiantes"}
+        </button>
+      </div>
 
       {/* Pestañas */}
       <div className="flex border-b border-gray-200">
