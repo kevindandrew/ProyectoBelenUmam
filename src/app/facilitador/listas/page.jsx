@@ -147,6 +147,10 @@ function normalizeCard(h, context = {}) {
   };
 }
 
+function isNoDisponibleCourseName(nombreCurso) {
+  return /NO\s*DISPONIBLE/i.test(String(nombreCurso || ""));
+}
+
 export default function ListasFacilitadorPage() {
   usePageTitle("Listas");
 
@@ -264,7 +268,12 @@ export default function ListasFacilitadorPage() {
           .map((h) =>
             normalizeCard(h, { cursosById, aulaToSucursal, horariosById }),
           )
-          .filter((c) => c.curso_id && c.gestion_id);
+          .filter(
+            (c) =>
+              c.curso_id &&
+              c.gestion_id &&
+              !isNoDisponibleCourseName(c.curso_nombre),
+          );
 
         // Unificar paralelos que el backend entrega en varios horarios (por aula)
         // para mostrar una sola tarjeta al facilitador.
