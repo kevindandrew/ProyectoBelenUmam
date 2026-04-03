@@ -292,7 +292,7 @@ export const generarPDFLista = async (
         margin: [3, 3, 3, 3],
       },
     ]);
-          widths: [22, 120, 90, 90, 60, 70, 80],
+  });
 
   // Resumen al final
   const resumenFinal = {
