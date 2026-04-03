@@ -1,8 +1,31 @@
 import { AlignJustify } from "lucide-react";
 
-function formatoDDMMYYYY(fechaISO) {
-  if (!fechaISO) return "";
-  const fecha = new Date(fechaISO);
+function parseFechaLocal(fechaValor) {
+  if (!fechaValor) return null;
+
+  if (fechaValor instanceof Date) {
+    return new Date(
+      fechaValor.getFullYear(),
+      fechaValor.getMonth(),
+      fechaValor.getDate(),
+    );
+  }
+
+  if (typeof fechaValor === "string") {
+    const [anio, mes, dia] = fechaValor.split("T")[0].split("-").map(Number);
+    if (Number.isFinite(anio) && Number.isFinite(mes) && Number.isFinite(dia)) {
+      return new Date(anio, mes - 1, dia);
+    }
+  }
+
+  const fecha = new Date(fechaValor);
+  if (Number.isNaN(fecha.getTime())) return null;
+  return new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate());
+}
+
+function formatoDDMMYYYY(fechaValor) {
+  const fecha = parseFechaLocal(fechaValor);
+  if (!fecha) return "";
   const dia = String(fecha.getDate()).padStart(2, "0");
   const mes = String(fecha.getMonth() + 1).padStart(2, "0");
   const anio = fecha.getFullYear();
@@ -10,9 +33,9 @@ function formatoDDMMYYYY(fechaISO) {
 }
 
 function calcularEdad(fechaNacimiento) {
-  if (!fechaNacimiento) return "";
+  const nacimiento = parseFechaLocal(fechaNacimiento);
+  if (!nacimiento) return "";
   const hoy = new Date();
-  const nacimiento = new Date(fechaNacimiento);
   let edad = hoy.getFullYear() - nacimiento.getFullYear();
   const mes = hoy.getMonth() - nacimiento.getMonth();
   if (mes < 0 || (mes === 0 && hoy.getDate() < nacimiento.getDate())) {

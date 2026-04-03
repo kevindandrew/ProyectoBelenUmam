@@ -1,8 +1,31 @@
 // Función para generar PDF de lista de estudiantes inscritos en un curso
 
-function formatoDDMMYYYY(fechaISO) {
-  if (!fechaISO) return "";
-  const fecha = new Date(fechaISO);
+function parseFechaLocal(fechaValor) {
+  if (!fechaValor) return null;
+
+  if (fechaValor instanceof Date) {
+    return new Date(
+      fechaValor.getFullYear(),
+      fechaValor.getMonth(),
+      fechaValor.getDate(),
+    );
+  }
+
+  if (typeof fechaValor === "string") {
+    const [anio, mes, dia] = fechaValor.split("T")[0].split("-").map(Number);
+    if (Number.isFinite(anio) && Number.isFinite(mes) && Number.isFinite(dia)) {
+      return new Date(anio, mes - 1, dia);
+    }
+  }
+
+  const fecha = new Date(fechaValor);
+  if (Number.isNaN(fecha.getTime())) return null;
+  return new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate());
+}
+
+function formatoDDMMYYYY(fechaValor) {
+  const fecha = parseFechaLocal(fechaValor);
+  if (!fecha) return "";
   const dia = String(fecha.getDate()).padStart(2, "0");
   const mes = String(fecha.getMonth() + 1).padStart(2, "0");
   const anio = fecha.getFullYear();
@@ -159,6 +182,7 @@ export const generarPDFLista = async (
         bold: true,
         fontSize: 10,
         alignment: "center",
+        noWrap: true,
         fillColor: "#2c5f8d",
         color: "#ffffff",
         margin: [3, 5, 3, 5],
@@ -168,6 +192,7 @@ export const generarPDFLista = async (
         bold: true,
         fontSize: 10,
         alignment: "center",
+        noWrap: true,
         fillColor: "#2c5f8d",
         color: "#ffffff",
         margin: [3, 5, 3, 5],
@@ -177,6 +202,7 @@ export const generarPDFLista = async (
         bold: true,
         fontSize: 10,
         alignment: "center",
+        noWrap: true,
         fillColor: "#2c5f8d",
         color: "#ffffff",
         margin: [3, 5, 3, 5],
@@ -212,18 +238,21 @@ export const generarPDFLista = async (
         text: est.ci || "",
         fontSize: 10,
         alignment: "center",
+        noWrap: true,
         margin: [3, 4, 3, 4],
       },
       {
         text: est.telefono || "",
         fontSize: 10,
         alignment: "center",
+        noWrap: true,
         margin: [3, 4, 3, 4],
       },
       {
         text: formatoDDMMYYYY(est.fecha_nacimiento),
         fontSize: 10,
         alignment: "center",
+        noWrap: true,
         margin: [3, 4, 3, 4],
       },
     ]);
@@ -244,7 +273,7 @@ export const generarPDFLista = async (
       infoCurso,
       {
         table: {
-          widths: [25, "auto", "auto", "auto", 45, 50, 55],
+          widths: [22, 105, 80, 80, 56, 62, 76],
           body: tablaEstudiantes,
         },
         layout: {
