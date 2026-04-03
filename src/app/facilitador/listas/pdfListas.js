@@ -1,8 +1,6 @@
 // Función para generar PDF de lista de estudiantes inscritos en un curso
 
 function parseFechaLocal(fechaValor) {
-          widths: [22, 105, 80, 80, 56, 62, 76],
-
   if (fechaValor instanceof Date) {
     return new Date(
       fechaValor.getFullYear(),
