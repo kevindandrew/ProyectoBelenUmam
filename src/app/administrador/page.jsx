@@ -38,6 +38,12 @@ const departamentos = [
     extra: "Horario: Lunes a viernes de 9:00 a 16:00.",
     accion: "79666939 - 72520403",
   },
+  {
+    nombre: "SOPORTE TÉCNICO",
+    detalle: "Para problemas técnicos o consultas sobre el sistema.",
+    extra: "Disponible de lunes a viernes de 9:00 a 16:00.",
+    accion: "+591 67192700 (WhatsApp)",
+  },
 ];
 
 export default function AdminDashboard() {

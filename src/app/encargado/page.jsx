@@ -5,6 +5,22 @@ import { usePageTitle } from "@/lib/usePageTitle";
 
 const API_URL = "https://api-umam-1.onrender.com";
 
+const departamentos = [
+  {
+    nombre: "CONTACTO OFICINA CENTRAL",
+    detalle:
+      "Unidad del Adulto Mayor (Mercado Camacho, junto a la Guardia Municipal).",
+    extra: "Horario: Lunes a viernes de 9:00 a 16:00.",
+    accion: "79666939 - 72520403",
+  },
+  {
+    nombre: "SOPORTE TÉCNICO",
+    detalle: "Para problemas técnicos o consultas sobre el sistema.",
+    extra: "Disponible de lunes a viernes de 9:00 a 16:00.",
+    accion: "+591 67192700 (WhatsApp)",
+  },
+];
+
 export default function AdminDashboard() {
   usePageTitle("Inicio");
   const [stats, setStats] = useState({
@@ -154,6 +170,28 @@ export default function AdminDashboard() {
           </div>
         </div>
       )}
+
+      {/* Sección de Contacto y Soporte */}
+      <section className="mt-8">
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">CONTACTO</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {departamentos.map((item) => (
+            <article
+              key={item.nombre}
+              className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+            >
+              <h3 className="text-sm font-semibold text-gray-900">
+                {item.nombre}
+              </h3>
+              <p className="mt-1 text-xs text-gray-600">{item.detalle}</p>
+              <p className="mt-1 text-xs text-gray-500">{item.extra}</p>
+              <p className="mt-2 text-xs font-semibold text-[#13678A]">
+                {item.accion}
+              </p>
+            </article>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }
