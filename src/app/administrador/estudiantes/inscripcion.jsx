@@ -358,9 +358,9 @@ export default function ModalInscripcionAlumno({
           } catch {
             g.estudiantesInscritos = 0;
           }
-          const cursoInfo = cursos.find((c) => c.curso_id === g.curso_id);
-          // Cocina: máx 25 estudiantes, resto de cursos: máx 30
-          const cupoMax = /cocina/i.test(cursoInfo?.nombre || "") ? 25 : 30;
+          const todasLasAulas = sucursales.flatMap((s) => s.aulas || []);
+          const aula = todasLasAulas.find((a) => a.aula_id === g.aula_id);
+          const cupoMax = aula?.capacidad || 30;
           g.cupoMaximo = cupoMax;
           g.cupoLleno = g.estudiantesInscritos >= cupoMax;
         }),
