@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { X, Plus, Edit, Ban, Unlock } from "lucide-react";
+import { X, Plus, Edit, Ban, ArrowRightLeft } from "lucide-react";
 
 const ScheduleTable = ({
   courses,
@@ -13,6 +13,7 @@ const ScheduleTable = ({
   onEditTimeSlot,
   onToggleBlockCell,
   isCellBlocked,
+  onTransferCourse,
 }) => {
   const getCourseForSlot = (classroom, time, dayId) => {
     return (
@@ -114,6 +115,16 @@ const ScheduleTable = ({
                               >
                                 <Edit size={12} className="text-blue-600" />
                               </div>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onTransferCourse?.(course);
+                                }}
+                                className="absolute top-1 right-14 opacity-0 group-hover:opacity-100 transition-opacity bg-white rounded-full p-1 hover:bg-orange-100"
+                                title="Transferir a otra aula/sucursal"
+                              >
+                                <ArrowRightLeft size={12} className="text-orange-600" />
+                              </button>
                               <div className="text-xs font-semibold mb-1">
                                 {course.subject}
                               </div>

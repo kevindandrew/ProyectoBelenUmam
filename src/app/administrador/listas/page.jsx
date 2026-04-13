@@ -140,14 +140,14 @@ export default function ListasAdminPage() {
           cursosRes,
           profesoresRes,
           horariosRes,
-          estudiantesRes,
+          inscripcionesRes,
         ] = await Promise.all([
           fetchAuth(`${API_URL}/cursos/gestiones`),
           fetchAuth(`${API_URL}/sucursales/`),
           fetchAuth(`${API_URL}/cursos/`),
           fetchAuth(`${API_URL}/usuarios/?rol_id=3`),
           fetchAuth(`${API_URL}/horarios/`),
-          fetchAuth(`${API_URL}/listas/estudiantes?limit=9999`),
+          fetchAuth(`${API_URL}/inscripciones/`),
         ]);
 
         if (
@@ -155,8 +155,7 @@ export default function ListasAdminPage() {
           !sucursalesRes.ok ||
           !cursosRes.ok ||
           !profesoresRes.ok ||
-          !horariosRes.ok ||
-          !estudiantesRes.ok
+          !horariosRes.ok
         ) {
           throw new Error("No se pudo cargar la informacion.");
         }
@@ -167,14 +166,14 @@ export default function ListasAdminPage() {
           cursosData,
           profesoresData,
           horariosData,
-          estudiantesData,
+          inscripcionesData,
         ] = await Promise.all([
           gestionesRes.json(),
           sucursalesRes.json(),
           cursosRes.json(),
           profesoresRes.json(),
           horariosRes.json(),
-          estudiantesRes.json(),
+          inscripcionesRes.ok ? inscripcionesRes.json() : Promise.resolve([]),
         ]);
 
         const cursosById = {};
@@ -197,25 +196,17 @@ export default function ListasAdminPage() {
           if (hid != null) horariosById[String(hid)] = h;
         });
 
-        const estudiantesLista = normalizeArrayPayload(estudiantesData);
-
-        // Contar inscritos por horario_id
+        // Contar inscritos por horario_id usando inscripciones (tienen horario_id directamente)
         const inscritosPorHorario = {};
-        estudiantesLista.forEach((item) => {
-          const horario_id =
-            item?.horario_id ||
-            item?.id_horario ||
-            item?.horario?.horario_id ||
-            item?.horario?.id ||
-            item?.matricula?.horario_id ||
-            item?.inscripcion?.horario_id;
-          const estudianteKey = getStudentUniqueKey(item);
-          if (horario_id != null) {
-            const hid = String(horario_id);
-            if (!inscritosPorHorario[hid]) {
-              inscritosPorHorario[hid] = new Set();
+        (Array.isArray(inscripcionesData) ? inscripcionesData : []).forEach((item) => {
+          const hid = item?.horario_id;
+          const eid = item?.estudiante_id;
+          if (hid != null && eid != null) {
+            const hidStr = String(hid);
+            if (!inscritosPorHorario[hidStr]) {
+              inscritosPorHorario[hidStr] = new Set();
             }
-            inscritosPorHorario[hid].add(String(estudianteKey));
+            inscritosPorHorario[hidStr].add(String(eid));
           }
         });
 
@@ -250,7 +241,8 @@ export default function ListasAdminPage() {
           const sucursalId =
             h.sucursal_id ?? h.id_sucursal ?? sucursalInfo?.sucursal_id ?? null;
 
-          const paraleloKey = `${cursoId}_${profesorId}_${gestionId}_${sucursalId}`;
+          // Clave por horario_id para soportar paralelos del mismo curso+profesor
+          const paraleloKey = `horario_${hid}`;
           if (!inscritosPorParalelo[paraleloKey]) {
             inscritosPorParalelo[paraleloKey] = new Set();
           }
@@ -283,11 +275,8 @@ export default function ListasAdminPage() {
             cursoUpper.includes("NO DISPONIBLE") ||
             cursoUpper.includes("BLOQUEADO") ||
             cursoUpper.includes("OCUPADO");
-          const paraleloKey = `${cursoId}_${profesorId}_${
-            h.gestion_id ?? h.id_gestion ?? h.gestion?.gestion_id ?? null
-          }_${
-            h.sucursal_id ?? h.id_sucursal ?? sucursalInfo?.sucursal_id ?? null
-          }`;
+          // Usar horario_id como clave para soportar paralelos del mismo curso+profesor
+          const paraleloKey = `horario_${h.horario_id || h.id}`;
 
           return {
             horario_id: h.horario_id || h.id,
@@ -355,42 +344,9 @@ export default function ListasAdminPage() {
           horario_texto: Array.from(new Set(card.horarios_texto)).join(" | "),
         }));
 
-        const cardsConConteoReal = await Promise.all(
-          cardsAgrupadas.map(async (card) => {
-            if ((Number(card.inscritos) || 0) > 0) return card;
-
-            const query = new URLSearchParams({
-              profesor_id: String(card.profesor_id || ""),
-              curso_id: String(card.curso_id || ""),
-              sucursal_id: String(card.sucursal_id || ""),
-              gestion_id: String(card.gestion_id || ""),
-            });
-
-            if (
-              !query.get("profesor_id") ||
-              !query.get("curso_id") ||
-              !query.get("sucursal_id") ||
-              !query.get("gestion_id")
-            ) {
-              return card;
-            }
-
-            try {
-              const res = await fetchAuth(
-                `${API_URL}/listas/estudiantes?${query.toString()}`,
-              );
-              if (!res.ok) return card;
-              const data = await res.json();
-              const lista = normalizeArrayPayload(data);
-              const unique = new Set(
-                lista.map((item) => getStudentUniqueKey(item)),
-              );
-              return { ...card, inscritos: unique.size };
-            } catch {
-              return card;
-            }
-          }),
-        );
+        // El conteo ya está correcto por horario_id desde inscritosPorParalelo/inscritosPorHorario.
+        // No se usa la API como fallback porque devolvería el total combinado de todos los paralelos.
+        const cardsConConteoReal = cardsAgrupadas;
 
         const nowYear = new Date().getFullYear();
         const gestionActual =

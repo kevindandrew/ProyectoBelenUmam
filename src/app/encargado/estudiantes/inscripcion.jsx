@@ -327,32 +327,17 @@ export default function ModalInscripcionAlumno({
 
       const data = await res.json();
 
-      // Agrupar horarios del mismo curso/profesor/gestion/sucursal para
-      // mostrarlos como una sola opción aunque usen aulas distintas.
-      const grouped = Object.values(
-        data.reduce((acc, h) => {
-          const key = `${h.curso_id}_${h.profesor_id}_${h.gestion_id}_${sucursalId}`;
-
-          if (!acc[key]) {
-            acc[key] = {
-              ...h,
-              horario_id: h.horario_id,
-              horario_ids: [h.horario_id],
-              dias_clase: [],
-            };
-          } else {
-            acc[key].horario_ids.push(h.horario_id);
-          }
-
-          const diasConAula = (h.dias_clase || []).map((dc) => ({
-            ...dc,
-            aula_id: dc.aula_id || h.aula_id,
-          }));
-
-          acc[key].dias_clase.push(...diasConAula);
-          return acc;
-        }, {}),
-      );
+      // Cada horario_id es una opción separada en el dropdown
+      // (permite paralelos del mismo curso con diferente grupo de estudiantes)
+      const grouped = data.map((h) => ({
+        ...h,
+        horario_id: h.horario_id,
+        horario_ids: [h.horario_id],
+        dias_clase: (h.dias_clase || []).map((dc) => ({
+          ...dc,
+          aula_id: dc.aula_id || h.aula_id,
+        })),
+      }));
 
       // Obtener todas las inscripciones una sola vez y filtrar por horario_id
       let todasLasInscripcionesConteo = [];

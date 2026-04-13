@@ -7,6 +7,7 @@ import ScheduleTable from "./ScheduleTable";
 import Modal from "./Modal";
 import CourseForm from "./CourseForm";
 import GestionForm from "./GestionForm";
+import TransferirHorarioForm from "./TransferirHorarioForm";
 import { fetchWithAuth, fetchWithAuthDelete } from "../utils/api";
 
 const SchedulePage = () => {
@@ -61,6 +62,12 @@ const SchedulePage = () => {
   const [isDeletingHour, setIsDeletingHour] = useState(false);
   const [isEditingCourse, setIsEditingCourse] = useState(false);
   const [courseToEdit, setCourseToEdit] = useState(null);
+
+  // Estados para transferir horario
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  const [courseToTransfer, setCourseToTransfer] = useState(null);
+  const [rawHorarioToTransfer, setRawHorarioToTransfer] = useState(null);
+  const [isTransferring, setIsTransferring] = useState(false);
 
   // Eliminar los estados y useEffects relacionados con blockedCells y localStorage
   // Ya no necesitamos manejar esto localmente
@@ -175,10 +182,12 @@ const SchedulePage = () => {
           `https://api-umam-1.onrender.com/sucursales/${firstSucursal.value}/aulas`,
         );
         setClassroomsBySucursal({
-          [firstSucursal.value]: aulasData.map((aula) => ({
-            value: aula.aula_id.toString(),
-            label: aula.nombre_aula,
-          })),
+          [firstSucursal.value]: aulasData
+            .map((aula) => ({
+              value: aula.aula_id.toString(),
+              label: aula.nombre_aula,
+            }))
+            .sort((a, b) => a.label.localeCompare(b.label)),
         });
         setSelectedSucursal(firstSucursal);
       }
@@ -353,10 +362,12 @@ const SchedulePage = () => {
       );
       setClassroomsBySucursal((prev) => ({
         ...prev,
-        [sucursalId]: data.map((aula) => ({
-          value: aula.aula_id.toString(),
-          label: aula.nombre_aula,
-        })),
+        [sucursalId]: data
+          .map((aula) => ({
+            value: aula.aula_id.toString(),
+            label: aula.nombre_aula,
+          }))
+          .sort((a, b) => a.label.localeCompare(b.label)),
       }));
     } catch (error) {
       console.error("Error cargando aulas:", error);
@@ -752,20 +763,9 @@ const SchedulePage = () => {
       console.log("Bloques de horario a enviar:", scheduleEntries);
 
       if (isEditingCourse && horario_id) {
-        // Reemplazar el paralelo completo (todos sus horarios relacionados)
-        const relatedHorarios = horariosRaw.filter(
-          (h) =>
-            h.curso_id === parsedCursoId &&
-            h.profesor_id === parsedProfesorId &&
-            h.gestion_id === parsedGestionId,
-        );
-
-        await Promise.all(
-          relatedHorarios.map((h) =>
-            fetchWithAuthDelete(
-              `https://api-umam-1.onrender.com/horarios/${h.horario_id || h.id}`,
-            ),
-          ),
+        // Eliminar SOLO el horario específico (no afecta otros paralelos del mismo curso)
+        await fetchWithAuthDelete(
+          `https://api-umam-1.onrender.com/horarios/${horario_id}`,
         );
 
         const entriesByAula = scheduleEntries.reduce((acc, item) => {
@@ -902,37 +902,26 @@ const SchedulePage = () => {
 
   // Función para manejar la edición de cursos
   const handleEditCourse = (course) => {
-    const relatedHorarios = horariosRaw.filter(
-      (h) =>
-        h.curso_id === course.curso_id &&
-        h.profesor_id === course.profesor_id &&
-        h.gestion_id === course.gestion_id,
+    // Usar SOLO el horario específico clicado (no todos los del mismo curso+profesora)
+    const horarioId = String(course.horario_id || course.id.split("-")[0]);
+    const specificHorario = horariosRaw.find(
+      (h) => String(h.horario_id) === horarioId,
     );
 
-    const schedules = relatedHorarios
-      .flatMap((h) =>
-        (Array.isArray(h?.dias_clase) ? h.dias_clase : []).map((dia) => ({
-          day: dia?.dia_semana?.dias_semana_id,
-          time: formatTimeSlot(dia?.hora),
-          classroom: String(dia?.aula_id || h?.aula_id || ""),
-        })),
-      )
-      .filter((s) => s.day && s.time && s.classroom);
+    const schedules = specificHorario
+      ? (specificHorario.dias_clase || [])
+          .map((dia) => ({
+            day: dia?.dia_semana?.dias_semana_id,
+            time: formatTimeSlot(dia?.hora),
+            classroom: String(dia?.aula_id || specificHorario?.aula_id || ""),
+          }))
+          .filter((s) => s.day && s.time && s.classroom)
+      : [{ day: course.day, time: course.time, classroom: course.classroom.value }];
 
     const uniqueSchedules = Array.from(
       new Map(
         schedules.map((s) => [`${s.day}-${s.time}-${s.classroom}`, s]),
       ).values(),
-    );
-
-    const fallbackSchedule = {
-      day: course.day,
-      time: course.time,
-      classroom: course.classroom.value,
-    };
-
-    const horarioId = String(
-      relatedHorarios[0]?.horario_id || course.id.split("-")[0],
     );
 
     setCourseToEdit(course);
@@ -943,10 +932,8 @@ const SchedulePage = () => {
       classroom: course.classroom.value,
       classroomObject: course.classroom,
       time: course.time,
-      days: (uniqueSchedules.length ? uniqueSchedules : [fallbackSchedule]).map(
-        (s) => s.day,
-      ),
-      schedules: uniqueSchedules.length ? uniqueSchedules : [fallbackSchedule],
+      days: uniqueSchedules.map((s) => s.day),
+      schedules: uniqueSchedules,
       horario_id: horarioId,
       is_unavailable: course.is_unavailable || false,
     });
@@ -993,6 +980,55 @@ const SchedulePage = () => {
       setDeleteGestionError(error.message || "Error al eliminar la gestión");
     } finally {
       setIsDeletingGestion(false);
+    }
+  };
+
+  // Función para abrir el modal de transferir
+  const handleTransferCourse = (course) => {
+    const rawHorario = horariosRaw.find(
+      (h) => h.horario_id === course.horario_id,
+    );
+    setCourseToTransfer(course);
+    setRawHorarioToTransfer(rawHorario || null);
+    setIsTransferModalOpen(true);
+  };
+
+  // Función para ejecutar la transferencia
+  const submitTransferCourse = async (payload) => {
+    const horarioId =
+      courseToTransfer?.horario_id ||
+      parseInt(courseToTransfer?.id?.split("-")[0]);
+
+    if (!horarioId) return;
+
+    const url = `https://api-umam-1.onrender.com/horarios/${horarioId}/transferir`;
+    console.log("🔀 Transfiriendo horario:", { horarioId, url, payload });
+
+    setIsTransferring(true);
+    try {
+      await fetchWithAuth(url,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      );
+
+      toast.success(
+        `Clase "${courseToTransfer.subject}" transferida exitosamente`,
+      );
+      setIsTransferModalOpen(false);
+      setCourseToTransfer(null);
+      setRawHorarioToTransfer(null);
+      // Recargar horarios para reflejar el cambio
+      await fetchHorarios();
+    } catch (error) {
+      console.error("Error transfiriendo horario:", error);
+      // Mostrar el detalle del error del backend (400 capacidad, 409 conflicto, etc.)
+      const msg = error.message || "Error al transferir el horario";
+      toast.error(msg);
+    } finally {
+      setIsTransferring(false);
     }
   };
 
@@ -1073,7 +1109,7 @@ const SchedulePage = () => {
     setIsDeleteModalOpen(true);
   };
 
-  // Función para confirmar la eliminación - VERSIÓN CORREGIDA
+  // Función para confirmar la eliminación
   const confirmDeleteCourse = async () => {
     if (!courseToDelete) return;
 
@@ -1081,35 +1117,21 @@ const SchedulePage = () => {
     setDeleteError(null);
 
     try {
-      // Buscar todos los horarios del MISMO curso (mismo curso_id + profesor_id + gestion_id + sucursal_id)
-      const allRelatedHorarios = horariosRaw.filter((h) => {
-        return (
-          h.curso_id === courseToDelete.cursoId &&
-          h.profesor_id === courseToDelete.profesorId &&
-          h.gestion_id === courseToDelete.gestionId
-        );
-      });
+      // Eliminar SOLO el horario específico clicado (no afecta otros paralelos)
+      const horarioId =
+        courseToDelete.horario_id ||
+        parseInt(courseToDelete.id?.split("-")[0]);
 
-      if (allRelatedHorarios.length === 0) {
-        throw new Error(
-          "No se encontraron horarios relacionados para eliminar",
-        );
+      if (!horarioId) {
+        throw new Error("No se pudo identificar el horario a eliminar");
       }
 
-      // Eliminar TODOS los horarios relacionados
-      await Promise.all(
-        allRelatedHorarios.map((h) =>
-          fetchWithAuthDelete(
-            `https://api-umam-1.onrender.com/horarios/${h.horario_id || h.id}`,
-          ),
-        ),
+      await fetchWithAuthDelete(
+        `https://api-umam-1.onrender.com/horarios/${horarioId}`,
       );
 
-      // Cierra el modal y limpia
       setIsDeleteModalOpen(false);
       setCourseToDelete(null);
-
-      // Recargar datos para asegurar consistencia
       await fetchHorarios();
     } catch (error) {
       console.error("Error eliminando horario:", error);
@@ -1256,6 +1278,7 @@ const SchedulePage = () => {
             }}
             onToggleBlockCell={toggleBlockCell}
             isCellBlocked={isCellBlocked}
+            onTransferCourse={handleTransferCourse}
           />
         ) : (
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-8 text-center">
@@ -1663,6 +1686,33 @@ const SchedulePage = () => {
               </button>
             </div>
           </div>
+        </Modal>
+
+        {/* Modal de transferir horario */}
+        <Modal
+          isOpen={isTransferModalOpen}
+          onClose={() => !isTransferring && setIsTransferModalOpen(false)}
+          title="Transferir Horario"
+        >
+          <TransferirHorarioForm
+            course={courseToTransfer}
+            rawHorario={rawHorarioToTransfer}
+            sucursales={sucursales}
+            classroomsBySucursal={classroomsBySucursal}
+            availableProfessors={availableProfessors}
+            days={days}
+            timeSlots={timeSlots}
+            onLoadAulas={fetchAulasForSucursal}
+            onSubmit={submitTransferCourse}
+            onCancel={() => {
+              if (!isTransferring) {
+                setIsTransferModalOpen(false);
+                setCourseToTransfer(null);
+                setRawHorarioToTransfer(null);
+              }
+            }}
+            isSubmitting={isTransferring}
+          />
         </Modal>
       </div>
     </div>

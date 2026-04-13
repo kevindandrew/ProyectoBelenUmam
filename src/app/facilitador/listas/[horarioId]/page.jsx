@@ -307,6 +307,22 @@ export default function ListaCursoDetallePage() {
           );
         }
 
+        // Obtener inscripciones de este horario específico para separar paralelos
+        const estudiantesEnEsteHorario = new Set();
+        try {
+          const inscRes = await fetchAuth(`${API_URL}/inscripciones/`);
+          if (inscRes.ok) {
+            const inscData = await inscRes.json();
+            (Array.isArray(inscData) ? inscData : [])
+              .filter((i) => String(i.horario_id) === String(horarioId))
+              .forEach((i) => {
+                if (i.estudiante_id != null) {
+                  estudiantesEnEsteHorario.add(String(i.estudiante_id));
+                }
+              });
+          }
+        } catch {}
+
         const query = new URLSearchParams(resolvedRequest);
         const response = await fetchAuth(
           `${API_URL}/listas/estudiantes?${query.toString()}`,
@@ -317,7 +333,17 @@ export default function ListaCursoDetallePage() {
         }
 
         const data = await response.json();
-        const lista = Array.isArray(data) ? data : [];
+        const listaRaw = Array.isArray(data) ? data : [];
+
+        // Filtrar por estudiante_id usando las inscripciones del horario específico
+        const lista =
+          estudiantesEnEsteHorario.size > 0
+            ? listaRaw.filter(
+                (e) =>
+                  e.estudiante_id != null &&
+                  estudiantesEnEsteHorario.has(String(e.estudiante_id)),
+              )
+            : listaRaw;
 
         const normalizados = lista.map((e) => ({
           matricula_id: e.matricula_id,

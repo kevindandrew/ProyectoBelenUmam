@@ -19,6 +19,7 @@ const CourseForm = ({
     classroom: "",
     schedules: [], // Array de {day, time}
     is_unavailable: false,
+    horario_id: "",
   });
 
   const getClassroomLabel = () => {
@@ -43,6 +44,7 @@ const CourseForm = ({
         classroom: initialData.classroom || "",
         schedules: initialSchedules,
         is_unavailable: initialData.is_unavailable || false,
+        horario_id: initialData.horario_id || "",
       });
     }
   }, [initialData, timeSlots, days]);
