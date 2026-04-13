@@ -34,6 +34,22 @@ const contacto = {
   accion: "79666939 - 72520403",
 };
 
+const contactos = [
+  {
+    nombre: "CONTACTO OFICINA CENTRAL",
+    detalle:
+      "Unidad del Adulto Mayor (Mercado Camacho, junto a la Guardia Municipal).",
+    extra: "Horario: Lunes a viernes de 9:00 a 16:00.",
+    accion: "79666939 - 72520403",
+  },
+  {
+    nombre: "SOPORTE TÉCNICO",
+    detalle: "Para problemas técnicos o consultas sobre el sistema.",
+    extra: "Disponible de lunes a viernes de 9:00 a 16:00.",
+    accion: "+591 67192700 (WhatsApp)",
+  },
+];
+
 export default function FacilitadorDashboard() {
   usePageTitle("Inicio");
 
@@ -78,16 +94,21 @@ export default function FacilitadorDashboard() {
 
         <section className="space-y-4">
           <h2 className="text-xl font-semibold text-gray-900">CONTACTO</h2>
-          <article className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <h3 className="text-sm font-semibold text-gray-900">
-              {contacto.nombre}
-            </h3>
-            <p className="mt-1 text-xs text-gray-600">{contacto.detalle}</p>
-            <p className="mt-1 text-xs text-gray-500">{contacto.extra}</p>
-            <p className="mt-2 text-xs font-semibold text-[#13678A]">
-              {contacto.accion}
-            </p>
-          </article>
+          {contactos.map((item) => (
+            <article
+              key={item.nombre}
+              className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+            >
+              <h3 className="text-sm font-semibold text-gray-900">
+                {item.nombre}
+              </h3>
+              <p className="mt-1 text-xs text-gray-600">{item.detalle}</p>
+              <p className="mt-1 text-xs text-gray-500">{item.extra}</p>
+              <p className="mt-2 text-xs font-semibold text-[#13678A]">
+                {item.accion}
+              </p>
+            </article>
+          ))}
         </section>
       </div>
     </div>

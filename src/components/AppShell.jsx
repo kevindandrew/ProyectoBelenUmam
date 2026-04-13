@@ -92,21 +92,8 @@ export default function AppShell({
             )}
 
             <button
-              onClick={() => setDesktopCollapsed((prev) => !prev)}
-              className="ml-auto hidden h-8 w-8 items-center justify-center rounded-full border border-slate-600 bg-slate-700 text-slate-100 transition hover:bg-slate-600 md:flex"
-              title={desktopCollapsed ? "Expandir menu" : "Colapsar menu"}
-              aria-label={desktopCollapsed ? "Expandir menu" : "Colapsar menu"}
-            >
-              {desktopCollapsed ? (
-                <ChevronRight size={16} />
-              ) : (
-                <ChevronLeft size={16} />
-              )}
-            </button>
-
-            <button
               onClick={() => setMobileOpen(false)}
-              className="ml-auto flex h-8 w-8 items-center justify-center rounded-full border border-slate-600 bg-slate-700 text-slate-100 transition hover:bg-slate-600 md:hidden"
+              className="ml-auto h-8 w-8 items-center justify-center rounded-full border border-slate-600 bg-slate-700 text-slate-100 transition hover:bg-slate-600 md:hidden flex"
               aria-label="Cerrar menu"
             >
               <X size={16} />

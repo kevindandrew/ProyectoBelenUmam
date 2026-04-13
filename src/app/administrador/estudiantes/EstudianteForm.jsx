@@ -158,6 +158,7 @@ export default function EstudianteForm({
                     "Pando",
                     "Santa Cruz",
                     "El Alto",
+                    "Extranjero",
                   ],
                   value: estudiante.lugar_nacimiento,
                   onChange: onInputChange,

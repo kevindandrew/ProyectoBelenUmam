@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
+import SupportButton from "@/components/SupportButton";
 
 const LoginForm = () => {
   const router = useRouter();
@@ -108,7 +109,7 @@ const LoginForm = () => {
                 htmlFor="username"
                 className="block text-gray-700 text-sm font-medium mb-2"
               >
-                Nombre de usuario
+                USUARIO
               </label>
               <input
                 type="text"
@@ -128,7 +129,7 @@ const LoginForm = () => {
                 htmlFor="password"
                 className="block text-gray-700 text-sm font-medium mb-2"
               >
-                Contraseña
+                CONTRASEÑA
               </label>
               <div className="relative">
                 <input
@@ -246,6 +247,16 @@ const LoginForm = () => {
           </div>
         </div>
       </div>
+
+      {/* Copyright */}
+      <div className="fixed bottom-0 left-0 right-0 text-center py-3 bg-gray-900 bg-opacity-50">
+        <p className="text-gray-400 text-sm">
+          © 2026 BMSR - All rights reserved.
+        </p>
+      </div>
+
+      {/* Soporte flotante */}
+      <SupportButton />
     </div>
   );
 };
