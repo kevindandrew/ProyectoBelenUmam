@@ -274,6 +274,7 @@ export default function ModalInscripcionAlumno({
         guardando: false,
         errorGuardado: null,
         inscrito: false,
+        cupoLleno: false,
       },
     ]);
     setMensajeExito(null); // Limpiar mensaje al agregar nueva fila
@@ -289,14 +290,21 @@ export default function ModalInscripcionAlumno({
       nuevasFilas[i].horario = null;
       nuevasFilas[i].horariosDisponibles = [];
       nuevasFilas[i].inscrito = false;
+      nuevasFilas[i].cupoLleno = false;
     } else if (campo === "sucursal") {
       nuevasFilas[i].horario = null;
       nuevasFilas[i].inscrito = false;
+      nuevasFilas[i].cupoLleno = false;
 
       // Cargar horarios cuando tenemos curso, sucursal y gestión
       if (nuevasFilas[i].curso && valor && gestionActual) {
         await cargarHorarios(nuevasFilas, i, valor);
       }
+    } else if (campo === "horario") {
+      const h = nuevasFilas[i].horariosDisponibles?.find(
+        (h) => h.horario_id === valor,
+      );
+      nuevasFilas[i].cupoLleno = h?.cupoLleno ?? false;
     }
 
     setFilas(nuevasFilas);
@@ -346,6 +354,33 @@ export default function ModalInscripcionAlumno({
         }, {}),
       );
 
+      // Obtener cantidad de estudiantes inscritos en cada grupo para control de cupo
+      await Promise.all(
+        grouped.map(async (g) => {
+          try {
+            const countRes = await fetch(
+              `${API}/inscripciones/?horario_id=${g.horario_id}`,
+              { headers: { Authorization: `Bearer ${token}` } },
+            );
+            if (countRes.ok) {
+              const countData = await countRes.json();
+              g.estudiantesInscritos = new Set(
+                countData.map((i) => i.estudiante_id),
+              ).size;
+            } else {
+              g.estudiantesInscritos = 0;
+            }
+          } catch {
+            g.estudiantesInscritos = 0;
+          }
+          const cursoInfo = cursos.find((c) => c.curso_id === g.curso_id);
+          // Cocina: máx 25 estudiantes, resto de cursos: máx 30
+          const cupoMax = /cocina/i.test(cursoInfo?.nombre || "") ? 25 : 30;
+          g.cupoMaximo = cupoMax;
+          g.cupoLleno = g.estudiantesInscritos >= cupoMax;
+        }),
+      );
+
       filasActualizadas[index].horariosDisponibles = grouped;
 
       if (data.length === 0) {
@@ -379,6 +414,17 @@ export default function ModalInscripcionAlumno({
     const horarioIdsNuevos = horarioIds.filter(
       (id) => !inscripcionesExistentes.some((insc) => insc.horario_id === id),
     );
+
+    // Verificar cupo disponible
+    const horarioConCupo = (fila.horariosDisponibles || []).find(
+      (h) => h.horario_id === fila.horario,
+    );
+    if (horarioConCupo?.cupoLleno) {
+      const nuevasFilas = [...filas];
+      nuevasFilas[index].errorGuardado = `Cupo lleno: ${horarioConCupo.estudiantesInscritos}/${horarioConCupo.cupoMaximo} estudiantes inscritos`;
+      setFilas(nuevasFilas);
+      return false;
+    }
 
     // Verificar si ya está inscrito en todos los horarios del curso seleccionado
     if (horarioIdsNuevos.length === 0) {
@@ -881,7 +927,11 @@ export default function ModalInscripcionAlumno({
             <div
               key={i}
               className={`border rounded-lg p-4 ${
-                f.inscrito ? "bg-green-50" : "bg-gray-50"
+                f.inscrito
+                  ? "bg-green-50"
+                  : f.cupoLleno
+                    ? "bg-red-50 border-red-300"
+                    : "bg-gray-50"
               }`}
             >
               <div className="flex justify-between items-center mb-3">
@@ -986,7 +1036,11 @@ export default function ModalInscripcionAlumno({
                       </option>
                     ) : (
                       f.horariosDisponibles.map((h) => (
-                        <option key={h.horario_id} value={h.horario_id}>
+                        <option
+                          key={h.horario_id}
+                          value={h.horario_id}
+                          disabled={h.cupoLleno}
+                        >
                           {h.dias_clase
                             .map((d) => {
                               const dia = d.dia_semana?.dia_semana || "";
@@ -1004,12 +1058,36 @@ export default function ModalInscripcionAlumno({
                               return `${dia} ${inicio}-${fin} (${aula})`;
                             })
                             .join(", ")}
+                          {h.cupoLleno
+                            ? ` — CUPO LLENO (${h.estudiantesInscritos}/${h.cupoMaximo})`
+                            : ` [${h.estudiantesInscritos ?? "?"}/${h.cupoMaximo ?? 30}]`}
                         </option>
                       ))
                     )}
                   </select>
                 </div>
               </div>
+
+              {/* Alerta de cupo lleno */}
+              {f.cupoLleno && (
+                <div className="mt-2 p-2 bg-red-100 border border-red-300 rounded text-red-700 text-sm font-semibold flex items-center gap-2">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4 flex-shrink-0"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                    />
+                  </svg>
+                  CUPO LLENO — Este curso alcanzó su capacidad máxima. No se pueden inscribir más estudiantes.
+                </div>
+              )}
 
               {/* Estado de la inscripción */}
               {f.guardando && (
@@ -1020,7 +1098,7 @@ export default function ModalInscripcionAlumno({
               )}
 
               {/* Botón para inscribir individualmente */}
-              {!f.inscrito && f.horario && (
+              {!f.inscrito && f.horario && !f.cupoLleno && (
                 <div className="mt-3">
                   <button
                     onClick={() => inscribirCurso(f, i)}
