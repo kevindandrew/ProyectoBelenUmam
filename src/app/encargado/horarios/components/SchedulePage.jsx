@@ -43,6 +43,7 @@ const SchedulePage = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState(null);
+  const [deleteInscripcionesCount, setDeleteInscripcionesCount] = useState(0);
 
   // Estados para eliminar gestión
   const [gestionToDelete, setGestionToDelete] = useState(null);
@@ -689,38 +690,33 @@ const SchedulePage = () => {
       const parsedGestionId = parseInt(selectedGestion.value, 10);
 
       if (isEditingCourse && horario_id) {
-        // Eliminar SOLO el horario específico (no afecta otros paralelos del mismo curso)
-        await fetchWithAuthDelete(
-          `https://api-umam-1.onrender.com/horarios/${horario_id}`,
+        // PUT actualiza el horario SIN borrar inscripciones (el horario_id se mantiene)
+        const mainAulaId = parseInt(
+          scheduleEntries[0]?.aula_id || classroom,
+          10,
         );
-
-        const entriesByAula = scheduleEntries.reduce((acc, item) => {
-          if (!acc[item.aula_id]) {
-            acc[item.aula_id] = [];
-          }
-          acc[item.aula_id].push(item);
-          return acc;
-        }, {});
-
-        for (const [aulaId, entries] of Object.entries(entriesByAula)) {
-          await fetchWithAuth("https://api-umam-1.onrender.com/horarios/", {
-            method: "POST",
+        const res = await fetchWithAuth(
+          `https://api-umam-1.onrender.com/horarios/${horario_id}`,
+          {
+            method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               curso_id: parsedCursoId,
-              aula_id: parseInt(aulaId, 10),
+              aula_id: mainAulaId,
               profesor_id: parsedProfesorId,
               gestion_id: parsedGestionId,
               activo: true,
-              dias_clase: entries.map((item) => ({
+              dias_clase: scheduleEntries.map((item) => ({
                 dia_semana_id: item.dia_semana_id,
                 hora_id: item.hora_id,
-                aula_id: item.aula_id,
               })),
             }),
-          });
+          },
+        );
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err?.detail || "Error al actualizar el horario");
         }
-
         toast.success("Horario actualizado exitosamente");
       } else {
         // Crear el mismo paralelo en aulas distintas sin perder la relación lógica.
@@ -1021,11 +1017,29 @@ const SchedulePage = () => {
     availableProfessors,
   ]);
 
-  // Función para manejar la eliminación (igual que antes)
-  const handleDeleteCourse = (courseId) => {
+  // Función para manejar la eliminación — consulta inscripciones antes de abrir modal
+  const handleDeleteCourse = async (courseId) => {
     const course = courses.find((c) => c.id === courseId);
     setCourseToDelete(course);
+    setDeleteInscripcionesCount(0);
+    setDeleteError(null);
     setIsDeleteModalOpen(true);
+
+    const horarioId = course?.horario_id || parseInt(course?.id?.split("-")[0]);
+    if (horarioId) {
+      try {
+        const res = await fetchWithAuth(
+          "https://api-umam-1.onrender.com/inscripciones/",
+        );
+        if (res.ok) {
+          const allInsc = await res.json();
+          const count = (Array.isArray(allInsc) ? allInsc : []).filter(
+            (i) => String(i.horario_id) === String(horarioId),
+          ).length;
+          setDeleteInscripcionesCount(count);
+        }
+      } catch {}
+    }
   };
 
   // Función para confirmar la eliminación
@@ -1402,6 +1416,29 @@ const SchedulePage = () => {
                     Aula: {courseToDelete.classroom.label}
                   </div>
                 </div>
+
+                {deleteInscripcionesCount > 0 ? (
+                  <div className="mt-3 rounded-lg border border-red-300 bg-red-50 px-4 py-3">
+                    <p className="text-sm font-semibold text-red-700">
+                      ⚠️ Este horario tiene{" "}
+                      <span className="text-red-800 underline">
+                        {deleteInscripcionesCount} estudiante(s) inscrito(s)
+                      </span>
+                      .
+                    </p>
+                    <p className="mt-1 text-xs text-red-600">
+                      Al eliminar, esos estudiantes serán removidos de la lista.
+                      Vuelve a inscribirlos manualmente en el horario correcto.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="mt-3 rounded-lg border border-green-300 bg-green-50 px-4 py-3">
+                    <p className="text-sm text-green-700">
+                      ✅ Este horario no tiene estudiantes inscritos. Se puede
+                      eliminar sin perder datos.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 
