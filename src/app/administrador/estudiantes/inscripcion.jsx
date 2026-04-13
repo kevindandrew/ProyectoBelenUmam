@@ -339,32 +339,34 @@ export default function ModalInscripcionAlumno({
         }, {}),
       );
 
-      // Obtener cantidad de estudiantes inscritos en cada grupo para control de cupo
-      await Promise.all(
-        grouped.map(async (g) => {
-          try {
-            const countRes = await fetch(
-              `${API}/inscripciones/?horario_id=${g.horario_id}`,
-              { headers: { Authorization: `Bearer ${token}` } },
-            );
-            if (countRes.ok) {
-              const countData = await countRes.json();
-              g.estudiantesInscritos = new Set(
-                countData.map((i) => i.estudiante_id),
-              ).size;
-            } else {
-              g.estudiantesInscritos = 0;
-            }
-          } catch {
-            g.estudiantesInscritos = 0;
-          }
-          const todasLasAulas = sucursales.flatMap((s) => s.aulas || []);
-          const aula = todasLasAulas.find((a) => a.aula_id === g.aula_id);
-          const cupoMax = aula?.capacidad || 30;
-          g.cupoMaximo = cupoMax;
-          g.cupoLleno = g.estudiantesInscritos >= cupoMax;
-        }),
-      );
+      // Obtener todas las inscripciones una sola vez y filtrar por horario_id
+      let todasLasInscripcionesConteo = [];
+      try {
+        const countRes = await fetch(`${API}/inscripciones/`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (countRes.ok) {
+          todasLasInscripcionesConteo = await countRes.json();
+        }
+      } catch {
+        todasLasInscripcionesConteo = [];
+      }
+
+      const todasLasAulas = sucursales.flatMap((s) => s.aulas || []);
+      grouped.forEach((g) => {
+        const inscDelGrupo = Array.isArray(todasLasInscripcionesConteo)
+          ? todasLasInscripcionesConteo.filter(
+              (i) => i.horario_id === g.horario_id,
+            )
+          : [];
+        g.estudiantesInscritos = new Set(
+          inscDelGrupo.map((i) => i.estudiante_id,
+        )).size;
+        const aula = todasLasAulas.find((a) => a.aula_id === g.aula_id);
+        const cupoMax = aula?.capacidad || 30;
+        g.cupoMaximo = cupoMax;
+        g.cupoLleno = g.estudiantesInscritos >= cupoMax;
+      });
 
       filasActualizadas[index].horariosDisponibles = grouped;
 
