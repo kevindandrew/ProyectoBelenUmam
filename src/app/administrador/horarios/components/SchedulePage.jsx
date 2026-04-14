@@ -769,7 +769,7 @@ const SchedulePage = () => {
           scheduleEntries[0]?.aula_id || classroom,
           10,
         );
-        const res = await fetchWithAuth(
+        await fetchWithAuth(
           `https://api-umam-1.onrender.com/horarios/${horario_id}`,
           {
             method: "PUT",
@@ -780,17 +780,15 @@ const SchedulePage = () => {
               profesor_id: parsedProfesorId,
               gestion_id: parsedGestionId,
               activo: true,
+              horario_id: parseInt(horario_id, 10),
               dias_clase: scheduleEntries.map((item) => ({
                 dia_semana_id: item.dia_semana_id,
                 hora_id: item.hora_id,
+                aula_id: item.aula_id,
               })),
             }),
           },
         );
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err?.detail || "Error al actualizar el horario");
-        }
         toast.success("Horario actualizado exitosamente");
       } else {
         // Crear el mismo paralelo en aulas distintas sin perder la relación lógica.
