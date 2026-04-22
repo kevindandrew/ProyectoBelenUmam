@@ -332,7 +332,7 @@ export const generarFichaEstudiante = async (estudiante) => {
               },
               {
                 text:
-                  extraerMacrodistrito(estudiante.direccion)?.toUpperCase() ||
+                  (estudiante.macro_distrito || extraerMacrodistrito(estudiante.direccion))?.toUpperCase() ||
                   "",
                 colSpan: 2,
                 fontSize: 9,
@@ -347,7 +347,7 @@ export const generarFichaEstudiante = async (estudiante) => {
               },
               {
                 text:
-                  extraerDireccion(estudiante.direccion)?.toUpperCase() || "",
+                  (estudiante.macro_distrito ? estudiante.direccion : extraerDireccion(estudiante.direccion))?.toUpperCase() || "",
                 colSpan: 2,
                 noWrap: false,
                 fontSize: 9,

@@ -33,6 +33,14 @@ export default function DashboardUMAM() {
   const [estudiantesPorCurso, setEstudiantesPorCurso] = useState([]);
   const [facilitadoresPorGestion, setFacilitadoresPorGestion] = useState([]);
 
+  // Estadísticas de estudiantes (nuevos endpoints)
+  const [totalEstudiantesActivos, setTotalEstudiantesActivos] = useState(null);
+  const [estPorSucursal, setEstPorSucursal] = useState([]);
+  const [estPorTipo, setEstPorTipo] = useState([]);
+  const [estPorGenero, setEstPorGenero] = useState([]);
+  const [estPorMacroDistrito, setEstPorMacroDistrito] = useState([]);
+  const [loadingEstStats, setLoadingEstStats] = useState(false);
+
   // Estado para pestañas y filtros
   const [tabActiva, setTabActiva] = useState("general");
   const [filtros, setFiltros] = useState({
@@ -162,6 +170,10 @@ export default function DashboardUMAM() {
         const datosDireccion = obtenerDireccionYMacrodistrito(
           estudiante?.direccion,
         );
+        const macrodistrito = estudiante?.macro_distrito || datosDireccion.macrodistrito;
+        const direccion = estudiante?.macro_distrito
+          ? estudiante.direccion
+          : datosDireccion.direccion;
 
         return {
           Nº: index + 1,
@@ -173,8 +185,8 @@ export default function DashboardUMAM() {
             ? String(estudiante.fecha_nacimiento).split("T")[0]
             : "",
           EDAD: calcularEdad(estudiante?.fecha_nacimiento),
-          DIRECCION: toUpperText(datosDireccion.direccion),
-          MACRODISTRITO: toUpperText(datosDireccion.macrodistrito),
+          DIRECCION: toUpperText(direccion),
+          MACRODISTRITO: toUpperText(macrodistrito),
           "NRO CELULAR ESTUDIANTE": toUpperText(estudiante?.telefono),
           "NOMBRE REF FAMILIAR": toUpperText(referencia.nombre),
           "NRO CELULAR REF FAMILIAR": toUpperText(referencia.telefono),
@@ -525,6 +537,73 @@ export default function DashboardUMAM() {
     setLoadingGeneral(false);
   }, []);
 
+  // Cargar estadísticas de estudiantes (nuevos endpoints)
+  useEffect(() => {
+    const token = Cookies.get("access_token") || Cookies.get("token");
+    if (!token) return;
+
+    setLoadingEstStats(true);
+
+    const headers = { Authorization: `Bearer ${token}` };
+    const base = API_URL;
+
+    const coloresSucursal = [
+      "#0088FE", "#00C49F", "#FFBB28", "#FF8042",
+      "#A28CFF", "#FF6F91", "#F67280", "#6C5B7B",
+    ];
+    const coloresTipo = ["#13678A", "#FF8042"];
+    const coloresGenero = ["#FF6F91", "#0088FE", "#00C49F"];
+    const coloresMacro = [
+      "#0088FE", "#00C49F", "#FFBB28", "#FF8042",
+      "#A28CFF", "#FF6F91", "#F67280", "#6C5B7B", "#355C7D", "#2A9D8F",
+    ];
+
+    Promise.all([
+      fetch(`${base}/reportes/estudiantes/total`, { headers }).then((r) => r.ok ? r.json() : null),
+      fetch(`${base}/reportes/estudiantes/por-sucursal`, { headers }).then((r) => r.ok ? r.json() : null),
+      fetch(`${base}/reportes/estudiantes/por-tipo`, { headers }).then((r) => r.ok ? r.json() : null),
+      fetch(`${base}/reportes/estudiantes/por-genero`, { headers }).then((r) => r.ok ? r.json() : null),
+      fetch(`${base}/reportes/estudiantes/por-macro-distrito`, { headers }).then((r) => r.ok ? r.json() : null),
+    ])
+      .then(([total, porSucursal, porTipo, porGenero, porMacro]) => {
+        if (total) setTotalEstudiantesActivos(total.total ?? total);
+        if (Array.isArray(porSucursal))
+          setEstPorSucursal(
+            porSucursal.map((s, i) => ({
+              nombre: s.nombre,
+              value: s.total,
+              color: coloresSucursal[i % coloresSucursal.length],
+            })),
+          );
+        if (Array.isArray(porTipo))
+          setEstPorTipo(
+            porTipo.map((t, i) => ({
+              nombre: t.tipo === "gestoria" ? "Gestoría" : t.tipo === "taller" ? "Taller" : t.tipo,
+              value: t.total,
+              color: coloresTipo[i % coloresTipo.length],
+            })),
+          );
+        if (Array.isArray(porGenero))
+          setEstPorGenero(
+            porGenero.map((g, i) => ({
+              nombre: g.genero,
+              value: g.total,
+              color: coloresGenero[i % coloresGenero.length],
+            })),
+          );
+        if (Array.isArray(porMacro))
+          setEstPorMacroDistrito(
+            porMacro.map((m, i) => ({
+              nombre: m.macro_distrito || "Sin especificar",
+              value: m.total,
+              color: coloresMacro[i % coloresMacro.length],
+            })),
+          );
+      })
+      .catch(() => {})
+      .finally(() => setLoadingEstStats(false));
+  }, []);
+
   // Fetch detalle y reporte general cada vez que cambian los filtros
   useEffect(() => {
     const fetchDetalle = async () => {
@@ -721,6 +800,16 @@ export default function DashboardUMAM() {
         >
           Detalle
         </button>
+        <button
+          className={`py-2 px-4 font-medium ${
+            tabActiva === "estudiantes"
+              ? "text-[#13678A] border-b-2 border-[#13678A]"
+              : "text-gray-500"
+          }`}
+          onClick={() => setTabActiva("estudiantes")}
+        >
+          Estudiantes
+        </button>
       </div>
 
       {/* Contenido de pestañas */}
@@ -869,6 +958,143 @@ export default function DashboardUMAM() {
                   </span>
                 </div>
               ))}
+            </div>
+          </div>
+        </div>
+      ) : tabActiva === "estudiantes" ? (
+        /* Contenido Estudiantes */
+        <div className="space-y-6">
+          <h2 className="text-2xl font-semibold text-[#012030]">
+            Estadísticas de Estudiantes
+          </h2>
+
+          {/* Tarjeta Total */}
+          <div className="bg-white p-6 rounded-lg shadow-lg border border-gray-100 flex items-center gap-6">
+            <div className="bg-[#13678A] text-white rounded-full w-16 h-16 flex items-center justify-center text-2xl font-bold shrink-0">
+              {loadingEstStats ? "..." : (totalEstudiantesActivos ?? "—")}
+            </div>
+            <div>
+              <p className="text-lg font-semibold text-[#012030]">Total de estudiantes activos</p>
+              <p className="text-sm text-gray-500">Registros activos en el sistema</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Por Sucursal */}
+            <div className="bg-white p-6 rounded-lg shadow-lg border border-gray-100">
+              <h3 className="text-lg font-semibold text-[#012030] mb-4">Por Sucursal</h3>
+              {loadingEstStats ? (
+                <div className="animate-pulse space-y-2">{[1,2,3].map(i=><div key={i} className="h-6 bg-gray-200 rounded"/>)}</div>
+              ) : estPorSucursal.length === 0 ? (
+                <p className="text-sm text-gray-400">Sin datos</p>
+              ) : (
+                <div className="flex flex-col md:flex-row items-center gap-4">
+                  <div className="relative w-36 h-36 shrink-0">
+                    <svg viewBox="0 0 100 100" className="w-full h-full">
+                      {renderPieChart(estPorSucursal, 40)}
+                      <circle cx="50" cy="50" r="15" fill="white" />
+                    </svg>
+                  </div>
+                  <div className="space-y-1">
+                    {estPorSucursal.map((item, i) => (
+                      <div key={i} className="flex items-center gap-2 text-sm">
+                        <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                        <span>{item.nombre}: <span className="font-medium">{item.value}</span></span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Por Tipo */}
+            <div className="bg-white p-6 rounded-lg shadow-lg border border-gray-100">
+              <h3 className="text-lg font-semibold text-[#012030] mb-4">Por Tipo (Gestoría / Taller)</h3>
+              {loadingEstStats ? (
+                <div className="animate-pulse space-y-2">{[1,2].map(i=><div key={i} className="h-6 bg-gray-200 rounded"/>)}</div>
+              ) : estPorTipo.length === 0 ? (
+                <p className="text-sm text-gray-400">Sin datos</p>
+              ) : (
+                <div className="flex flex-col md:flex-row items-center gap-4">
+                  <div className="relative w-36 h-36 shrink-0">
+                    <svg viewBox="0 0 100 100" className="w-full h-full">
+                      {renderPieChart(estPorTipo, 40)}
+                      <circle cx="50" cy="50" r="15" fill="white" />
+                    </svg>
+                  </div>
+                  <div className="space-y-2">
+                    {estPorTipo.map((item, i) => {
+                      const total = estPorTipo.reduce((s, x) => s + x.value, 0);
+                      return (
+                        <div key={i} className="flex items-center gap-2 text-sm">
+                          <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                          <span>{item.nombre}: <span className="font-medium">{item.value}</span> ({total > 0 ? Math.round((item.value/total)*100) : 0}%)</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Por Género */}
+            <div className="bg-white p-6 rounded-lg shadow-lg border border-gray-100">
+              <h3 className="text-lg font-semibold text-[#012030] mb-4">Por Género</h3>
+              {loadingEstStats ? (
+                <div className="animate-pulse space-y-2">{[1,2].map(i=><div key={i} className="h-6 bg-gray-200 rounded"/>)}</div>
+              ) : estPorGenero.length === 0 ? (
+                <p className="text-sm text-gray-400">Sin datos</p>
+              ) : (
+                <div className="flex flex-col md:flex-row items-center gap-4">
+                  <div className="relative w-36 h-36 shrink-0">
+                    <svg viewBox="0 0 100 100" className="w-full h-full">
+                      {renderPieChart(estPorGenero, 40)}
+                      <circle cx="50" cy="50" r="15" fill="white" />
+                    </svg>
+                  </div>
+                  <div className="space-y-2">
+                    {estPorGenero.map((item, i) => {
+                      const total = estPorGenero.reduce((s, x) => s + x.value, 0);
+                      return (
+                        <div key={i} className="flex items-center gap-2 text-sm">
+                          <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                          <span>{item.nombre}: <span className="font-medium">{item.value}</span> ({total > 0 ? Math.round((item.value/total)*100) : 0}%)</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Por Macro Distrito */}
+            <div className="bg-white p-6 rounded-lg shadow-lg border border-gray-100">
+              <h3 className="text-lg font-semibold text-[#012030] mb-4">Por Macro Distrito</h3>
+              {loadingEstStats ? (
+                <div className="animate-pulse space-y-2">{[1,2,3,4,5].map(i=><div key={i} className="h-6 bg-gray-200 rounded"/>)}</div>
+              ) : estPorMacroDistrito.length === 0 ? (
+                <p className="text-sm text-gray-400">Sin datos</p>
+              ) : (
+                <div className="space-y-2">
+                  {(() => {
+                    const maxVal = Math.max(...estPorMacroDistrito.map(m => m.value), 1);
+                    return estPorMacroDistrito.map((item, i) => (
+                      <div key={i}>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span className="font-medium truncate max-w-[60%]">{item.nombre}</span>
+                          <span className="text-gray-600 shrink-0">{item.value}</span>
+                        </div>
+                        <div className="w-full bg-gray-100 rounded-full h-2.5">
+                          <div
+                            className="h-2.5 rounded-full transition-all duration-500"
+                            style={{ width: `${Math.round((item.value / maxVal) * 100)}%`, backgroundColor: item.color }}
+                          />
+                        </div>
+                      </div>
+                    ));
+                  })()}
+                </div>
+              )}
             </div>
           </div>
         </div>

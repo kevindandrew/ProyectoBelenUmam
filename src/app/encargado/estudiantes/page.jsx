@@ -576,21 +576,11 @@ export default function EstudiantesPage() {
   const openEditForm = (estudiante) => {
     setEditingEstudiante(estudiante);
 
-    // Separar macrodistrito de la dirección si existe
-    let macrodistrito = "Cotahuma";
-    let direccionSola = estudiante.direccion || "";
-
-    if (estudiante.direccion && estudiante.direccion.includes(",")) {
-      const partes = estudiante.direccion.split(",");
-      macrodistrito = partes[0].trim();
-      direccionSola = partes.slice(1).join(",").trim();
-    }
-
     setNewEstudiante({
       ...estudiante,
       fecha_nacimiento: estudiante.fecha_nacimiento?.split("T")[0] || "",
-      macrodistrito: macrodistrito,
-      direccion: direccionSola,
+      macrodistrito: estudiante.macro_distrito || "Cotahuma",
+      direccion: estudiante.direccion || "",
       whatsapp: estudiante.whatsapp || "",
       grado_institucion:
         estudiante.datos_academicos?.[0]?.grado_institucion || "Ninguno",
@@ -725,16 +715,10 @@ export default function EstudiantesPage() {
 
       const method = editingEstudiante ? "PUT" : "POST";
 
-      // Combinar macrodistrito y dirección
-      const direccionCompleta =
-        newEstudiante.macrodistrito && newEstudiante.direccion
-          ? `${newEstudiante.macrodistrito}, ${newEstudiante.direccion}`
-          : newEstudiante.direccion || newEstudiante.macrodistrito || "";
-
       const dataToSend = {
         ...newEstudiante,
         ci: String(newEstudiante.ci),
-        direccion: direccionCompleta,
+        macro_distrito: newEstudiante.macrodistrito || "",
         telefono: newEstudiante.telefono
           ? String(newEstudiante.telefono)
           : null,
