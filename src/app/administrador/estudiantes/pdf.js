@@ -61,10 +61,7 @@ export const generarFichaEstudiante = async (estudiante) => {
   if (typeof window === "undefined") return;
   const fechaFormateada = formatoDDMMYYYY(estudiante.fecha_registro);
   const numeroRegistro =
-    estudiante?.registro_id ??
-    estudiante?.estudiante_id ??
-    estudiante?.id ??
-    "";
+    estudiante.numero_registro || estudiante.registro_id || "N/A";
 
   const pdfMake = (await import("pdfmake/build/pdfmake")).default;
   const pdfFonts = await import("pdfmake/build/vfs_fonts");
@@ -326,8 +323,10 @@ export const generarFichaEstudiante = async (estudiante) => {
               },
               {
                 text:
-                  (estudiante.macro_distrito || extraerMacrodistrito(estudiante.direccion))?.toUpperCase() ||
-                  "",
+                  (
+                    estudiante.macro_distrito ||
+                    extraerMacrodistrito(estudiante.direccion)
+                  )?.toUpperCase() || "",
                 colSpan: 2,
                 fontSize: 9,
                 margin: [2, 3, 2, 3],
@@ -341,7 +340,10 @@ export const generarFichaEstudiante = async (estudiante) => {
               },
               {
                 text:
-                  (estudiante.macro_distrito ? estudiante.direccion : extraerDireccion(estudiante.direccion))?.toUpperCase() || "",
+                  (estudiante.macro_distrito
+                    ? estudiante.direccion
+                    : extraerDireccion(estudiante.direccion)
+                  )?.toUpperCase() || "",
                 colSpan: 2,
                 noWrap: false,
                 fontSize: 9,

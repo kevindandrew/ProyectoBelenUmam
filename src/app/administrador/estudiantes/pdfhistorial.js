@@ -113,7 +113,7 @@ export const generarHistorial = async (estudiante, historial) => {
       },
       {},
       { text: "Cod. Registro: ", bold: true },
-      estudiante.estudiante_id,
+      estudiante.numero_registro || "",
       "",
     ],
     [
