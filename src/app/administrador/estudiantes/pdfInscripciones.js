@@ -107,7 +107,7 @@ export const generarPDFInscripciones = async (
       },
       {},
       { text: "Cod. Registro: ", bold: true },
-      estudiante.estudiante_id,
+      estudiante.numero_registro || "",
       "",
     ],
     [
