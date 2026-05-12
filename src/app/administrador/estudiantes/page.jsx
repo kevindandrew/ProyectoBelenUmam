@@ -823,17 +823,7 @@ export default function EstudiantesPage() {
         );
       }
 
-      console.log(`🗑️ Intentando eliminar estudiante ID: ${estudianteId}`);
-      console.log(`📡 URL: ${API_URL}/estudiantes/${estudianteId}`);
-      console.log(
-        `🔑 Token: ${token ? "Sí (" + token.substring(0, 20) + "...)" : "No"}`,
-      );
-
       const response = await deleteEstudianteWithFallback(estudianteId, token);
-
-      console.log(
-        `📥 Respuesta recibida: ${response.status} ${response.statusText}`,
-      );
 
       await handleFetchResponse(response);
 
@@ -854,8 +844,6 @@ export default function EstudiantesPage() {
 
         throw new Error(errorMessage);
       }
-
-      console.log("✅ Estudiante eliminado exitosamente");
 
       // Actualizar estado optimizado
       setEstudiantes((prev) =>
@@ -927,80 +915,59 @@ export default function EstudiantesPage() {
   // Renderizado del componente
   return (
     <div className="text-gray-900 relative p-4">
-      <h1 className="text-3xl font-bold text-[#13678A] border-b pb-2 mb-6">
-        ESTUDIANTES
-      </h1>
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-4">
+      {/* Header Premium */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl bg-gradient-to-r from-slate-800 to-slate-900 p-6 text-white shadow-xl mb-6">
+        <div>
+          <h1 className="text-3xl font-bold flex items-center gap-3">
+            <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 14l9-5-9-5-9 5 9 5z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
+            </svg>
+            Gestión de Estudiantes
+          </h1>
+          <p className="mt-1 text-sm text-slate-300">Administra el registro, inscripciones y expedientes de los beneficiarios.</p>
+        </div>
+        <button 
+          onClick={() => { resetForm(); setShowForm(true); }}
+          className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold hover:bg-blue-700 transition-all shadow-lg shadow-blue-900/20"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+          </svg>
+          Nuevo Estudiante
+        </button>
+      </div>
+      {/* Controles superiores refinados */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-4 bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
         <div className="flex items-center gap-2">
-          <label htmlFor="registros" className="text-sm text-gray-900">
-            Mostrar
-          </label>
+          <label htmlFor="registros" className="text-xs font-bold uppercase text-slate-500">Mostrar</label>
           <select
             id="registros"
-            className="border border-gray-300 rounded px-2 py-1 text-sm"
+            className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none"
             value={recordsPerPage}
             disabled
           >
             <option value={10}>10</option>
           </select>
-          <span className="text-sm">registros</span>
+          <span className="text-xs font-bold uppercase text-slate-500">registros</span>
         </div>
 
-        <div className="flex items-center gap-2">
-          <label htmlFor="buscar" className="text-sm">
-            Buscar:
-          </label>
-          <input
-            id="buscar"
-            type="text"
-            placeholder="Buscar estudiante..."
-            className="border border-gray-300 rounded px-2 py-1 text-sm"
-            value={searchTerm}
-            maxLength={100}
-            onChange={handleSearch}
-          />
+        <div className="flex items-center gap-2 flex-1 max-w-md">
+          <div className="relative w-full">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            </span>
+            <input
+              id="buscar"
+              type="text"
+              placeholder="Buscar estudiante por nombre o CI..."
+              className="w-full border border-slate-200 rounded-lg pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+              value={searchTerm}
+              maxLength={100}
+              onChange={handleSearch}
+            />
+          </div>
         </div>
-        {/* OCR Buttons start */}
-        {/* <div className="flex gap-2">
-          <input
-            type="file"
-            accept="image/*"
-            id="ocr-front"
-            hidden
-            onChange={(e) => handleOCRUpload(e, "front")}
-          />
-          <label
-            htmlFor="ocr-front"
-            className="bg-blue-500 text-white px-3 py-2 rounded cursor-pointer hover:bg-blue-600"
-          >
-            Subir Carnet Anverso
-          </label>
-
-          <input
-            type="file"
-            accept="image/*"
-            id="ocr-back"
-            hidden
-            onChange={(e) => handleOCRUpload(e, "back")}
-          />
-          <label
-            htmlFor="ocr-back"
-            className="bg-purple-500 text-white px-3 py-2 rounded cursor-pointer hover:bg-purple-600"
-          >
-            Subir Carnet Reverso
-          </label>
-        </div> */}
-        {/* OCR Buttons end */}
-        <button
-          className="bg-teal-500 text-white px-4 py-2 rounded text-sm hover:bg-teal-600 self-start sm:self-auto"
-          onClick={() => {
-            resetForm();
-            setShowForm(true);
-          }}
-          aria-label="Nuevo Estudiante"
-        >
-          + Nuevo Estudiante
-        </button>
       </div>
       <EstudiantesTable
         estudiantes={paginatedEstudiantes}

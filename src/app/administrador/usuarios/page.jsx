@@ -125,7 +125,6 @@ export default function UsuariosPage() {
   // Función para obtener un usuario por ID (memoizada)
   const fetchUsuarioById = useCallback(async (id) => {
     try {
-      console.log(`🔄 Obteniendo datos del usuario ${id} desde el backend...`);
       const response = await fetch(`${API_URL}/usuarios/${id}`, {
         headers: {
           Authorization: `Bearer ${Cookies.get("access_token")}`,
@@ -144,7 +143,6 @@ export default function UsuariosPage() {
       }
 
       const usuario = await response.json();
-      console.log("✅ Datos del usuario obtenidos del backend:", usuario);
 
       return {
         id: usuario.usuario_id,
@@ -165,7 +163,6 @@ export default function UsuariosPage() {
         password: usuario.password || "******",
       };
     } catch (err) {
-      console.error("❌ Error al obtener usuario por ID:", err);
       throw err;
     }
   }, []);
@@ -179,17 +176,6 @@ export default function UsuariosPage() {
 
         // Obtener los datos completos del usuario desde el backend
         const usuarioCompleto = await fetchUsuarioById(usuario.id);
-
-        console.log("📝 Cargando datos en el formulario:", {
-          nombres: usuarioCompleto.nombres,
-          ap_paterno: usuarioCompleto.ap_paterno,
-          ap_materno: usuarioCompleto.ap_materno,
-          ci: usuarioCompleto.ci,
-          telefono: usuarioCompleto.telefono,
-          rol_id: usuarioCompleto.rol_id,
-          sucursal_id: usuarioCompleto.sucursal_id,
-          username: usuarioCompleto.username,
-        });
 
         setEditingUser(usuarioCompleto);
         setNewUser({
@@ -207,7 +193,6 @@ export default function UsuariosPage() {
         setShowForm(true);
       } catch (err) {
         setError(err.message);
-        console.error("❌ Error al abrir formulario de edición:", err);
       } finally {
         setLoadingForm(false);
       }
@@ -501,17 +486,32 @@ export default function UsuariosPage() {
 
   return (
     <div className="text-gray-900 relative p-4">
-      <h1 className="text-3xl font-bold text-[#13678A] border-b pb-2 mb-6">
-        USUARIOS
-      </h1>
+      {/* Header Premium */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl bg-gradient-to-r from-slate-800 to-slate-900 p-6 text-white shadow-xl mb-6">
+        <div>
+          <h1 className="text-3xl font-bold flex items-center gap-3">
+            <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+            </svg>
+            Gestión de Usuarios
+          </h1>
+          <p className="mt-1 text-sm text-slate-300">Administra las cuentas y roles de todo el personal de la institución.</p>
+        </div>
+        <button 
+          onClick={() => { resetForm(); setShowForm(true); }}
+          className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold hover:bg-blue-700 transition-all shadow-lg shadow-blue-900/20"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+          </svg>
+          Nuevo Usuario
+        </button>
+      </div>
 
       <SearchBar
         searchTerm={searchTerm}
         onSearch={handleSearch}
-        onAddUser={() => {
-          resetForm();
-          setShowForm(true);
-        }}
+        onAddUser={null} // Deshabilitamos el botón del searchbar para usar el del header
         recordsPerPage={recordsPerPage}
         onRecordsPerPageChange={handleRecordsPerPageChange}
       />

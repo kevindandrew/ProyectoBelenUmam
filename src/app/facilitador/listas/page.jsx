@@ -355,30 +355,31 @@ export default function ListasFacilitadorPage() {
 
   return (
     <div className="space-y-6 p-4">
-      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl bg-gradient-to-r from-[#0f4c6e] via-[#13678A] to-[#1f8bb1] p-6 text-white shadow-lg">
         <div>
-          <h1 className="text-3xl font-bold text-[#13678A]">LISTAS</h1>
-          <p className="mt-1 text-sm text-gray-600">
+          <h1 className="text-3xl font-bold uppercase tracking-tight">Listas</h1>
+          <p className="mt-1 text-sm text-cyan-100">
             Cursos que dicta el facilitador logueado.
           </p>
         </div>
 
-        <div className="w-full md:w-72">
+        <div className="w-full sm:w-64">
           <label
             htmlFor="gestion-select"
-            className="mb-1 block text-sm font-semibold"
+            className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-cyan-100"
           >
-            Gestion
+            Gestión
           </label>
           <select
             id="gestion-select"
             value={selectedGestionId}
             onChange={(e) => setSelectedGestionId(e.target.value)}
-            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+            className="w-full rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-sm text-white backdrop-blur focus:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/30"
             disabled={loading || gestiones.length === 0}
           >
             {gestiones.map((g) => (
-              <option key={g.gestion_id} value={g.gestion_id}>
+              <option key={g.gestion_id} value={g.gestion_id} className="text-gray-900">
                 {g.gestion} {g.year_id}
               </option>
             ))}
