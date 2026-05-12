@@ -80,6 +80,7 @@ export default function SucursalesPage() {
   const [aulasSeleccionadas, setAulasSeleccionadas] = useState([]);
   const [sucursalSeleccionada, setSucursalSeleccionada] = useState(null);
   const [editingAula, setEditingAula] = useState(null);
+
   useEffect(() => {
     const fetchSucursales = async () => {
       try {
@@ -100,7 +101,6 @@ export default function SucursalesPage() {
         setSucursales(data);
       } catch (error) {
         console.error(error);
-        // Aquí puedes mostrar un mensaje visual al usuario si quieres
       } finally {
         setLoading(false);
       }
@@ -109,7 +109,6 @@ export default function SucursalesPage() {
     fetchSucursales();
   }, []);
 
-  // Funciones para manejar sucursales
   const createSucursal = async (sucursalData) => {
     try {
       const response = await fetch(`${API_URL}/sucursales/`, {
@@ -121,7 +120,6 @@ export default function SucursalesPage() {
         body: JSON.stringify(sucursalData),
       });
       await handleFetchResponse(response);
-
       if (!response.ok) throw new Error("Error al crear sucursal");
       return await response.json();
     } catch (error) {
@@ -141,7 +139,6 @@ export default function SucursalesPage() {
         body: JSON.stringify(sucursalData),
       });
       await handleFetchResponse(response);
-
       if (!response.ok) throw new Error("Error al actualizar sucursal");
       return await response.json();
     } catch (error) {
@@ -159,7 +156,6 @@ export default function SucursalesPage() {
         },
       });
       await handleFetchResponse(response);
-
       if (!response.ok) throw new Error("Error al eliminar sucursal");
       return true;
     } catch (error) {
@@ -171,16 +167,13 @@ export default function SucursalesPage() {
   const fetchAulasBySucursal = async (sucursalId) => {
     try {
       setLoadingAulas(true);
-      const response = await fetch(
-        `${API_URL}/sucursales/${sucursalId}/aulas`,
-        {
-          method: "GET",
-          headers: {
-            Accept: "application/json",
-            Authorization: `Bearer ${Cookies.get("access_token")}`,
-          },
+      const response = await fetch(`${API_URL}/sucursales/${sucursalId}/aulas`, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${Cookies.get("access_token")}`,
         },
-      );
+      });
       await handleFetchResponse(response);
       if (!response.ok) throw new Error("Error al cargar las aulas");
       const data = await response.json();
@@ -195,12 +188,10 @@ export default function SucursalesPage() {
 
   const updateAula = async (aulaId, aulaData) => {
     try {
-      // Asegurarnos de enviar los datos con la estructura que espera la API
       const dataToSend = {
         nombre_aula: aulaData.nombre || aulaData.nombre_aula,
         capacidad: parseInt(aulaData.capacidad),
       };
-
       const response = await fetch(`${API_URL}/sucursales/aulas/${aulaId}`, {
         method: "PUT",
         headers: {
@@ -210,26 +201,10 @@ export default function SucursalesPage() {
         body: JSON.stringify(dataToSend),
       });
       await handleFetchResponse(response);
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          `Error al actualizar aula: ${
-            errorData.detail || errorData.message || "Sin detalles"
-          }`,
-        );
-      }
-
+      if (!response.ok) throw new Error("Error al actualizar aula");
       const updatedAula = await response.json();
       setAulasSeleccionadas((prev) =>
-        prev.map((a) =>
-          a.aula_id === aulaId
-            ? {
-                ...updatedAula,
-                nombre: updatedAula.nombre || updatedAula.nombre_aula,
-              }
-            : a,
-        ),
+        prev.map((a) => a.aula_id === aulaId ? normalizeAula(updatedAula) : a)
       );
       setEditingAula(null);
     } catch (error) {
@@ -237,120 +212,19 @@ export default function SucursalesPage() {
       toast.error(`Error al actualizar aula: ${error.message}`);
     }
   };
+
   const deleteAula = async (aulaId) => {
     try {
       const response = await fetch(`${API_URL}/sucursales/aulas/${aulaId}`, {
         method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${Cookies.get("access_token")}`,
-        },
+        headers: { Authorization: `Bearer ${Cookies.get("access_token")}` },
       });
       await handleFetchResponse(response);
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          `Error al eliminar aula: ${
-            errorData.detail || errorData.message || "Sin detalles"
-          }`,
-        );
-      }
-
+      if (!response.ok) throw new Error("Error al eliminar aula");
       setAulasSeleccionadas((prev) => prev.filter((a) => a.aula_id !== aulaId));
     } catch (error) {
       console.error("Error al eliminar aula:", error);
       toast.error(`Error al eliminar aula: ${error.message}`);
-    }
-  };
-
-  // Modifica el filtrado para incluir ordenamiento
-  const sucursalesFiltradas = sucursales
-    .filter((sucursal) =>
-      sucursal.nombre.toLowerCase().includes(searchTerm.toLowerCase()),
-    )
-    .sort((a, b) => a.sucursal_id - b.sucursal_id); // Orden ascendente por ID
-
-  // Abrir modal para nueva sucursal o para editar existente
-  const openModal = (sucursal = null) => {
-    if (sucursal) {
-      setEditingSucursal(sucursal);
-      setFormData({
-        nombre: sucursal.nombre,
-        direccion: sucursal.direccion,
-      });
-    } else {
-      setEditingSucursal(null);
-      setFormData({ nombre: "", direccion: "" });
-    }
-    setModalOpen(true);
-  };
-
-  // Manejo de cambio en formulario
-  const handleInputChange = (e) => {
-    const { id, value } = e.target;
-    setFormData((prev) => ({ ...prev, [id]: value }));
-  };
-
-  // Guardar sucursal (nuevo o editado)
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      if (editingSucursal) {
-        // Actualizar sucursal existente
-        const updatedSucursal = await updateSucursal(
-          editingSucursal.sucursal_id,
-          formData,
-        );
-        setSucursales((prev) =>
-          prev.map((s) =>
-            s.sucursal_id === editingSucursal.sucursal_id ? updatedSucursal : s,
-          ),
-        );
-      } else {
-        // Crear nueva sucursal
-        const newSucursal = await createSucursal(formData);
-        setSucursales((prev) => [...prev, newSucursal]);
-      }
-      setModalOpen(false);
-    } catch (error) {
-      // Mostrar error al usuario
-      toast.error("Ocurrió un error al guardar la sucursal");
-    }
-  };
-
-  const createAula = async (sucursalId, aulaData) => {
-    try {
-      const response = await fetch(
-        `https://api-umam-1.onrender.com/sucursales/${sucursalId}/aulas`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `bearer ${Cookies.get("access_token")}`,
-          },
-          body: JSON.stringify({
-            nombre_aula: aulaData.nombre,
-            capacidad: parseInt(aulaData.capacidad),
-            sucursal_id: sucursalId,
-          }),
-        },
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          `Error al crear aula: ${errorData.message || "Sin detalles"}`,
-        );
-      }
-
-      const nuevaAula = normalizeAula(await response.json());
-      setAulasSeleccionadas((prev) => [...prev, nuevaAula]);
-      setNombreAula("");
-      setCapacidadAula("");
-      return nuevaAula;
-    } catch (error) {
-      console.error("Error al crear aula:", error);
-      throw error;
     }
   };
 
@@ -359,34 +233,83 @@ export default function SucursalesPage() {
       toast.warning("Por favor, complete todos los campos.");
       return;
     }
-
     try {
-      const aulaData = {
-        nombre: nombreAula,
-        capacidad: parseInt(capacidadAula),
-      };
-
-      await createAula(sucursalSeleccionada.sucursal_id, aulaData);
+      const response = await fetch(`${API_URL}/sucursales/${sucursalSeleccionada.sucursal_id}/aulas`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${Cookies.get("access_token")}`,
+        },
+        body: JSON.stringify({
+          nombre_aula: nombreAula,
+          capacidad: parseInt(capacidadAula),
+          sucursal_id: sucursalSeleccionada.sucursal_id,
+        }),
+      });
+      await handleFetchResponse(response);
+      if (!response.ok) throw new Error("Error al crear aula");
+      const nuevaAula = normalizeAula(await response.json());
+      setAulasSeleccionadas((prev) => [...prev, nuevaAula]);
+      setNombreAula("");
+      setCapacidadAula("");
     } catch (error) {
-      console.error("Error al crear aula:", error);
       toast.error(`Error al crear aula: ${error.message}`);
     }
   };
 
-  // Abrir modal de confirmación para eliminar sucursal
+  const normalizeAula = (aula) => ({
+    aula_id: aula?.aula_id,
+    nombre: aula?.nombre || aula?.nombre_aula || "Sin nombre",
+    capacidad: aula?.capacidad ? parseInt(aula.capacidad) : 0,
+    sucursal_id: aula?.sucursal_id,
+  });
+
+  const sucursalesFiltradas = sucursales
+    .filter((s) => s.nombre.toLowerCase().includes(searchTerm.toLowerCase()))
+    .sort((a, b) => a.sucursal_id - b.sucursal_id);
+
+  const openModal = (sucursal = null) => {
+    if (sucursal) {
+      setEditingSucursal(sucursal);
+      setFormData({ nombre: sucursal.nombre, direccion: sucursal.direccion });
+    } else {
+      setEditingSucursal(null);
+      setFormData({ nombre: "", direccion: "" });
+    }
+    setModalOpen(true);
+  };
+
+  const handleInputChange = (e) => {
+    const { id, value } = e.target;
+    setFormData((prev) => ({ ...prev, [id]: value }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      if (editingSucursal) {
+        const updated = await updateSucursal(editingSucursal.sucursal_id, formData);
+        setSucursales((prev) => prev.map((s) => s.sucursal_id === editingSucursal.sucursal_id ? updated : s));
+      } else {
+        const newlyCreated = await createSucursal(formData);
+        setSucursales((prev) => [...prev, newlyCreated]);
+      }
+      setModalOpen(false);
+    } catch (error) {
+      toast.error("Ocurrió un error al guardar la sucursal");
+    }
+  };
+
   const openDeleteModal = (sucursal) => {
     setSucursalToDelete(sucursal);
     setDeleteModalOpen(true);
   };
 
-  // Confirmar eliminación de sucursal
   const confirmDelete = async () => {
     try {
       if (sucursalToDelete) {
         await deleteSucursal(sucursalToDelete.sucursal_id);
-        setSucursales((prev) =>
-          prev.filter((s) => s.sucursal_id !== sucursalToDelete.sucursal_id),
-        );
+        setSucursales((prev) => prev.filter((s) => s.sucursal_id !== sucursalToDelete.sucursal_id));
       }
       setDeleteModalOpen(false);
       setSucursalToDelete(null);
@@ -394,502 +317,227 @@ export default function SucursalesPage() {
       toast.error("Ocurrió un error al eliminar la sucursal");
     }
   };
-  // Cancelar eliminación
+
   const cancelDelete = () => {
     setDeleteModalOpen(false);
     setSucursalToDelete(null);
   };
 
-  const normalizeAula = (aula) => {
-    return {
-      aula_id: aula?.aula_id,
-      nombre: aula?.nombre || aula?.nombre_aula || "Sin nombre",
-      capacidad: aula?.capacidad ? parseInt(aula.capacidad) : 0,
-      sucursal_id: aula?.sucursal_id,
-    };
-  };
-
   return (
-    <div className="text-gray-900">
-      <h1 className="text-3xl font-bold text-[#13678A] border-b pb-2">
-        SUCURSALES
-      </h1>
-
-      {/* Controles superiores */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-4">
-        <div className="flex items-center gap-2">
-          <label htmlFor="registros" className="text-sm text-gray-900">
-            Mostrar
-          </label>
-          <select
-            id="registros"
-            className="border border-gray-300 rounded px-2 py-1 text-sm"
-          >
-            <option>10</option>
-            <option>25</option>
-            <option>50</option>
-          </select>
-          <span className="text-sm">registros</span>
+    <>
+      {/* Header Premium */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl bg-gradient-to-r from-slate-800 to-slate-900 p-6 text-white shadow-xl mb-6">
+        <div>
+          <h1 className="text-3xl font-bold flex items-center gap-3">
+            <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+            </svg>
+            Gestión de Sucursales
+          </h1>
+          <p className="mt-1 text-sm text-slate-300">Administra las sedes físicas y las aulas disponibles en cada una.</p>
         </div>
-
-        <div className="flex items-center gap-2">
-          <label htmlFor="buscar" className="text-sm">
-            Buscar:
-          </label>
-          <input
-            id="buscar"
-            type="text"
-            placeholder="Buscar sucursal..."
-            className="border border-gray-300 rounded px-2 py-1 text-sm"
-            value={searchTerm}
-            maxLength={100}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-
-        <button
+        <button 
           onClick={() => openModal()}
-          className="bg-teal-500 text-white px-4 py-2 rounded text-sm hover:bg-teal-600 self-start sm:self-auto"
+          className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold hover:bg-blue-700 transition-all shadow-lg shadow-blue-900/20"
         >
-          + Nueva Sucursal
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+          </svg>
+          Nueva Sucursal
         </button>
       </div>
 
-      {modalAulaOpen && (
-        <div
-          className="fixed inset-0 flex items-center justify-center z-50 bg-black/25"
-          onClick={() => {
-            setModalAulaOpen(false);
-            setAulasSeleccionadas([]);
-            setSucursalSeleccionada(null);
-          }}
-        >
-          <div
-            className="bg-white rounded-lg shadow-lg w-full max-w-3xl p-6"
-            onClick={(e) => e.stopPropagation()}
+      {/* Filtros Refinados */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-4 bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+        <div className="flex items-center gap-2">
+          <label htmlFor="registros" className="text-xs font-bold uppercase text-slate-500">Mostrar</label>
+          <select
+            id="registros"
+            className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm outline-none"
+            value={registrosPorPagina}
+            onChange={(e) => { setRegistrosPorPagina(parseInt(e.target.value)); setCurrentPage(1); }}
           >
-            <h2 className="text-xl font-semibold mb-4">
-              AULAS DE {sucursalSeleccionada?.nombre?.toUpperCase()}
-            </h2>
+            <option value={10}>10</option>
+            <option value={25}>25</option>
+            <option value={50}>50</option>
+          </select>
+          <span className="text-xs font-bold uppercase text-slate-500">registros</span>
+        </div>
 
-            {/* FORM PARA NOMBRE Y CAPACIDAD */}
+        <div className="flex items-center gap-2 flex-1 max-w-md">
+          <div className="relative w-full">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            </span>
+            <input
+              id="buscar"
+              type="text"
+              placeholder="Buscar sucursal..."
+              className="w-full border border-slate-200 rounded-lg pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+        </div>
+      </div>
+
+      {modalAulaOpen && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/25" onClick={() => setModalAulaOpen(false)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl p-6" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-xl font-bold mb-4 text-slate-800">AULAS: {sucursalSeleccionada?.nombre?.toUpperCase()}</h2>
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
-                <label className="text-sm text-gray-700">Nombre del Aula</label>
-                <input
-                  value={nombreAula}
-                  onChange={(e) => setNombreAula(e.target.value)}
-                  type="text"
-                  maxLength={50}
-                  className="w-full border border-gray-300 px-3 py-2 rounded text-sm"
-                />
+                <label className="text-xs font-bold uppercase text-slate-500 mb-1 block">Nombre</label>
+                <input value={nombreAula} onChange={(e) => setNombreAula(e.target.value)} type="text" className="w-full border border-slate-200 px-3 py-2 rounded-lg text-sm" />
               </div>
-
               <div>
-                <label className="text-sm text-gray-700">Capacidad</label>
-                <input
-                  type="number"
-                  min="1"
-                  max="9999"
-                  maxLength={4}
-                  value={capacidadAula}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (/^\d{0,4}$/.test(value)) {
-                      setCapacidadAula(value);
-                    }
-                  }}
-                  className="w-full border border-gray-300 px-3 py-2 rounded text-sm"
-                />
+                <label className="text-xs font-bold uppercase text-slate-500 mb-1 block">Capacidad</label>
+                <input type="number" value={capacidadAula} onChange={(e) => setCapacidadAula(e.target.value)} className="w-full border border-slate-200 px-3 py-2 rounded-lg text-sm" />
               </div>
             </div>
-
-            <div className="flex justify-between items-center mb-2">
-              <h4 className="text-md font-semibold">AULAS DISPONIBLES</h4>
-              <button
-                onClick={async () => {
-                  if (nombreAula.trim() && capacidadAula.trim()) {
-                    try {
-                      const response = await fetch(
-                        `${API_URL}/sucursales/${sucursalSeleccionada.sucursal_id}/aulas`,
-                        {
-                          method: "POST",
-                          headers: {
-                            "Content-Type": "application/json",
-                            Authorization: `Bearer ${Cookies.get(
-                              "access_token",
-                            )}`,
-                          },
-                          body: JSON.stringify({
-                            nombre_aula: nombreAula,
-                            capacidad: parseInt(capacidadAula),
-                            sucursal_id: sucursalSeleccionada.sucursal_id,
-                          }),
-                        },
-                      );
-                      await handleFetchResponse(response);
-
-                      if (!response.ok) throw new Error("Error al crear aula");
-
-                      const nuevaAula = await response.json();
-                      setAulasSeleccionadas([...aulasSeleccionadas, nuevaAula]);
-                      setNombreAula("");
-                      setCapacidadAula("");
-                    } catch (error) {
-                      console.error(error);
-                      // Mostrar error al usuario
-                    }
-                  }
-                }}
-                className="bg-teal-600 text-white text-sm px-3 py-1 rounded hover:bg-teal-700"
-              >
-                + Agregar Aula
-              </button>
+            <div className="flex justify-end mb-6">
+              <button onClick={handleCreateAula} className="bg-teal-600 text-white text-sm px-4 py-2 rounded-xl font-bold hover:bg-teal-700">+ Agregar Aula</button>
             </div>
-
-            {/* TABLA DE AULAS */}
-            <table className="w-full text-sm border mb-4">
-              <thead className="bg-gray-200 text-gray-700">
-                <tr>
-                  <th className="border px-2 py-1">Nro.</th>
-                  <th className="border px-2 py-1">NOMBRE</th>
-                  <th className="border px-2 py-1">CAPACIDAD</th>
-                  <th className="border px-2 py-1">ACCIONES</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loadingAulas ? (
+            <div className="overflow-auto max-h-64 border border-slate-100 rounded-xl mb-6">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 sticky top-0">
                   <tr>
-                    <td colSpan="4" className="text-center py-4">
-                      Cargando aulas...
-                    </td>
+                    <th className="px-4 py-2 text-left">NRO.</th>
+                    <th className="px-4 py-2 text-left">NOMBRE</th>
+                    <th className="px-4 py-2 text-center">CAPACIDAD</th>
+                    <th className="px-4 py-2 text-right">ACCIONES</th>
                   </tr>
-                ) : aulasSeleccionadas.length === 0 ? (
-                  <tr>
-                    <td colSpan="4" className="text-center py-4">
-                      No hay aulas registradas
-                    </td>
-                  </tr>
-                ) : (
-                  aulasSeleccionadas.map((aula, idx) => (
-                    <tr key={aula.aula_id || idx}>
-                      <td className="border px-2 py-1 text-center">
-                        {idx + 1}
-                      </td>
-                      <td className="border px-2 py-1">
-                        {(aula && (aula.nombre || aula.nombre_aula)) ||
-                          "Sin nombre"}
-                      </td>
-                      <td className="border px-2 py-1 text-center">
-                        {aula?.capacidad ?? "N/A"}
-                      </td>
-                      <td className="border px-2 py-1 text-center flex justify-center gap-2">
-                        <button
-                          onClick={() => setEditingAula(aula)}
-                          className="text-blue-500 hover:underline"
-                        >
-                          Editar
-                        </button>
-                        <button
-                          onClick={async () => {
-                            try {
-                              await deleteAula(aula.aula_id);
-                              setAulasSeleccionadas(
-                                aulasSeleccionadas.filter(
-                                  (a) => a.aula_id !== aula.aula_id,
-                                ),
-                              );
-                            } catch (error) {
-                              toast.error(
-                                "Ocurrió un error al eliminar el aula",
-                              );
-                            }
-                          }}
-                          className="text-red-500 hover:underline"
-                        >
-                          Eliminar
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-
-            {/* BOTONES GUARDAR Y CANCELAR */}
-            <div className="flex justify-end space-x-2">
-              <button
-                onClick={() => {
-                  setModalAulaOpen(false);
-                  setAulasSeleccionadas([]);
-                  setSucursalSeleccionada(null);
-                }}
-                className="bg-gray-300 text-gray-800 px-4 py-2 rounded hover:bg-gray-400"
-              >
-                Cerrar
-              </button>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {aulasSeleccionadas.length === 0 ? (
+                    <tr><td colSpan="4" className="text-center py-4 text-slate-400 italic">Sin aulas registradas</td></tr>
+                  ) : (
+                    aulasSeleccionadas.map((aula, idx) => (
+                      <tr key={aula.aula_id} className="hover:bg-slate-50/50">
+                        <td className="px-4 py-2">{idx + 1}</td>
+                        <td className="px-4 py-2 font-medium">{aula.nombre}</td>
+                        <td className="px-4 py-2 text-center">{aula.capacidad}</td>
+                        <td className="px-4 py-2">
+                          <div className="flex justify-end gap-2">
+                            <button onClick={() => setEditingAula(aula)} className="text-blue-600 hover:underline font-bold">Editar</button>
+                            <button onClick={() => deleteAula(aula.aula_id)} className="text-red-600 hover:underline font-bold">Eliminar</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex justify-end">
+              <button onClick={() => setModalAulaOpen(false)} className="bg-slate-100 text-slate-600 px-6 py-2 rounded-xl font-bold hover:bg-slate-200">Cerrar</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Modal NUEVA SUCURSAL */}
       {modalOpen && (
-        <div
-          className="fixed inset-0 flex items-center justify-center z-50 bg-black/25"
-          onClick={() => setModalOpen(false)}
-        >
-          <div
-            className="bg-white p-6 rounded-lg w-full max-w-md shadow-lg relative"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              onClick={() => setModalOpen(false)}
-              className="absolute top-2 right-2 text-gray-500"
-            >
-              X
-            </button>
-            <h2 className="text-xl font-semibold mb-4">
-              {editingSucursal ? "EDITAR SUCURSAL" : "NUEVA SUCURSAL"}
-            </h2>
-            {/* Formulario de sucursal */}
-            <form className="grid-cols-1 gap-4" onSubmit={handleSubmit}>
-              {/* Campo: Nombre */}
+        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/25" onClick={() => setModalOpen(false)}>
+          <div className="bg-white p-6 rounded-2xl w-full max-w-md shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-xl font-bold mb-6 text-slate-800">{editingSucursal ? "EDITAR SUCURSAL" : "NUEVA SUCURSAL"}</h2>
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label htmlFor="nombre" className="block text-sm text-gray-700">
-                  Nombre
-                </label>
-                <input
-                  id="nombre"
-                  type="text"
-                  maxLength={50}
-                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-                  value={formData.nombre}
-                  onChange={handleInputChange}
-                  required
-                />
+                <label className="text-xs font-bold uppercase text-slate-500 mb-1 block">Nombre</label>
+                <input id="nombre" type="text" value={formData.nombre} onChange={handleInputChange} className="w-full border border-slate-200 p-2.5 rounded-lg text-sm" required />
               </div>
-
-              {/* Campo: Dirección */}
               <div>
-                <label
-                  htmlFor="direccion"
-                  className="block text-sm text-gray-700"
-                >
-                  Dirección
-                </label>
-                <input
-                  id="direccion"
-                  type="text"
-                  maxLength={100}
-                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-                  value={formData.direccion}
-                  onChange={handleInputChange}
-                  required
-                />
+                <label className="text-xs font-bold uppercase text-slate-500 mb-1 block">Dirección</label>
+                <input id="direccion" type="text" value={formData.direccion} onChange={handleInputChange} className="w-full border border-slate-200 p-2.5 rounded-lg text-sm" required />
               </div>
-
-              {/* Botón final (toda la fila) */}
-              <div className="flex justify-end gap-2 mt-4">
-                <button
-                  type="submit"
-                  className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
-                >
-                  {editingSucursal ? "Guardar Cambios" : "Crear Sucursal"}
-                </button>
+              <div className="flex justify-end gap-2 mt-8">
+                <button type="button" onClick={() => setModalOpen(false)} className="px-4 py-2 text-slate-600 font-bold">Cancelar</button>
+                <button type="submit" className="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold shadow-lg shadow-blue-900/20 hover:bg-blue-700">Guardar</button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* Modal Confirmación Eliminar */}
       {deleteModalOpen && (
-        <div
-          className="fixed inset-0 flex items-center justify-center z-50 bg-black/40"
-          onClick={cancelDelete}
-        >
-          <div
-            className="bg-white p-6 rounded-lg w-full max-w-sm shadow-lg text-center"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-lg font-semibold mb-4 text-gray-900">
-              Confirmar eliminación
-            </h3>
-            <p className="mb-6 text-gray-700">
-              ¿Estás seguro de que deseas eliminar la sucursal{" "}
-              <span className="font-semibold">{sucursalToDelete?.nombre}</span>?
-            </p>
-            <div className="flex justify-center gap-4">
-              <button
-                onClick={cancelDelete}
-                className="bg-gray-300 text-gray-800 px-4 py-2 rounded hover:bg-gray-500"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={confirmDelete}
-                className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
-              >
-                Eliminar
-              </button>
+        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/40" onClick={cancelDelete}>
+          <div className="bg-white p-6 rounded-2xl max-w-sm shadow-xl text-center" onClick={(e) => e.stopPropagation()}>
+            <div className="w-16 h-16 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </div>
+            <h3 className="text-lg font-bold mb-2">Confirmar eliminación</h3>
+            <p className="text-slate-600 mb-6">¿Estás seguro de eliminar la sucursal <span className="font-bold text-slate-900">{sucursalToDelete?.nombre}</span>?</p>
+            <div className="flex justify-center gap-3">
+              <button onClick={cancelDelete} className="px-4 py-2 text-slate-500 font-bold">Cancelar</button>
+              <button onClick={confirmDelete} className="bg-red-600 text-white px-6 py-2 rounded-xl font-bold hover:bg-red-700 shadow-lg shadow-red-900/20">Eliminar</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Modal para editar aula */}
       {editingAula && (
         <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/25">
-          <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-6">
-            <h2 className="text-xl font-semibold mb-4">EDITAR AULA</h2>
-            <div className="grid grid-cols-2 gap-4 mb-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl">
+            <h2 className="text-xl font-bold mb-6">EDITAR AULA</h2>
+            <div className="space-y-4">
               <div>
-                <label className="text-sm text-gray-700">Nombre del Aula</label>
-                <input
-                  type="text"
-                  maxLength={50}
-                  value={editingAula?.nombre || ""}
-                  onChange={(e) =>
-                    setEditingAula({
-                      ...editingAula,
-                      nombre: e.target.value,
-                    })
-                  }
-                  className="w-full border border-gray-300 px-3 py-2 rounded text-sm"
-                />
+                <label className="text-xs font-bold uppercase text-slate-500 mb-1 block">Nombre</label>
+                <input type="text" value={editingAula.nombre} onChange={(e) => setEditingAula({...editingAula, nombre: e.target.value})} className="w-full border border-slate-200 p-2.5 rounded-lg text-sm" />
               </div>
               <div>
-                <label className="text-sm text-gray-700">Capacidad</label>
-                <input
-                  type="number"
-                  min="1"
-                  max="9999"
-                  maxLength={4}
-                  value={editingAula?.capacidad || ""}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (/^\d{0,4}$/.test(value)) {
-                      setEditingAula({
-                        ...editingAula,
-                        capacidad: value,
-                      });
-                    }
-                  }}
-                  className="w-full border border-gray-300 px-3 py-2 rounded text-sm"
-                />
+                <label className="text-xs font-bold uppercase text-slate-500 mb-1 block">Capacidad</label>
+                <input type="number" value={editingAula.capacidad} onChange={(e) => setEditingAula({...editingAula, capacidad: e.target.value})} className="w-full border border-slate-200 p-2.5 rounded-lg text-sm" />
               </div>
-            </div>
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setEditingAula(null)}
-                className="bg-gray-300 text-gray-800 px-4 py-2 rounded hover:bg-gray-400"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={async () => {
-                  try {
-                    await updateAula(editingAula.aula_id, {
-                      nombre: editingAula.nombre,
-                      capacidad: parseInt(editingAula.capacidad),
-                    });
-                    setEditingAula(null);
-                  } catch (error) {
-                    toast.error("Ocurrió un error al actualizar el aula");
-                  }
-                }}
-                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-              >
-                Guardar Cambios
-              </button>
+              <div className="flex justify-end gap-2 mt-8">
+                <button onClick={() => setEditingAula(null)} className="px-4 py-2 text-slate-500 font-bold">Cancelar</button>
+                <button onClick={() => updateAula(editingAula.aula_id, editingAula)} className="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold hover:bg-blue-700">Guardar</button>
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Tabla de sucursales */}
-      <div className="overflow-auto">
-        <table className="w-full border text-sm bg-white">
-          <thead className="bg-gray-100 text-left">
-            <tr>
-              <th className="px-4 py-2 border-b">ID</th>
-              <th className="px-4 py-2 border-b">NOMBRE SUCURSAL</th>
-              <th className="px-4 py-2 border-b">DIRECCION</th>
-              <th className="px-4 py-2 border-b">AULAS</th>
-              <th className="px-4 py-2 border-b">ACCIÓN</th>
+      <div className="overflow-auto bg-white rounded-2xl border border-slate-100 shadow-sm mb-6">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50/50 border-b">
+            <tr className="text-left text-xs font-bold uppercase text-slate-500">
+              <th className="px-6 py-4">ID</th>
+              <th className="px-6 py-4">NOMBRE SUCURSAL</th>
+              <th className="px-6 py-4">DIRECCIÓN</th>
+              <th className="px-6 py-4">AULAS</th>
+              <th className="px-6 py-4 text-right">ACCIONES</th>
             </tr>
           </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan="6" className="text-center py-4 text-gray-500">
-                  Cargando sucursales...
+          <tbody className="divide-y divide-slate-100">
+            {sucursalesFiltradas.slice((currentPage - 1) * registrosPorPagina, currentPage * registrosPorPagina).map((s) => (
+              <tr key={s.sucursal_id} className="hover:bg-slate-50/50 transition-colors">
+                <td className="px-6 py-4 text-slate-400 font-mono text-xs">{s.sucursal_id}</td>
+                <td className="px-6 py-4 font-bold text-slate-900">{s.nombre}</td>
+                <td className="px-6 py-4 text-slate-600">{s.direccion}</td>
+                <td className="px-6 py-4">
+                  <button onClick={async () => { setSucursalSeleccionada(s); const data = await fetchAulasBySucursal(s.sucursal_id); setAulasSeleccionadas(data); setModalAulaOpen(true); }} className="text-teal-600 font-bold hover:text-teal-700 transition-colors inline-flex items-center gap-1">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                    Ver Aulas
+                  </button>
+                </td>
+                <td className="px-6 py-4">
+                  <div className="flex justify-end gap-2">
+                    <button onClick={() => openModal(s)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><EditIcon /></button>
+                    <button onClick={() => openDeleteModal(s)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"><DeleteIcon /></button>
+                  </div>
                 </td>
               </tr>
-            ) : sucursalesFiltradas.length === 0 ? (
-              <tr>
-                <td colSpan="6" className="text-center py-4 text-gray-500">
-                  No hay sucursales
-                </td>
-              </tr>
-            ) : (
-              sucursalesFiltradas.map((sucursal) => (
-                <tr key={sucursal.sucursal_id}>
-                  <td className="px-4 py-2 border-b">{sucursal.sucursal_id}</td>
-                  <td className="px-4 py-2 border-b">{sucursal.nombre}</td>
-                  <td className="px-4 py-2 border-b">{sucursal.direccion}</td>
-                  <td className="px-4 py-2 border-b">
-                    <button
-                      onClick={async () => {
-                        setSucursalSeleccionada(sucursal);
-                        const aulasData = await fetchAulasBySucursal(
-                          sucursal.sucursal_id,
-                        );
-                        setAulasSeleccionadas(aulasData);
-                        setModalAulaOpen(true);
-                      }}
-                      className="bg-teal-600 text-white px-3 py-1 rounded text-sm hover:bg-teal-700"
-                    >
-                      Aulas
-                    </button>
-                  </td>
-                  <td className="px-4 py-2 border-b flex gap-2">
-                    <button
-                      onClick={() => openModal(sucursal)}
-                      aria-label="Editar"
-                      className="text-blue-600 hover:text-blue-800 p-1 rounded"
-                      title="Editar"
-                      type="button"
-                    >
-                      <EditIcon />
-                    </button>
-                    <button
-                      onClick={() => openDeleteModal(sucursal)}
-                      aria-label="Eliminar"
-                      className="text-red-600 hover:text-red-800 p-1 rounded"
-                      title="Eliminar"
-                      type="button"
-                    >
-                      <DeleteIcon />
-                    </button>
-                  </td>
-                </tr>
-              ))
-            )}
+            ))}
           </tbody>
         </table>
       </div>
 
-      {/* Paginación */}
-      <div className="flex justify-end items-center gap-4 mt-4">
-        <button className="text-sm text-gray-500 hover:text-black">
-          Anterior
-        </button>
-        <button className="text-sm text-gray-500 hover:text-black">
-          Siguiente
-        </button>
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-2 mb-6">
+        <p className="text-sm text-slate-500 italic">Mostrando página {currentPage} de {Math.ceil(sucursalesFiltradas.length / registrosPorPagina)}</p>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1} className="px-4 py-2 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 disabled:opacity-50 transition-all">Anterior</button>
+          <button onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(sucursalesFiltradas.length / registrosPorPagina)))} disabled={currentPage >= Math.ceil(sucursalesFiltradas.length / registrosPorPagina)} className="px-4 py-2 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 disabled:opacity-50 transition-all">Siguiente</button>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

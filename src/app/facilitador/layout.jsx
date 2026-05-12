@@ -6,7 +6,10 @@ export const metadata = {
   description: "Panel del facilitador",
 };
 
-const facilitadorLinks = [{ href: "/facilitador/listas", label: "Listas" }];
+const facilitadorLinks = [
+  { href: "/facilitador/listas", label: "Listas" },
+  { href: "/facilitador/control-horas", label: "Control de Horas" },
+];
 
 async function getUserData() {
   const cookieStore = await cookies();

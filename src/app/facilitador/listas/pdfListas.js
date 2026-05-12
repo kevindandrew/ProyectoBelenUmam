@@ -36,9 +36,17 @@ export const generarPDFLista = async (
 ) => {
   if (typeof window === "undefined") return;
 
-  const pdfMake = (await import("pdfmake/build/pdfmake")).default;
-  const pdfFonts = await import("pdfmake/build/vfs_fonts");
-  pdfMake.vfs = pdfFonts?.pdfMake?.vfs || pdfFonts?.default?.vfs;
+  const pdfMakeModule = await import("pdfmake/build/pdfmake");
+  const pdfFontsModule = await import("pdfmake/build/vfs_fonts");
+  
+  const pdfMake = pdfMakeModule.default || pdfMakeModule;
+  const pdfFonts = pdfFontsModule.default || pdfFontsModule;
+
+  if (pdfFonts && pdfFonts.pdfMake) {
+    pdfMake.vfs = pdfFonts.pdfMake.vfs;
+  } else if (pdfFonts) {
+    pdfMake.vfs = pdfFonts.vfs;
+  }
 
   // Función para cargar el logo desde public
   const getLogoBase64 = async () => {
@@ -339,6 +347,7 @@ export const generarPDFLista = async (
     },
   };
 
-  const nombreArchivo = `Lista_${infoGrupo.curso?.replace(/\s+/g, "_")}_${new Date().getTime()}.pdf`;
+  const cursoClean = (infoGrupo.curso || "Curso").replace(/\s+/g, "_");
+  const nombreArchivo = `Lista_${cursoClean}_${new Date().getTime()}.pdf`;
   pdfMake.createPdf(docDefinition).download(nombreArchivo);
 };

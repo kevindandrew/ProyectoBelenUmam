@@ -77,13 +77,7 @@ const SchedulePage = () => {
   useEffect(() => {
     const oldBlockedCells = localStorage.getItem("blockedCells");
     if (oldBlockedCells) {
-      console.log(
-        "🧹 Limpiando datos antiguos de celdas bloqueadas del localStorage...",
-      );
       localStorage.removeItem("blockedCells");
-      console.log(
-        "✅ Datos antiguos eliminados. Ahora se guardan en el backend.",
-      );
     }
   }, []);
 
@@ -700,12 +694,6 @@ const SchedulePage = () => {
           ],
         };
 
-        console.log("📤 Marcando horario como NO DISPONIBLE:", {
-          curso: cursNoDisponible.nombre,
-          profesor: `${profesorNoDisponible.nombres} ${profesorNoDisponible.ap_paterno || ""}`,
-          payload,
-        });
-
         await fetchWithAuth("https://api-umam-1.onrender.com/horarios/", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -760,8 +748,6 @@ const SchedulePage = () => {
         ? null
         : parseInt(profesor_id, 10);
       const parsedGestionId = parseInt(selectedGestion.value, 10);
-
-      console.log("Bloques de horario a enviar:", scheduleEntries);
 
       if (isEditingCourse && horario_id) {
         // PUT actualiza el horario SIN borrar inscripciones (el horario_id se mantiene)
@@ -996,7 +982,6 @@ const SchedulePage = () => {
     if (!horarioId) return;
 
     const url = `https://api-umam-1.onrender.com/horarios/${horarioId}/transferir`;
-    console.log("🔀 Transfiriendo horario:", { horarioId, url, payload });
 
     setIsTransferring(true);
     try {
@@ -1157,98 +1142,94 @@ const SchedulePage = () => {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-900 mb-6">HORARIOS</h1>
+        {/* Header Premium */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl bg-gradient-to-r from-slate-800 to-slate-900 p-6 text-white shadow-xl mb-6">
+          <div>
+            <h1 className="text-3xl font-bold flex items-center gap-3">
+              <Calendar className="text-blue-400 w-8 h-8" />
+              Gestión de Horarios
+            </h1>
+            <p className="mt-1 text-sm text-slate-300">Organiza las clases, aulas y disponibilidad docente por gestión.</p>
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setIsGestionModalOpen(true)}
+              className="flex items-center gap-2 rounded-xl bg-slate-700/50 border border-slate-600 px-4 py-2 text-sm font-semibold hover:bg-slate-700 transition-all shadow-lg"
+            >
+              <Calendar size={18} /> Nueva Gestión
+            </button>
+            <button
+              onClick={async () => {
+                const { generateSchedulePDF } = await import("./pdfSchedule");
+                generateSchedulePDF({
+                  timeSlots: filteredTimeSlots,
+                  availableClassrooms: selectedSucursal?.value
+                    ? classroomsBySucursal[selectedSucursal.value] || []
+                    : [],
+                  days,
+                  courses,
+                  sucursal: selectedSucursal?.label || selectedSucursal?.nombre || "",
+                  gestion: selectedGestion?.label || selectedGestion?.gestion || "",
+                });
+              }}
+              className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold hover:bg-blue-700 transition-all shadow-lg shadow-blue-900/20"
+            >
+              <Download size={18} /> Exportar PDF
+            </button>
+          </div>
+        </div>
 
-        {/* Selector de gestión */}
-        <div className="flex flex-wrap gap-4 mb-6">
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium text-gray-700">Año:</label>
+        <div className="flex flex-wrap items-center gap-4 mb-4 bg-slate-100/50 p-4 rounded-xl border border-slate-200/50">
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-bold uppercase text-slate-500">Gestión Activa:</span>
             {loadingGestiones ? (
-              <div className="min-w-40 px-3 py-2 text-sm bg-gray-100 rounded-md animate-pulse">
-                Cargando...
-              </div>
-            ) : errorGestiones ? (
-              <div className="min-w-40 px-3 py-2 text-sm text-red-600 bg-red-50 rounded-md">
-                Error: {errorGestiones}
-              </div>
-            ) : gestiones.length > 0 ? (
+              <div className="min-w-40 h-10 bg-slate-200 rounded-lg animate-pulse" />
+            ) : (
               <Dropdown
                 options={gestiones}
                 selected={selectedGestion}
                 onSelect={setSelectedGestion}
                 onDelete={handleDeleteGestion}
-                className="min-w-40"
+                className="min-w-48 bg-white border-slate-200 shadow-sm"
               />
-            ) : (
-              <div className="min-w-40 px-3 py-2 text-sm text-gray-500 bg-gray-100 rounded-md">
-                No hay gestiones
-              </div>
             )}
           </div>
-          <button
-            onClick={() => setIsGestionModalOpen(true)}
-            className="flex items-center gap-2 px-3 py-2 bg-gray-600 text-white rounded-lg text-sm font-medium hover:bg-gray-700 transition-colors"
-          >
-            <Calendar size={14} /> Nueva Gestión
-          </button>
         </div>
 
-        {/* Selector de sucursal */}
-        <div className="flex gap-1 mb-6">{renderSucursales()}</div>
 
         {/* Controles de horario */}
-        <div className="flex gap-3 mb-4">
-          {/* Dropdown para agregar horas existentes */}
-          <Dropdown
-            options={availableHoursToAdd.map((hour) => ({
-              value: hour.id,
-              label: hour.label,
-            }))}
-            selected={null}
-            onSelect={(selected) => {
-              setSelectedHourToRender(
-                timeSlots.find((h) => h.id === selected.value),
-              );
-            }}
-            onDelete={(hour) => {
-              const hourToDelete = timeSlots.find((h) => h.id === hour.value);
-              handleDeleteHour(hourToDelete);
-            }}
-            placeholder="Seleccionar hora"
-            className="min-w-48"
-            icon={<Clock size={16} className="mr-2" />}
-          />
-
-          {/* Botón para crear nueva hora */}
-          <button
-            onClick={() => setIsHourModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors"
-          >
-            <Plus size={16} /> Nueva Hora
-          </button>
-
-          {/* Botón de descarga */}
-          <button
-            onClick={async () => {
-              // Importar dinámicamente la función para evitar problemas SSR
-              const { generateSchedulePDF } = await import("./pdfSchedule");
-              generateSchedulePDF({
-                timeSlots: filteredTimeSlots,
-                availableClassrooms: selectedSucursal?.value
-                  ? classroomsBySucursal[selectedSucursal.value] || []
-                  : [],
-                days,
-                courses,
-                sucursal:
-                  selectedSucursal?.label || selectedSucursal?.nombre || "",
-                gestion:
-                  selectedGestion?.label || selectedGestion?.gestion || "",
-              });
-            }}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
-          >
-            <Download size={16} /> Descargar Horario PDF
-          </button>
+        <div className="flex flex-col sm:flex-row gap-3 mb-6 bg-white p-4 rounded-xl border border-slate-100 shadow-sm items-center">
+          <div className="flex-1 flex gap-3 items-center">
+            <Clock className="text-slate-400" size={18} />
+            <Dropdown
+              options={availableHoursToAdd.map((hour) => ({
+                value: hour.id,
+                label: hour.label,
+              }))}
+              selected={null}
+              onSelect={(selected) => {
+                setSelectedHourToRender(
+                  timeSlots.find((h) => h.id === selected.value),
+                );
+              }}
+              onDelete={(hour) => {
+                const hourToDelete = timeSlots.find((h) => h.id === hour.value);
+                handleDeleteHour(hourToDelete);
+              }}
+              placeholder="Visualizar hora específica"
+              className="min-w-64"
+            />
+            <button
+              onClick={() => setIsHourModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm font-bold hover:bg-slate-200 transition-colors uppercase"
+            >
+              <Plus size={16} /> Crear Hora
+            </button>
+          </div>
+          
+          <div className="flex items-center gap-4 border-l border-slate-100 pl-4">
+             {renderSucursales()}
+          </div>
         </div>
 
         {/* Resumen */}

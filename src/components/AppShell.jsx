@@ -11,6 +11,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ClipboardList,
+  Clock,
   DatabaseBackup,
   FileText,
   GraduationCap,
@@ -50,6 +51,7 @@ export default function AppShell({
     if (key.includes("reporte")) return BarChart3;
     if (key.includes("certificado")) return BadgeCheck;
     if (key.includes("backup")) return DatabaseBackup;
+    if (key.includes("control") || key.includes("horas")) return Clock;
     return FileText;
   };
 

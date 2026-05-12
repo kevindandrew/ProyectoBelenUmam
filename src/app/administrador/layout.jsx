@@ -13,6 +13,7 @@ const adminLinks = [
   { href: "/administrador/horarios", label: "Horarios" },
   { href: "/administrador/estudiantes", label: "Estudiantes" },
   { href: "/administrador/listas", label: "Listas" },
+  { href: "/administrador/control-facilitadores", label: "Control Facilitadores" },
   { href: "/administrador/reportes", label: "Reportes" },
   { href: "/administrador/certificados", label: "Certificados" },
   { href: "/administrador/backups", label: "Backups" },
