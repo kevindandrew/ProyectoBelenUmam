@@ -21,7 +21,6 @@ export default function ModalInscripcionAlumno({
   const [error, setError] = useState(null);
   const [guardando, setGuardando] = useState(false);
   const [mensajeExito, setMensajeExito] = useState(null);
-  const [loadingInscripciones, setLoadingInscripciones] = useState(false);
 
   const API = "https://api-umam-1.onrender.com";
 
@@ -43,7 +42,6 @@ export default function ModalInscripcionAlumno({
 
     const loadAllData = async () => {
       setLoading(true);
-      setLoadingInscripciones(true);
       setError(null);
       setInscripcionesExistentes([]);
       setFilas([]);
@@ -180,7 +178,6 @@ export default function ModalInscripcionAlumno({
         setError(err.message);
       } finally {
         setLoading(false);
-        setLoadingInscripciones(false);
       }
     };
 
@@ -581,59 +578,6 @@ export default function ModalInscripcionAlumno({
           Inscribir Cursos - {estudiante.nombres} {estudiante.ap_paterno}
         </h2>
 
-        {/* Inscripciones existentes del estudiante */}
-        {loadingInscripciones ? (
-          <div className="mb-4 p-3 bg-gray-50 rounded text-gray-500 text-sm">
-            Cargando inscripciones actuales...
-          </div>
-        ) : inscripcionesExistentes.length > 0 ? (
-          <div className="mb-4">
-            <h3 className="text-sm font-semibold text-gray-700 mb-2">
-              Inscripciones actuales de este estudiante:
-            </h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm border rounded">
-                <thead className="bg-gray-100">
-                  <tr>
-                    <th className="px-3 py-1 text-left border-b">Horario ID</th>
-                    <th className="px-3 py-1 text-left border-b">Gestión ID</th>
-                    <th className="px-3 py-1 text-left border-b">Estado</th>
-                    <th className="px-3 py-1 text-left border-b">Nota Final</th>
-                    <th className="px-3 py-1 text-left border-b">
-                      Fecha Matrícula
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {inscripcionesExistentes.map((insc, idx) => (
-                    <tr
-                      key={insc.matricula_id ?? idx}
-                      className="hover:bg-gray-50"
-                    >
-                      <td className="px-3 py-1 border-b">{insc.horario_id}</td>
-                      <td className="px-3 py-1 border-b">{insc.gestion_id}</td>
-                      <td className="px-3 py-1 border-b">
-                        {insc.estado ?? "-"}
-                      </td>
-                      <td className="px-3 py-1 border-b">
-                        {insc.nota_final ?? "-"}
-                      </td>
-                      <td className="px-3 py-1 border-b">
-                        {insc.fecha_matricula
-                          ? new Date(insc.fecha_matricula).toLocaleDateString()
-                          : "-"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        ) : (
-          <div className="mb-4 p-3 bg-gray-50 rounded text-gray-500 text-sm">
-            Este estudiante no tiene inscripciones actualmente.
-          </div>
-        )}
 
         {/* Mensajes de estado globales */}
         {loading && (

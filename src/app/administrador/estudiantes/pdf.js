@@ -85,7 +85,7 @@ export const generarFichaEstudiante = async (estudiante) => {
           {
             stack: [
               {
-                text: "Secretaría Municipal de Educación y Desarrollo Social",
+                text: "Secretaría Municipal de Ciudad de Cuidados y Derechos",
                 fontSize: 8.5,
                 bold: true,
                 margin: [0, 0, 0, 1],
@@ -97,7 +97,12 @@ export const generarFichaEstudiante = async (estudiante) => {
                 margin: [0, 0, 0, 1],
               },
               {
-                text: "Unidad del Adulto Mayor",
+                text: "Unidad de Ciudad Longeva Activa y Redes de Cuidado Intergeneracional",
+                fontSize: 8.5,
+                bold: true,
+              },
+              {
+                text: "Universidad Municipal del Adulto Mayor",
                 fontSize: 8.5,
                 bold: true,
               },
