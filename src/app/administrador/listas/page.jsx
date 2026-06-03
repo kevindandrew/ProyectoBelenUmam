@@ -198,17 +198,19 @@ export default function ListasAdminPage() {
 
         // Contar inscritos por horario_id usando inscripciones (tienen horario_id directamente)
         const inscritosPorHorario = {};
-        (Array.isArray(inscripcionesData) ? inscripcionesData : []).forEach((item) => {
-          const hid = item?.horario_id;
-          const eid = item?.estudiante_id;
-          if (hid != null && eid != null) {
-            const hidStr = String(hid);
-            if (!inscritosPorHorario[hidStr]) {
-              inscritosPorHorario[hidStr] = new Set();
+        (Array.isArray(inscripcionesData) ? inscripcionesData : []).forEach(
+          (item) => {
+            const hid = item?.horario_id;
+            const eid = item?.estudiante_id;
+            if (hid != null && eid != null) {
+              const hidStr = String(hid);
+              if (!inscritosPorHorario[hidStr]) {
+                inscritosPorHorario[hidStr] = new Set();
+              }
+              inscritosPorHorario[hidStr].add(String(eid));
             }
-            inscritosPorHorario[hidStr].add(String(eid));
-          }
-        });
+          },
+        );
 
         const aulaToSucursal = {};
         (Array.isArray(sucursalesData) ? sucursalesData : []).forEach(
@@ -434,22 +436,40 @@ export default function ListasAdminPage() {
   return (
     <>
       {/* Header Premium */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl bg-gradient-to-r from-slate-800 to-slate-900 p-6 text-white shadow-xl mb-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl bg-gradient-to-r from-[#1E1E20] to-[#181818] p-6 text-white shadow-xl mb-6">
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-3">
-            <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+            <svg
+              className="w-8 h-8 text-[#C5A059]"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
+              />
             </svg>
             Listas de Asistencia
           </h1>
-          <p className="mt-1 text-sm text-slate-300">Supervisa la participación y el progreso de los estudiantes en cada curso.</p>
+          <p className="mt-1 text-sm text-slate-300">
+            Supervisa la participación y el progreso de los estudiantes en cada
+            curso.
+          </p>
         </div>
       </div>
 
       {/* Filtros Refinados */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3 bg-white p-4 rounded-xl border border-slate-100 shadow-sm mb-6">
         <div>
-          <label htmlFor="gestion-select" className="text-xs font-bold uppercase text-slate-500 mb-1 block">Gestión</label>
+          <label
+            htmlFor="gestion-select"
+            className="text-xs font-bold uppercase text-slate-500 mb-1 block"
+          >
+            Gestión
+          </label>
           <select
             id="gestion-select"
             value={selectedGestionId}
@@ -467,7 +487,12 @@ export default function ListasAdminPage() {
         </div>
 
         <div>
-          <label htmlFor="sucursal-select" className="text-xs font-bold uppercase text-slate-500 mb-1 block">Sucursal</label>
+          <label
+            htmlFor="sucursal-select"
+            className="text-xs font-bold uppercase text-slate-500 mb-1 block"
+          >
+            Sucursal
+          </label>
           <select
             id="sucursal-select"
             value={selectedSucursalId}
@@ -485,10 +510,27 @@ export default function ListasAdminPage() {
         </div>
 
         <div>
-          <label htmlFor="search-card" className="text-xs font-bold uppercase text-slate-500 mb-1 block">Buscador Rápido</label>
+          <label
+            htmlFor="search-card"
+            className="text-xs font-bold uppercase text-slate-500 mb-1 block"
+          >
+            Buscador Rápido
+          </label>
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
+              </svg>
             </span>
             <input
               id="search-card"

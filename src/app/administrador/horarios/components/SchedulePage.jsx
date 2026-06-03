@@ -896,7 +896,13 @@ const SchedulePage = () => {
             classroom: String(dia?.aula_id || specificHorario?.aula_id || ""),
           }))
           .filter((s) => s.day && s.time && s.classroom)
-      : [{ day: course.day, time: course.time, classroom: course.classroom.value }];
+      : [
+          {
+            day: course.day,
+            time: course.time,
+            classroom: course.classroom.value,
+          },
+        ];
 
     const uniqueSchedules = Array.from(
       new Map(
@@ -985,13 +991,11 @@ const SchedulePage = () => {
 
     setIsTransferring(true);
     try {
-      await fetchWithAuth(url,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        },
-      );
+      await fetchWithAuth(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
 
       toast.success(
         `Clase "${courseToTransfer.subject}" transferida exitosamente`,
@@ -1117,8 +1121,7 @@ const SchedulePage = () => {
     try {
       // Eliminar SOLO el horario específico clicado (no afecta otros paralelos)
       const horarioId =
-        courseToDelete.horario_id ||
-        parseInt(courseToDelete.id?.split("-")[0]);
+        courseToDelete.horario_id || parseInt(courseToDelete.id?.split("-")[0]);
 
       if (!horarioId) {
         throw new Error("No se pudo identificar el horario a eliminar");
@@ -1143,18 +1146,20 @@ const SchedulePage = () => {
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header Premium */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl bg-gradient-to-r from-slate-800 to-slate-900 p-6 text-white shadow-xl mb-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl bg-gradient-to-r from-[#1E1E20] to-[#181818] p-6 text-white shadow-xl mb-6">
           <div>
             <h1 className="text-3xl font-bold flex items-center gap-3">
-              <Calendar className="text-blue-400 w-8 h-8" />
+              <Calendar className="text-[#C5A059] w-8 h-8" />
               Gestión de Horarios
             </h1>
-            <p className="mt-1 text-sm text-slate-300">Organiza las clases, aulas y disponibilidad docente por gestión.</p>
+            <p className="mt-1 text-sm text-slate-300">
+              Organiza las clases, aulas y disponibilidad docente por gestión.
+            </p>
           </div>
           <div className="flex gap-3">
             <button
               onClick={() => setIsGestionModalOpen(true)}
-              className="flex items-center gap-2 rounded-xl bg-slate-700/50 border border-slate-600 px-4 py-2 text-sm font-semibold hover:bg-slate-700 transition-all shadow-lg"
+              className="flex items-center gap-2 rounded-xl bg-[#c7922f] px-4 py-2 text-sm font-semibold hover:bg-[#855e18] transition-all shadow-lg shadow-[#C5A059]/20"
             >
               <Calendar size={18} /> Nueva Gestión
             </button>
@@ -1168,11 +1173,13 @@ const SchedulePage = () => {
                     : [],
                   days,
                   courses,
-                  sucursal: selectedSucursal?.label || selectedSucursal?.nombre || "",
-                  gestion: selectedGestion?.label || selectedGestion?.gestion || "",
+                  sucursal:
+                    selectedSucursal?.label || selectedSucursal?.nombre || "",
+                  gestion:
+                    selectedGestion?.label || selectedGestion?.gestion || "",
                 });
               }}
-              className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold hover:bg-blue-700 transition-all shadow-lg shadow-blue-900/20"
+              className="flex items-center gap-2 rounded-xl bg-[#6d4a09] px-4 py-2 text-sm font-semibold hover:bg-[#855e18] transition-all shadow-lg shadow-[#C5A059]/20"
             >
               <Download size={18} /> Exportar PDF
             </button>
@@ -1181,7 +1188,9 @@ const SchedulePage = () => {
 
         <div className="flex flex-wrap items-center gap-4 mb-4 bg-slate-100/50 p-4 rounded-xl border border-slate-200/50">
           <div className="flex items-center gap-3">
-            <span className="text-xs font-bold uppercase text-slate-500">Gestión Activa:</span>
+            <span className="text-xs font-bold uppercase text-slate-500">
+              Gestión Activa:
+            </span>
             {loadingGestiones ? (
               <div className="min-w-40 h-10 bg-slate-200 rounded-lg animate-pulse" />
             ) : (
@@ -1195,7 +1204,6 @@ const SchedulePage = () => {
             )}
           </div>
         </div>
-
 
         {/* Controles de horario */}
         <div className="flex flex-col sm:flex-row gap-3 mb-6 bg-white p-4 rounded-xl border border-slate-100 shadow-sm items-center">
@@ -1226,9 +1234,9 @@ const SchedulePage = () => {
               <Plus size={16} /> Crear Hora
             </button>
           </div>
-          
+
           <div className="flex items-center gap-4 border-l border-slate-100 pl-4">
-             {renderSucursales()}
+            {renderSucursales()}
           </div>
         </div>
 

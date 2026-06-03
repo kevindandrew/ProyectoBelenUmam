@@ -17,7 +17,7 @@ export const metadata = {
   description:
     "Sistema de gestión académica para la Universidad Municipal del Adulto Mayor (UMAM)",
   icons: {
-    icon: "/logo_alcaldia.jpg",
+    icon: "/LOGO_ALCALDIA.png",
   },
 };
 

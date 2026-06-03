@@ -216,22 +216,45 @@ export default function CursosPage() {
   return (
     <>
       {/* Header Premium */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl bg-gradient-to-r from-slate-800 to-slate-900 p-6 text-white shadow-xl mb-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl bg-gradient-to-r from-[#1E1E20] to-[#181818] p-6 text-white shadow-xl mb-6">
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-3">
-            <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.168 0.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5S19.832 5.477 21 6.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332 0.477-4.5 1.253" />
+            <svg
+              className="w-8 h-8 text-[#C5A059]"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.168 0.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5S19.832 5.477 21 6.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332 0.477-4.5 1.253"
+              />
             </svg>
             Gestión de Cursos
           </h1>
-          <p className="mt-1 text-sm text-slate-300">Administra el catálogo de talleres y programas de gestoría de la UMAM.</p>
+          <p className="mt-1 text-sm text-slate-300">
+            Administra el catálogo de talleres y programas de gestoría de la
+            UMAM.
+          </p>
         </div>
-        <button 
+        <button
           onClick={() => setModalAbierto(true)}
-          className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold hover:bg-blue-700 transition-all shadow-lg shadow-blue-900/20"
+          className="flex items-center gap-2 rounded-xl bg-[#c7922f] px-4 py-2 text-sm font-semibold hover:bg-[#855e18] transition-all shadow-lg shadow-[#C5A059]/20"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+          <svg
+            className="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+            />
           </svg>
           Nuevo Curso
         </button>
@@ -240,7 +263,12 @@ export default function CursosPage() {
       {/* Controles superiores refinados */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-4 bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
         <div className="flex items-center gap-2">
-          <label htmlFor="registros" className="text-xs font-bold uppercase text-slate-500">Mostrar</label>
+          <label
+            htmlFor="registros"
+            className="text-xs font-bold uppercase text-slate-500"
+          >
+            Mostrar
+          </label>
           <select
             id="registros"
             className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none"
@@ -254,13 +282,27 @@ export default function CursosPage() {
             <option value={25}>25</option>
             <option value={50}>50</option>
           </select>
-          <span className="text-xs font-bold uppercase text-slate-500">registros</span>
+          <span className="text-xs font-bold uppercase text-slate-500">
+            registros
+          </span>
         </div>
 
         <div className="flex items-center gap-2 flex-1 max-w-md">
           <div className="relative w-full">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
+              </svg>
             </span>
             <input
               id="buscar"

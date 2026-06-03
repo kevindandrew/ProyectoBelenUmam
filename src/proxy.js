@@ -62,5 +62,5 @@ export function proxy(request) {
 }
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|logo_alcaldia.jpg).*)"],
+  matcher: ["/((?!api|_next/static|_next/image|LOGO_UMAM.png).*)"],
 };
