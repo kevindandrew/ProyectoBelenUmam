@@ -167,13 +167,16 @@ export default function SucursalesPage() {
   const fetchAulasBySucursal = async (sucursalId) => {
     try {
       setLoadingAulas(true);
-      const response = await fetch(`${API_URL}/sucursales/${sucursalId}/aulas`, {
-        method: "GET",
-        headers: {
-          Accept: "application/json",
-          Authorization: `Bearer ${Cookies.get("access_token")}`,
+      const response = await fetch(
+        `${API_URL}/sucursales/${sucursalId}/aulas`,
+        {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${Cookies.get("access_token")}`,
+          },
         },
-      });
+      );
       await handleFetchResponse(response);
       if (!response.ok) throw new Error("Error al cargar las aulas");
       const data = await response.json();
@@ -204,7 +207,9 @@ export default function SucursalesPage() {
       if (!response.ok) throw new Error("Error al actualizar aula");
       const updatedAula = await response.json();
       setAulasSeleccionadas((prev) =>
-        prev.map((a) => a.aula_id === aulaId ? normalizeAula(updatedAula) : a)
+        prev.map((a) =>
+          a.aula_id === aulaId ? normalizeAula(updatedAula) : a,
+        ),
       );
       setEditingAula(null);
     } catch (error) {
@@ -234,18 +239,21 @@ export default function SucursalesPage() {
       return;
     }
     try {
-      const response = await fetch(`${API_URL}/sucursales/${sucursalSeleccionada.sucursal_id}/aulas`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${Cookies.get("access_token")}`,
+      const response = await fetch(
+        `${API_URL}/sucursales/${sucursalSeleccionada.sucursal_id}/aulas`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${Cookies.get("access_token")}`,
+          },
+          body: JSON.stringify({
+            nombre_aula: nombreAula,
+            capacidad: parseInt(capacidadAula),
+            sucursal_id: sucursalSeleccionada.sucursal_id,
+          }),
         },
-        body: JSON.stringify({
-          nombre_aula: nombreAula,
-          capacidad: parseInt(capacidadAula),
-          sucursal_id: sucursalSeleccionada.sucursal_id,
-        }),
-      });
+      );
       await handleFetchResponse(response);
       if (!response.ok) throw new Error("Error al crear aula");
       const nuevaAula = normalizeAula(await response.json());
@@ -288,8 +296,15 @@ export default function SucursalesPage() {
     e.preventDefault();
     try {
       if (editingSucursal) {
-        const updated = await updateSucursal(editingSucursal.sucursal_id, formData);
-        setSucursales((prev) => prev.map((s) => s.sucursal_id === editingSucursal.sucursal_id ? updated : s));
+        const updated = await updateSucursal(
+          editingSucursal.sucursal_id,
+          formData,
+        );
+        setSucursales((prev) =>
+          prev.map((s) =>
+            s.sucursal_id === editingSucursal.sucursal_id ? updated : s,
+          ),
+        );
       } else {
         const newlyCreated = await createSucursal(formData);
         setSucursales((prev) => [...prev, newlyCreated]);
@@ -309,7 +324,9 @@ export default function SucursalesPage() {
     try {
       if (sucursalToDelete) {
         await deleteSucursal(sucursalToDelete.sucursal_id);
-        setSucursales((prev) => prev.filter((s) => s.sucursal_id !== sucursalToDelete.sucursal_id));
+        setSucursales((prev) =>
+          prev.filter((s) => s.sucursal_id !== sucursalToDelete.sucursal_id),
+        );
       }
       setDeleteModalOpen(false);
       setSucursalToDelete(null);
@@ -326,22 +343,45 @@ export default function SucursalesPage() {
   return (
     <>
       {/* Header Premium */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl bg-gradient-to-r from-slate-800 to-slate-900 p-6 text-white shadow-xl mb-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl bg-gradient-to-r from-[#1E1E20] to-[#181818] p-6 text-white shadow-xl mb-6">
+        {" "}
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-3">
-            <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+            <svg
+              className="w-8 h-8 text-[#C5A059]"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+              />
             </svg>
             Gestión de Sucursales
           </h1>
-          <p className="mt-1 text-sm text-slate-300">Administra las sedes físicas y las aulas disponibles en cada una.</p>
+          <p className="mt-1 text-sm text-slate-300">
+            Administra las sedes físicas y las aulas disponibles en cada una.
+          </p>
         </div>
-        <button 
+        <button
           onClick={() => openModal()}
-          className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold hover:bg-blue-700 transition-all shadow-lg shadow-blue-900/20"
+          className="flex items-center gap-2 rounded-xl bg-[#c7922f] px-4 py-2 text-sm font-semibold hover:bg-[#855e18] transition-all shadow-lg shadow-[#C5A059]/20"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+          <svg
+            className="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+            />
           </svg>
           Nueva Sucursal
         </button>
@@ -350,24 +390,46 @@ export default function SucursalesPage() {
       {/* Filtros Refinados */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-4 bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
         <div className="flex items-center gap-2">
-          <label htmlFor="registros" className="text-xs font-bold uppercase text-slate-500">Mostrar</label>
+          <label
+            htmlFor="registros"
+            className="text-xs font-bold uppercase text-slate-500"
+          >
+            Mostrar
+          </label>
           <select
             id="registros"
             className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm outline-none"
             value={registrosPorPagina}
-            onChange={(e) => { setRegistrosPorPagina(parseInt(e.target.value)); setCurrentPage(1); }}
+            onChange={(e) => {
+              setRegistrosPorPagina(parseInt(e.target.value));
+              setCurrentPage(1);
+            }}
           >
             <option value={10}>10</option>
             <option value={25}>25</option>
             <option value={50}>50</option>
           </select>
-          <span className="text-xs font-bold uppercase text-slate-500">registros</span>
+          <span className="text-xs font-bold uppercase text-slate-500">
+            registros
+          </span>
         </div>
 
         <div className="flex items-center gap-2 flex-1 max-w-md">
           <div className="relative w-full">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
+              </svg>
             </span>
             <input
               id="buscar"
@@ -382,21 +444,48 @@ export default function SucursalesPage() {
       </div>
 
       {modalAulaOpen && (
-        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/25" onClick={() => setModalAulaOpen(false)}>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl p-6" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-xl font-bold mb-4 text-slate-800">AULAS: {sucursalSeleccionada?.nombre?.toUpperCase()}</h2>
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50 bg-black/25"
+          onClick={() => setModalAulaOpen(false)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-xl w-full max-w-3xl p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-xl font-bold mb-4 text-slate-800">
+              AULAS: {sucursalSeleccionada?.nombre?.toUpperCase()}
+            </h2>
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
-                <label className="text-xs font-bold uppercase text-slate-500 mb-1 block">Nombre</label>
-                <input value={nombreAula} onChange={(e) => setNombreAula(e.target.value)} type="text" className="w-full border border-slate-200 px-3 py-2 rounded-lg text-sm" />
+                <label className="text-xs font-bold uppercase text-slate-500 mb-1 block">
+                  Nombre
+                </label>
+                <input
+                  value={nombreAula}
+                  onChange={(e) => setNombreAula(e.target.value)}
+                  type="text"
+                  className="w-full border border-slate-200 px-3 py-2 rounded-lg text-sm"
+                />
               </div>
               <div>
-                <label className="text-xs font-bold uppercase text-slate-500 mb-1 block">Capacidad</label>
-                <input type="number" value={capacidadAula} onChange={(e) => setCapacidadAula(e.target.value)} className="w-full border border-slate-200 px-3 py-2 rounded-lg text-sm" />
+                <label className="text-xs font-bold uppercase text-slate-500 mb-1 block">
+                  Capacidad
+                </label>
+                <input
+                  type="number"
+                  value={capacidadAula}
+                  onChange={(e) => setCapacidadAula(e.target.value)}
+                  className="w-full border border-slate-200 px-3 py-2 rounded-lg text-sm"
+                />
               </div>
             </div>
             <div className="flex justify-end mb-6">
-              <button onClick={handleCreateAula} className="bg-teal-600 text-white text-sm px-4 py-2 rounded-xl font-bold hover:bg-teal-700">+ Agregar Aula</button>
+              <button
+                onClick={handleCreateAula}
+                className="bg-teal-600 text-white text-sm px-4 py-2 rounded-xl font-bold hover:bg-teal-700"
+              >
+                + Agregar Aula
+              </button>
             </div>
             <div className="overflow-auto max-h-64 border border-slate-100 rounded-xl mb-6">
               <table className="w-full text-sm">
@@ -410,17 +499,36 @@ export default function SucursalesPage() {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {aulasSeleccionadas.length === 0 ? (
-                    <tr><td colSpan="4" className="text-center py-4 text-slate-400 italic">Sin aulas registradas</td></tr>
+                    <tr>
+                      <td
+                        colSpan="4"
+                        className="text-center py-4 text-slate-400 italic"
+                      >
+                        Sin aulas registradas
+                      </td>
+                    </tr>
                   ) : (
                     aulasSeleccionadas.map((aula, idx) => (
                       <tr key={aula.aula_id} className="hover:bg-slate-50/50">
                         <td className="px-4 py-2">{idx + 1}</td>
                         <td className="px-4 py-2 font-medium">{aula.nombre}</td>
-                        <td className="px-4 py-2 text-center">{aula.capacidad}</td>
+                        <td className="px-4 py-2 text-center">
+                          {aula.capacidad}
+                        </td>
                         <td className="px-4 py-2">
                           <div className="flex justify-end gap-2">
-                            <button onClick={() => setEditingAula(aula)} className="text-blue-600 hover:underline font-bold">Editar</button>
-                            <button onClick={() => deleteAula(aula.aula_id)} className="text-red-600 hover:underline font-bold">Eliminar</button>
+                            <button
+                              onClick={() => setEditingAula(aula)}
+                              className="text-blue-600 hover:underline font-bold"
+                            >
+                              Editar
+                            </button>
+                            <button
+                              onClick={() => deleteAula(aula.aula_id)}
+                              className="text-red-600 hover:underline font-bold"
+                            >
+                              Eliminar
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -430,28 +538,70 @@ export default function SucursalesPage() {
               </table>
             </div>
             <div className="flex justify-end">
-              <button onClick={() => setModalAulaOpen(false)} className="bg-slate-100 text-slate-600 px-6 py-2 rounded-xl font-bold hover:bg-slate-200">Cerrar</button>
+              <button
+                onClick={() => setModalAulaOpen(false)}
+                className="bg-slate-100 text-slate-600 px-6 py-2 rounded-xl font-bold hover:bg-slate-200"
+              >
+                Cerrar
+              </button>
             </div>
           </div>
         </div>
       )}
 
       {modalOpen && (
-        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/25" onClick={() => setModalOpen(false)}>
-          <div className="bg-white p-6 rounded-2xl w-full max-w-md shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-xl font-bold mb-6 text-slate-800">{editingSucursal ? "EDITAR SUCURSAL" : "NUEVA SUCURSAL"}</h2>
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50 bg-black/25"
+          onClick={() => setModalOpen(false)}
+        >
+          <div
+            className="bg-white p-6 rounded-2xl w-full max-w-md shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-xl font-bold mb-6 text-slate-800">
+              {editingSucursal ? "EDITAR SUCURSAL" : "NUEVA SUCURSAL"}
+            </h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="text-xs font-bold uppercase text-slate-500 mb-1 block">Nombre</label>
-                <input id="nombre" type="text" value={formData.nombre} onChange={handleInputChange} className="w-full border border-slate-200 p-2.5 rounded-lg text-sm" required />
+                <label className="text-xs font-bold uppercase text-slate-500 mb-1 block">
+                  Nombre
+                </label>
+                <input
+                  id="nombre"
+                  type="text"
+                  value={formData.nombre}
+                  onChange={handleInputChange}
+                  className="w-full border border-slate-200 p-2.5 rounded-lg text-sm"
+                  required
+                />
               </div>
               <div>
-                <label className="text-xs font-bold uppercase text-slate-500 mb-1 block">Dirección</label>
-                <input id="direccion" type="text" value={formData.direccion} onChange={handleInputChange} className="w-full border border-slate-200 p-2.5 rounded-lg text-sm" required />
+                <label className="text-xs font-bold uppercase text-slate-500 mb-1 block">
+                  Dirección
+                </label>
+                <input
+                  id="direccion"
+                  type="text"
+                  value={formData.direccion}
+                  onChange={handleInputChange}
+                  className="w-full border border-slate-200 p-2.5 rounded-lg text-sm"
+                  required
+                />
               </div>
               <div className="flex justify-end gap-2 mt-8">
-                <button type="button" onClick={() => setModalOpen(false)} className="px-4 py-2 text-slate-600 font-bold">Cancelar</button>
-                <button type="submit" className="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold shadow-lg shadow-blue-900/20 hover:bg-blue-700">Guardar</button>
+                <button
+                  type="button"
+                  onClick={() => setModalOpen(false)}
+                  className="px-4 py-2 text-slate-600 font-bold"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold shadow-lg shadow-blue-900/20 hover:bg-blue-700"
+                >
+                  Guardar
+                </button>
               </div>
             </form>
           </div>
@@ -459,16 +609,50 @@ export default function SucursalesPage() {
       )}
 
       {deleteModalOpen && (
-        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/40" onClick={cancelDelete}>
-          <div className="bg-white p-6 rounded-2xl max-w-sm shadow-xl text-center" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50 bg-black/40"
+          onClick={cancelDelete}
+        >
+          <div
+            className="bg-white p-6 rounded-2xl max-w-sm shadow-xl text-center"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="w-16 h-16 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
+              <svg
+                className="w-8 h-8"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
             </div>
             <h3 className="text-lg font-bold mb-2">Confirmar eliminación</h3>
-            <p className="text-slate-600 mb-6">¿Estás seguro de eliminar la sucursal <span className="font-bold text-slate-900">{sucursalToDelete?.nombre}</span>?</p>
+            <p className="text-slate-600 mb-6">
+              ¿Estás seguro de eliminar la sucursal{" "}
+              <span className="font-bold text-slate-900">
+                {sucursalToDelete?.nombre}
+              </span>
+              ?
+            </p>
             <div className="flex justify-center gap-3">
-              <button onClick={cancelDelete} className="px-4 py-2 text-slate-500 font-bold">Cancelar</button>
-              <button onClick={confirmDelete} className="bg-red-600 text-white px-6 py-2 rounded-xl font-bold hover:bg-red-700 shadow-lg shadow-red-900/20">Eliminar</button>
+              <button
+                onClick={cancelDelete}
+                className="px-4 py-2 text-slate-500 font-bold"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="bg-red-600 text-white px-6 py-2 rounded-xl font-bold hover:bg-red-700 shadow-lg shadow-red-900/20"
+              >
+                Eliminar
+              </button>
             </div>
           </div>
         </div>
@@ -480,16 +664,47 @@ export default function SucursalesPage() {
             <h2 className="text-xl font-bold mb-6">EDITAR AULA</h2>
             <div className="space-y-4">
               <div>
-                <label className="text-xs font-bold uppercase text-slate-500 mb-1 block">Nombre</label>
-                <input type="text" value={editingAula.nombre} onChange={(e) => setEditingAula({...editingAula, nombre: e.target.value})} className="w-full border border-slate-200 p-2.5 rounded-lg text-sm" />
+                <label className="text-xs font-bold uppercase text-slate-500 mb-1 block">
+                  Nombre
+                </label>
+                <input
+                  type="text"
+                  value={editingAula.nombre}
+                  onChange={(e) =>
+                    setEditingAula({ ...editingAula, nombre: e.target.value })
+                  }
+                  className="w-full border border-slate-200 p-2.5 rounded-lg text-sm"
+                />
               </div>
               <div>
-                <label className="text-xs font-bold uppercase text-slate-500 mb-1 block">Capacidad</label>
-                <input type="number" value={editingAula.capacidad} onChange={(e) => setEditingAula({...editingAula, capacidad: e.target.value})} className="w-full border border-slate-200 p-2.5 rounded-lg text-sm" />
+                <label className="text-xs font-bold uppercase text-slate-500 mb-1 block">
+                  Capacidad
+                </label>
+                <input
+                  type="number"
+                  value={editingAula.capacidad}
+                  onChange={(e) =>
+                    setEditingAula({
+                      ...editingAula,
+                      capacidad: e.target.value,
+                    })
+                  }
+                  className="w-full border border-slate-200 p-2.5 rounded-lg text-sm"
+                />
               </div>
               <div className="flex justify-end gap-2 mt-8">
-                <button onClick={() => setEditingAula(null)} className="px-4 py-2 text-slate-500 font-bold">Cancelar</button>
-                <button onClick={() => updateAula(editingAula.aula_id, editingAula)} className="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold hover:bg-blue-700">Guardar</button>
+                <button
+                  onClick={() => setEditingAula(null)}
+                  className="px-4 py-2 text-slate-500 font-bold"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => updateAula(editingAula.aula_id, editingAula)}
+                  className="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold hover:bg-blue-700"
+                >
+                  Guardar
+                </button>
               </div>
             </div>
           </div>
@@ -508,34 +723,101 @@ export default function SucursalesPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {sucursalesFiltradas.slice((currentPage - 1) * registrosPorPagina, currentPage * registrosPorPagina).map((s) => (
-              <tr key={s.sucursal_id} className="hover:bg-slate-50/50 transition-colors">
-                <td className="px-6 py-4 text-slate-400 font-mono text-xs">{s.sucursal_id}</td>
-                <td className="px-6 py-4 font-bold text-slate-900">{s.nombre}</td>
-                <td className="px-6 py-4 text-slate-600">{s.direccion}</td>
-                <td className="px-6 py-4">
-                  <button onClick={async () => { setSucursalSeleccionada(s); const data = await fetchAulasBySucursal(s.sucursal_id); setAulasSeleccionadas(data); setModalAulaOpen(true); }} className="text-teal-600 font-bold hover:text-teal-700 transition-colors inline-flex items-center gap-1">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-                    Ver Aulas
-                  </button>
-                </td>
-                <td className="px-6 py-4">
-                  <div className="flex justify-end gap-2">
-                    <button onClick={() => openModal(s)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><EditIcon /></button>
-                    <button onClick={() => openDeleteModal(s)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"><DeleteIcon /></button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+            {sucursalesFiltradas
+              .slice(
+                (currentPage - 1) * registrosPorPagina,
+                currentPage * registrosPorPagina,
+              )
+              .map((s) => (
+                <tr
+                  key={s.sucursal_id}
+                  className="hover:bg-slate-50/50 transition-colors"
+                >
+                  <td className="px-6 py-4 text-slate-400 font-mono text-xs">
+                    {s.sucursal_id}
+                  </td>
+                  <td className="px-6 py-4 font-bold text-slate-900">
+                    {s.nombre}
+                  </td>
+                  <td className="px-6 py-4 text-slate-600">{s.direccion}</td>
+                  <td className="px-6 py-4">
+                    <button
+                      onClick={async () => {
+                        setSucursalSeleccionada(s);
+                        const data = await fetchAulasBySucursal(s.sucursal_id);
+                        setAulasSeleccionadas(data);
+                        setModalAulaOpen(true);
+                      }}
+                      className="text-teal-600 font-bold hover:text-teal-700 transition-colors inline-flex items-center gap-1"
+                    >
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                        />
+                      </svg>
+                      Ver Aulas
+                    </button>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex justify-end gap-2">
+                      <button
+                        onClick={() => openModal(s)}
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                      >
+                        <EditIcon />
+                      </button>
+                      <button
+                        onClick={() => openDeleteModal(s)}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      >
+                        <DeleteIcon />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
           </tbody>
         </table>
       </div>
 
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-2 mb-6">
-        <p className="text-sm text-slate-500 italic">Mostrando página {currentPage} de {Math.ceil(sucursalesFiltradas.length / registrosPorPagina)}</p>
+        <p className="text-sm text-slate-500 italic">
+          Mostrando página {currentPage} de{" "}
+          {Math.ceil(sucursalesFiltradas.length / registrosPorPagina)}
+        </p>
         <div className="flex items-center gap-2">
-          <button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1} className="px-4 py-2 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 disabled:opacity-50 transition-all">Anterior</button>
-          <button onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(sucursalesFiltradas.length / registrosPorPagina)))} disabled={currentPage >= Math.ceil(sucursalesFiltradas.length / registrosPorPagina)} className="px-4 py-2 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 disabled:opacity-50 transition-all">Siguiente</button>
+          <button
+            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+            disabled={currentPage === 1}
+            className="px-4 py-2 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 disabled:opacity-50 transition-all"
+          >
+            Anterior
+          </button>
+          <button
+            onClick={() =>
+              setCurrentPage((prev) =>
+                Math.min(
+                  prev + 1,
+                  Math.ceil(sucursalesFiltradas.length / registrosPorPagina),
+                ),
+              )
+            }
+            disabled={
+              currentPage >=
+              Math.ceil(sucursalesFiltradas.length / registrosPorPagina)
+            }
+            className="px-4 py-2 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 disabled:opacity-50 transition-all"
+          >
+            Siguiente
+          </button>
         </div>
       </div>
     </>

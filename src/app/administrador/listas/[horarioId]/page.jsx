@@ -497,9 +497,9 @@ export default function ListaCursoDetalleAdminPage() {
           <button
             type="button"
             onClick={handleExport}
-            className="rounded-md bg-[#13678A] px-4 py-2 text-sm font-medium text-white hover:bg-[#0f506b]"
+            className="rounded-md bg-[#C5A059] px-4 py-2 text-sm font-medium text-white hover:bg-[#9e6e16]"
           >
-            Exportar
+            Generar PDF
           </button>
         </div>
 

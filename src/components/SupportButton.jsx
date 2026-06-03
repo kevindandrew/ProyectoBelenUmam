@@ -34,7 +34,7 @@ export default function SupportButton() {
 
       {/* Panel flotante de soporte */}
       {isOpen && (
-        <div className="fixed bottom-24 right-6 bg-gradient-to-br from-slate-700 to-slate-800 rounded-lg shadow-2xl p-6 w-80 z-50 text-white border border-slate-600">
+        <div className="fixed bottom-24 right-6 bg-gradient-to-br from-[#1E1E20] to-[#27272b] rounded-lg shadow-2xl p-6 w-80 z-50 text-white border border-slate-600">
           <div className="flex items-start justify-between mb-4">
             <h3 className="text-lg font-semibold">Soporte</h3>
             <button

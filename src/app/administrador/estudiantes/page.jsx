@@ -916,23 +916,54 @@ export default function EstudiantesPage() {
   return (
     <div className="text-gray-900 relative p-4">
       {/* Header Premium */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl bg-gradient-to-r from-slate-800 to-slate-900 p-6 text-white shadow-xl mb-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl bg-gradient-to-r from-[#1E1E20] to-[#181818] p-6 text-white shadow-xl mb-6">
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-3">
-            <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 14l9-5-9-5-9 5 9 5z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
+            <svg
+              className="w-8 h-8 text-[#C5A059]"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M12 14l9-5-9-5-9 5 9 5z"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"
+              />
             </svg>
             Gestión de Estudiantes
           </h1>
-          <p className="mt-1 text-sm text-slate-300">Administra el registro, inscripciones y expedientes de los beneficiarios.</p>
+          <p className="mt-1 text-sm text-slate-300">
+            Administra el registro, inscripciones y expedientes de los
+            beneficiarios.
+          </p>
         </div>
-        <button 
-          onClick={() => { resetForm(); setShowForm(true); }}
-          className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold hover:bg-blue-700 transition-all shadow-lg shadow-blue-900/20"
+        <button
+          onClick={() => {
+            resetForm();
+            setShowForm(true);
+          }}
+          className="flex items-center gap-2 rounded-xl bg-[#C5A059] px-4 py-2 text-sm font-semibold hover:bg-[#855e18] transition-all shadow-lg shadow-[#C5A059]/20"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+          <svg
+            className="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+            />
           </svg>
           Nuevo Estudiante
         </button>
@@ -940,7 +971,12 @@ export default function EstudiantesPage() {
       {/* Controles superiores refinados */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-4 bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
         <div className="flex items-center gap-2">
-          <label htmlFor="registros" className="text-xs font-bold uppercase text-slate-500">Mostrar</label>
+          <label
+            htmlFor="registros"
+            className="text-xs font-bold uppercase text-slate-500"
+          >
+            Mostrar
+          </label>
           <select
             id="registros"
             className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none"
@@ -949,13 +985,27 @@ export default function EstudiantesPage() {
           >
             <option value={10}>10</option>
           </select>
-          <span className="text-xs font-bold uppercase text-slate-500">registros</span>
+          <span className="text-xs font-bold uppercase text-slate-500">
+            registros
+          </span>
         </div>
 
         <div className="flex items-center gap-2 flex-1 max-w-md">
           <div className="relative w-full">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
+              </svg>
             </span>
             <input
               id="buscar"

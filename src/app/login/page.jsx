@@ -3,6 +3,8 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
 import SupportButton from "@/components/SupportButton";
+import logoUMAM from "../../../public/LOGO_UMAM.png";
+import logoAlcaldia from "../../../public/LOGO_ALCALDIA.png";
 
 const LoginForm = () => {
   const router = useRouter();
@@ -195,7 +197,7 @@ const LoginForm = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className={`w-full bg-[#22dd9f] text-white py-3 rounded-md font-sans font-semibold hover:bg-[#159268] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-opacity ${
+              className={`w-full bg-[#C5A059] text-white py-3 rounded-md font-sans font-semibold hover:bg-[#805f23] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-opacity ${
                 isLoading ? "opacity-70 cursor-not-allowed" : ""
               }`}
             >
@@ -230,17 +232,29 @@ const LoginForm = () => {
           </form>
         </div>
 
-        <div className="hidden lg:flex lg:w-1/2 bg-slate-800 relative items-center justify-center p-8">
+        <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-r from-[#1E1E20] to-[#181818] relative items-center justify-center p-8">
           <div className="relative w-full h-full flex items-center justify-center">
             <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-700 p-4">
-              <p className="text-7xl font-black text-center text-[#33ffbb] tracking-[15px]">
+              <div className="h-80 w-35 rounded-full flex items-center justify-center  overflow-hidden relative">
+                <img
+                  src={logoAlcaldia.src}
+                  alt="Logo UMAM"
+                  className="w-32 h-45 object-contain relative top-3 "
+                />
+              </div>
+
+              <p className="text-7xl font-black text-center text-[#e7c52b] tracking-[15px]">
                 UMAM
               </p>
               <p className="font-sans font-bold tracking-tight text-center text-white">
                 UNIVERSIDAD MUNICIPAL DEL ADULTO MAYOR
               </p>
+
               <div className="h-24" />
-              <p className="text-2xl text-center text-white">
+              <p className="text-lg text-center text-white">
+                Secretaría Municipal de Ciudad de Cuidados y Derechos
+              </p>
+              <p className="text-lg text-center text-white">
                 Dirección de Atención Social Integral
               </p>
             </div>
@@ -249,7 +263,7 @@ const LoginForm = () => {
       </div>
 
       {/* Copyright */}
-      <div className="fixed bottom-0 left-0 right-0 text-center py-3 bg-gray-900 bg-opacity-50">
+      <div className="fixed bottom-0 left-0 right-0 text-center py-3 bg-[#1E1E20] bg-opacity-50">
         <p className="text-gray-400 text-sm">
           © 2026 BMSR - All rights reserved.
         </p>

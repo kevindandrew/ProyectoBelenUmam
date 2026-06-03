@@ -13,20 +13,10 @@ const sedes = [
     mapa: "https://maps.app.goo.gl/LnFAsTj6FPakdgo38",
   },
   {
-    nombre: "SUCURSAL AUDITORIO DE LAS AMERICAS",
-    direccion: "Puente de Las Americas, calle Juan de Vargas, esq. Chichas",
-    mapa: "https://maps.app.goo.gl/EmuRTwp5RrvJZUTUA",
-  },
-  {
-    nombre: "SUCURSAL CASA DEL ADULTO MAYOR ZABALETA",
-    direccion: "Av. Rene Zavaleta, altura las canchas.",
-    mapa: "https://maps.app.goo.gl/8x3FMBKVJXaPfKbcA",
-  },
-  {
-    nombre: "SUCURSAL JUNIN Y CATACORA",
+    nombre: "SUCURSAL CAMACHO",
     direccion:
-      "Calle Junin esquina Catacora lado Coliseo Asociacion Municipal de Voleibol de La Paz",
-    mapa: "https://maps.app.goo.gl/c1QhFdngXtsiaBie9",
+      "Av. Camacho, 2do piso del mercado Camacho junto a la Guardia Municipal",
+    mapa: "https://maps.app.goo.gl/MoMQSeThBGpXRrxaA",
   },
 ];
 
@@ -34,7 +24,7 @@ const departamentos = [
   {
     nombre: "CONTACTO OFICINA CENTRAL",
     detalle:
-      "Unidad del Adulto Mayor (Mercado Camacho, junto a la Guardia Municipal).",
+      " Unidad de Ciudad Longeva Activa y Redes de Cuidado Intergeneracional (Mercado Camacho, junto a la Guardia Municipal).",
     extra: "Horario: Lunes a viernes de 9:00 a 16:00.",
     accion: "79666939 - 72520403",
   },

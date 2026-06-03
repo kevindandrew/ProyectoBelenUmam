@@ -6,7 +6,7 @@ export default function Home() {
       <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
         <Image
           className="dark:invert"
-          src="/logo_alcaldia.jpg"
+          src="/LOGO_ALCALDIA.png"
           alt="Next.js logo"
           width={180}
           height={38}
@@ -34,8 +34,8 @@ export default function Home() {
           >
             <Image
               className="rounded-full object-cover"
-              src="/logo_alcaldia.jpg"
-              alt="Logo Alcaldía"
+              src="/LOGO_ALCALDIA.png"
+              alt="Logo ALCALDIA"
               width={20}
               height={20}
             />

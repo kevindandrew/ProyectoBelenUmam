@@ -21,7 +21,7 @@ export default function UserDetailsModal({ user, onClose }) {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <DetailItem label="ID" value={user.id} />
+
           <DetailItem label="Nombres" value={user.nombres} />
           <DetailItem label="Apellido Paterno" value={user.apellidoPaterno} />
           <DetailItem label="Apellido Materno" value={user.apellidoMaterno} />
